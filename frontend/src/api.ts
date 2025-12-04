@@ -30,10 +30,16 @@ export type Block = {
 // API base URL: использует переменную окружения для production или относительный путь для dev
 const API = import.meta.env.VITE_BACKEND_API_URL || "/api";
 
-// Логирование для отладки (удалить в production)
-if (import.meta.env.DEV || import.meta.env.MODE === 'development') {
-  console.log('[API] Backend URL:', API);
-  console.log('[API] VITE_BACKEND_API_URL:', import.meta.env.VITE_BACKEND_API_URL);
+// Логирование для отладки (всегда показываем в production для диагностики)
+console.log('[API] Backend URL:', API);
+console.log('[API] VITE_BACKEND_API_URL env:', import.meta.env.VITE_BACKEND_API_URL);
+console.log('[API] All env vars:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')));
+
+// Проверка: если API начинается с "/", значит переменная не установлена
+if (API.startsWith('/') && !API.startsWith('http')) {
+  console.error('[API] WARNING: VITE_BACKEND_API_URL not set! Using relative path:', API);
+  console.error('[API] This will cause requests to go to frontend instead of backend!');
+  console.error('[API] Please set VITE_BACKEND_API_URL in Railway Frontend service variables');
 }
 
 let token: string | null = localStorage.getItem("token");

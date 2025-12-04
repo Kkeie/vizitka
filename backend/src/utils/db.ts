@@ -11,7 +11,17 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-export const db = new Database(dbPath);
+let db: Database;
+try {
+  console.log(`[DB] Attempting to open database at: ${dbPath}`);
+  db = new Database(dbPath);
+  console.log(`[DB] Database opened successfully`);
+} catch (error) {
+  console.error(`[DB] Failed to open database at ${dbPath}:`, error);
+  throw error;
+}
+
+export { db };
 
 // Включаем foreign keys
 db.pragma("foreign_keys = ON");
