@@ -11,7 +11,9 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-let db: Database;
+// Создаем и экспортируем базу данных
+// Используем any для обхода проблемы с типизацией better-sqlite3
+let db: any;
 try {
   console.log(`[DB] Attempting to open database at: ${dbPath}`);
   db = new Database(dbPath);
