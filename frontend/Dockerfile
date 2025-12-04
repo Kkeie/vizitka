@@ -18,6 +18,12 @@ COPY index.html ./index.html
 COPY public ./public
 COPY src ./src
 
+# Передаем переменные окружения для сборки Vite
+ARG VITE_BACKEND_API_URL
+ARG VITE_BASE_PATH
+ENV VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
+
 RUN npm run build
 
 # --- run ---
