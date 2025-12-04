@@ -1,6 +1,7 @@
 import app from "./app";
 
-const PORT = process.env.PORT || 3000;
+// PORT из окружения всегда строка, нужно преобразовать в число
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // Обработка ошибок при запуске сервера
 process.on('uncaughtException', (error) => {
