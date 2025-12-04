@@ -30,6 +30,12 @@ export type Block = {
 // API base URL: использует переменную окружения для production или относительный путь для dev
 const API = import.meta.env.VITE_BACKEND_API_URL || "/api";
 
+// Логирование для отладки (удалить в production)
+if (import.meta.env.DEV || import.meta.env.MODE === 'development') {
+  console.log('[API] Backend URL:', API);
+  console.log('[API] VITE_BACKEND_API_URL:', import.meta.env.VITE_BACKEND_API_URL);
+}
+
 let token: string | null = localStorage.getItem("token");
 export function setToken(t: string | null) {
   token = t;
@@ -41,7 +47,10 @@ export function authHeaders(): Record<string, string> {
 
 // Auth
 export async function register(username: string, password: string): Promise<{ token: string; user: User }> {
-  const r = await fetch(`${API}/auth/register`, {
+  const url = `${API}/auth/register`;
+  console.log('[API] Register request to:', url);
+  
+  const r = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
