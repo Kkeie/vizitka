@@ -80,7 +80,13 @@ export function initDatabase() {
 }
 
 // Инициализируем БД при импорте
-initDatabase();
+try {
+  initDatabase();
+  console.log("[DB] Database initialized successfully at:", dbPath);
+} catch (error) {
+  console.error("[DB] Failed to initialize database:", error);
+  throw error;
+}
 
 // Типы для TypeScript
 export interface User {

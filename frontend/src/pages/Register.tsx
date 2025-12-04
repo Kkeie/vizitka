@@ -17,8 +17,26 @@ export default function Register({ onAuthed }: { onAuthed: (u: User) => void }) 
       const { user } = await register(username, password);
       onAuthed(user);
       nav("/editor");
-    } catch { 
-      setErr("Не удалось создать аккаунт. Возможно, username уже занят."); 
+    } catch (error: any) {
+      const errorMessage = error?.message || "register_failed";
+      let message = "Не удалось создать аккаунт.";
+      
+      if (errorMessage === "username_taken") {
+        message = "Этот username уже занят. Выберите другой.";
+      } else if (errorMessage === "username_too_short") {
+        message = "Username должен содержать минимум 3 символа.";
+      } else if (errorMessage === "password_too_short") {
+        message = "Пароль должен содержать минимум 4 символа.";
+      } else if (errorMessage === "username_and_password_required") {
+        message = "Заполните все поля.";
+      } else if (errorMessage === "internal_error") {
+        message = "Ошибка сервера. Попробуйте позже.";
+      } else {
+        console.error("Registration error:", errorMessage);
+        message = `Ошибка: ${errorMessage}`;
+      }
+      
+      setErr(message);
     }
     finally { 
       setLoading(false); 

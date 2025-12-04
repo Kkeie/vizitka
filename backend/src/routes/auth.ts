@@ -11,14 +11,20 @@ const router = Router();
 router.post("/register", async (req, res) => {
   try {
     const { username, password } = req.body as { username?: string; password?: string };
+    console.log("[REGISTER] Attempt:", { username: username?.substring(0, 3) + "***" });
+    
     if (!username || !password) return res.status(400).json({ error: "username_and_password_required" });
     const uname = username.trim().toLowerCase();
     if (uname.length < 3) return res.status(400).json({ error: "username_too_short" });
     if (password.length < 4) return res.status(400).json({ error: "password_too_short" });
 
     // Проверяем существование username
+    console.log("[REGISTER] Checking existing username:", uname);
     const existingProfile = db.prepare("SELECT id FROM Profile WHERE username = ?").get(uname);
-    if (existingProfile) return res.status(409).json({ error: "username_taken" });
+    if (existingProfile) {
+      console.log("[REGISTER] Username already taken:", uname);
+      return res.status(409).json({ error: "username_taken" });
+    }
 
     const passwordHash = await hashPassword(password);
 
@@ -41,6 +47,7 @@ router.post("/register", async (req, res) => {
     });
 
     const result = transaction();
+    console.log("[REGISTER] Success:", { userId: result.userId, username: uname });
 
     const token = signToken({ id: result.userId, username: uname });
     res.json({
@@ -59,8 +66,9 @@ router.post("/register", async (req, res) => {
       },
     });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: "internal_error" });
+    console.error("[REGISTER] Error:", e);
+    console.error("[REGISTER] Error stack:", e instanceof Error ? e.stack : "No stack");
+    res.status(500).json({ error: "internal_error", message: e instanceof Error ? e.message : String(e) });
   }
 });
 

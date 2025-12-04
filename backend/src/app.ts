@@ -13,14 +13,26 @@ import profileRouter from "./routes/profile";
 const app = express();
 
 // CORS настройки для production и development
+// Временно разрешаем все origins для отладки, потом можно ограничить
 const corsOptions = {
   origin: process.env.FRONTEND_URL 
     ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
-    : ['http://localhost:5173', 'http://localhost:8080'], // по умолчанию для dev
+    : true, // Разрешаем все origins если FRONTEND_URL не установлен
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 };
 app.use(cors(corsOptions));
+
+// Логирование всех запросов для отладки
+app.use((req, res, next) => {
+  console.log(`[${req.method}] ${req.path}`, {
+    origin: req.headers.origin,
+    'content-type': req.headers['content-type']
+  });
+  next();
+});
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 

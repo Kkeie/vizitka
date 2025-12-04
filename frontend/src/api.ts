@@ -46,7 +46,11 @@ export async function register(username: string, password: string): Promise<{ to
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
   });
-  if (!r.ok) throw new Error("register_failed");
+  if (!r.ok) {
+    const errorData = await r.json().catch(() => ({}));
+    const errorMessage = errorData.error || "register_failed";
+    throw new Error(errorMessage);
+  }
   const data = await r.json();
   setToken(data.token);
   return data;
