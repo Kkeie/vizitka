@@ -1,0 +1,4 @@
+# Railway ignore file - используем Nixpacks, не Docker
+Dockerfile
+docker-compose.yml
+.dockerignore

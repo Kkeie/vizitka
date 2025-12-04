@@ -1,0 +1,80 @@
+=== DIFF: backend/Dockerfile ===
+
+--- Оригинальная версия (строки 11-14) ---
+COPY package.json package-lock.json* ./
+# Устанавливаем зависимости (без lock-файла используем install)
+RUN npm install --no-audit --no-fund --cache /root/.npm \
+  && npm cache verify
+
+--- Новая версия (строки 11-54) ---
+COPY package.json package-lock.json* ./
+
+# Устанавливаем зависимости с надёжной retry-логикой и настройками для Prisma
+# 
+# Проблема: npm install может падать из-за сетевых ошибок при скачивании Prisma engines
+# (ECONNRESET, timeout). Решение:
+# 1) Настройка npm retry параметров для устойчивости к сетевым сбоям
+# 2) Retry loop до 3 попыток с экспоненциальным backoff
+# 3) PRISMA_GENERATE_SKIP_AUTOINSTALL=1 пропускает автоскачивание движков во время build
+#    (движки будут сгенерированы позже в build stage через `npx prisma generate`)
+#
+# Ссылки:
+# - https://github.com/prisma/prisma/issues/26809
+# - https://www.prisma.io/docs/guides/deployment/deployment-guides/deploying-to-docker
+#
+# Варианты деплоя:
+# A) Если нужны бинарники в образе: уберите ENV PRISMA_GENERATE_SKIP_AUTOINSTALL=1
+#    и убедитесь в стабильной сети при сборке
+# B) Рекомендуется: оставить skip env и запускать `npx prisma generate` в CI/CD
+#    или как init-скрипт при деплое (когда сеть надёжна)
+ENV PRISMA_GENERATE_SKIP_AUTOINSTALL=1
+
+RUN npm config set fetch-retries 5 \
+ && npm config set fetch-retry-factor 10 \
+ && npm config set fetch-retry-mintimeout 20000 \
+ && npm config set fetch-retry-maxtimeout 120000 \
+ && ( \
+      attempt=1; \
+      until [ $attempt -gt 3 ]; do \
+        echo "npm install attempt #$attempt"; \
+        if npm install --no-audit --no-fund --cache /root/.npm; then \
+          break; \
+        fi; \
+        attempt=$((attempt+1)); \
+        echo "npm install failed, sleeping $((attempt * 5))s then retrying..."; \
+        sleep $((attempt * 5)); \
+      done; \
+      if [ $attempt -gt 3 ]; then \
+        echo "npm install failed after 3 attempts"; \
+        exit 1; \
+      fi; \
+    ) \
+ && npm cache verify
+
+--- Изменения в build stage (строки 56-71) ---
+
+Добавлено перед COPY:
+# Сбрасываем PRISMA_GENERATE_SKIP_AUTOINSTALL для build stage:
+# здесь сеть обычно стабильнее, и нам нужны движки для генерации клиента
+ENV PRISMA_GENERATE_SKIP_AUTOINSTALL=0
+
+Добавлен комментарий перед RUN npx prisma generate:
+# Генерируем Prisma Client (движки скачаются здесь, если не были скачаны ранее)
+
+=== Ключевые изменения ===
+
+1. ENV PRISMA_GENERATE_SKIP_AUTOINSTALL=1 в deps stage
+   - Пропускает автоскачивание движков при npm install
+
+2. npm config настройки для retry:
+   - fetch-retries: 5
+   - fetch-retry-factor: 10
+   - fetch-retry-mintimeout: 20000
+   - fetch-retry-maxtimeout: 120000
+   - Примечание: unsafe-perm удалён (не валидная опция для npm config, не нужен под root)
+
+3. Retry loop с 3 попытками и экспоненциальным backoff (5s, 10s, 15s)
+
+4. ENV PRISMA_GENERATE_SKIP_AUTOINSTALL=0 в build stage
+   - Разрешает скачивание движков при prisma generate
+

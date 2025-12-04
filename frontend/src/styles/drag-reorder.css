@@ -1,0 +1,74 @@
+/* drag-reorder.css - Styles for advanced drag-and-drop */
+
+.grid {
+  position: relative;
+}
+
+[data-drag-item] {
+  transition: transform 180ms cubic-bezier(0.2, 0.9, 0.2, 1), box-shadow 180ms;
+  will-change: transform;
+  touch-action: none;
+}
+
+[data-drag-item].dragging,
+[data-drag-item].dragging-keyboard {
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+  transform: scale(1.02);
+  transition: transform 120ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  will-change: transform;
+  cursor: grabbing !important;
+}
+
+[data-drag-item]:not(.dragging):not(.dragging-keyboard) {
+  cursor: grab;
+}
+
+.drag-handle {
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+[data-drag-item].dragging .drag-handle,
+[data-drag-item].dragging-keyboard .drag-handle {
+  cursor: grabbing;
+}
+
+.dr-placeholder {
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
+  transition: height 160ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    width 160ms cubic-bezier(0.2, 0.9, 0.2, 1);
+  pointer-events: none;
+  border: 2px dashed rgba(0, 0, 0, 0.1);
+}
+
+/* Focus styles for keyboard navigation */
+[data-drag-item]:focus {
+  outline: 2px solid var(--primary, #000);
+  outline-offset: 2px;
+}
+
+[data-drag-item].dragging-keyboard {
+  outline: 2px solid var(--primary, #000);
+  outline-offset: 4px;
+}
+
+/* Screen reader only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Smooth transitions for reordering */
+.grid > [data-drag-item]:not(.dragging) {
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
