@@ -29,14 +29,17 @@ function Shell() {
                          !currentPath.startsWith("/assets") &&
                          !currentPath.startsWith("/_"));
     
-    // Если попали на /index или /index.html, проверяем, не был ли это редирект с публичной страницы
-    if (currentPath === "/index" || currentPath === "/index.html") {
+    // Если попали на /index.html, проверяем, не был ли это редирект с публичной страницы
+    if (currentPath === "/index.html") {
       // Проверяем, есть ли в sessionStorage информация о том, что это был редирект с публичной страницы
       const originalPath = sessionStorage.getItem("originalPath");
       if (originalPath && (originalPath.startsWith("/public/") || originalPath.startsWith("/u/"))) {
-        // Восстанавливаем оригинальный путь
+        console.log('[Shell] Restoring original path from sessionStorage:', originalPath);
         sessionStorage.removeItem("originalPath");
+        // Используем только replaceState без перезагрузки страницы
+        // React Router обработает маршрут автоматически
         window.history.replaceState(null, '', originalPath);
+        // НЕ делаем window.location.replace, чтобы избежать бесконечного цикла редиректов
         return;
       }
       // Если это не публичная страница, редиректим на главную

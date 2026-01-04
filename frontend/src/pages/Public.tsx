@@ -1,5 +1,5 @@
 import React from "react";
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, Navigate, useLocation } from "react-router-dom";
 import { getPublic, getImageUrl } from "../api";
 import BlockCard from "../components/BlockCard";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
@@ -10,14 +10,37 @@ const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", 
 
 export default function PublicPage() {
   const { username = "" } = useParams();
+  const routerLocation = useLocation();
+  
+  // Если username пустой, пытаемся извлечь его из пути
+  const extractedUsername = React.useMemo(() => {
+    if (username && username.trim()) {
+      return username;
+    }
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.startsWith("/public/")) {
+        const match = path.match(/^\/public\/(.+)$/);
+        if (match) return decodeURIComponent(match[1]);
+      } else if (path.startsWith("/u/")) {
+        const match = path.match(/^\/u\/(.+)$/);
+        if (match) return decodeURIComponent(match[1]);
+      } else if (path !== "/" && path !== "/index.html" && !path.startsWith("/api") && !path.startsWith("/assets")) {
+        const match = path.match(/^\/(.+)$/);
+        if (match) return decodeURIComponent(match[1]);
+      }
+    }
+    return "";
+  }, [username, routerLocation.pathname]);
+  
   const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; blocks?: any[]; error?: string }>({ loading: true });
   const gridRef = useMasonryGrid([state.blocks?.length]);
 
   // Проверяем, не является ли путь системным маршрутом
-  const cleanUsername = username?.trim() || "";
+  const cleanUsername = extractedUsername.trim();
   const lowerUsername = cleanUsername.toLowerCase();
   
-  console.log('[Public] Component loaded with username:', cleanUsername, 'lowerUsername:', lowerUsername, 'SYSTEM_ROUTES:', SYSTEM_ROUTES);
+  console.log('[Public] Component loaded with username:', cleanUsername, 'from useParams:', username, 'from extracted:', extractedUsername, 'lowerUsername:', lowerUsername, 'SYSTEM_ROUTES:', SYSTEM_ROUTES, 'window.location.pathname:', typeof window !== 'undefined' ? window.location.pathname : 'N/A');
   
   // НЕ делаем редирект на "/" если username пустой или системный маршрут
   // Вместо этого просто показываем ошибку "Профиль не найден"

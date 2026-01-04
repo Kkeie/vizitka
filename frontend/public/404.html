@@ -4,10 +4,12 @@
     <meta charset="utf-8">
     <title>Redirecting...</title>
     <script>
-      // Сохраняем текущий URL и редиректим на index.html
-      sessionStorage.redirect = location.href;
+      // Сохраняем оригинальный путь для восстановления после загрузки React Router
+      const originalPath = window.location.pathname + window.location.search + window.location.hash;
+      sessionStorage.setItem("originalPath", originalPath);
+      // Редиректим на index.html
+      window.location.replace('/index.html');
     </script>
-    <meta http-equiv="refresh" content="0;URL='/index.html'">
   </head>
   <body>
     <p>Redirecting...</p>
