@@ -36,13 +36,14 @@
 
 /* Обеспечиваем правильную работу sticky для первой колонки */
 .two-column-layout > div:first-child,
-.two-column-layout .profile-column {
-  position: sticky;
-  top: 100px;
-  align-self: start;
-  height: fit-content;
-  max-height: calc(100vh - 100px);
-  overflow-y: auto;
+.two-column-layout .profile-column,
+.profile-column {
+  position: sticky !important;
+  top: 100px !important;
+  align-self: start !important;
+  height: fit-content !important;
+  max-height: calc(100vh - 100px) !important;
+  overflow-y: auto !important;
 }
 
 @media (max-width: 968px) {
@@ -95,6 +96,7 @@ a:hover{color:var(--primary-hover)}
   box-sizing: border-box;
   position: relative;
   overflow-x: visible;
+  overflow-y: visible;
   min-width: 0;
 }
 
