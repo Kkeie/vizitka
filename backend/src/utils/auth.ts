@@ -27,7 +27,8 @@ export async function verifyPassword(password: string, stored: string): Promise<
         if (err) reject(err); else resolve(buf);
       })
     );
-    return crypto.timingSafeEqual(Buffer.from(hashHex, "hex"), derived);
+    const hashBuffer = Buffer.from(hashHex, "hex");
+    return crypto.timingSafeEqual(hashBuffer as any, derived as any);
   } catch {
     return false;
   }

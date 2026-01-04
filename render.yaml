@@ -1,0 +1,34 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: vizitka-backend
+    env: node
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    buildCommand: NODE_ENV=development npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_PATH
+        value: /app/data/db.sqlite
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false  # Будет установлен после деплоя frontend
+
+  # Frontend Static Site
+  - type: static
+    name: vizitka
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_BACKEND_API_URL
+        sync: false  # Будет установлен после деплоя backend
+      - key: VITE_BASE_PATH
+        value: /
+
