@@ -50,7 +50,7 @@ export default function Editor() {
       const errorMessage = e?.message || "Не удалось загрузить данные";
       
       // Если ошибка авторизации, перенаправляем на страницу входа
-      if (errorMessage === "unauthorized" || errorMessage === "profile_load_failed" || errorMessage === "load_blocks_failed") {
+      if (errorMessage === "unauthorized" || errorMessage === "user_not_found") {
         const token = localStorage.getItem("token");
         if (!token) {
           setIsAuthorized(false);
@@ -59,6 +59,15 @@ export default function Editor() {
         // Токен недействителен
         localStorage.removeItem("token");
         setIsAuthorized(false);
+        return;
+      }
+      
+      // Если профиль не найден, но пользователь авторизован, это нормально - профиль будет создан автоматически
+      if (errorMessage === "profile_load_failed" || errorMessage === "load_blocks_failed") {
+        // Попробуем перезагрузить данные через секунду
+        setTimeout(() => {
+          loadData();
+        }, 1000);
         return;
       }
       

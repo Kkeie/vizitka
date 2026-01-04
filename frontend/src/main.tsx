@@ -13,6 +13,7 @@ import { me, setToken, type User } from "./api";
 
 function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
+  const [checkingAuth, setCheckingAuth] = React.useState(true);
 
   // Обработка редиректа с 404.html для GitHub Pages
   React.useEffect(() => {
@@ -25,7 +26,14 @@ function Shell() {
 
   React.useEffect(() => {
     (async () => {
-      try { const u = await me(); setUser(u); } catch { setUser(null); }
+      try { 
+        const u = await me(); 
+        setUser(u);
+      } catch { 
+        setUser(null);
+      } finally {
+        setCheckingAuth(false);
+      }
     })();
   }, []);
 

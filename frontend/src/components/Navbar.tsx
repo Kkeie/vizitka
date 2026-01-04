@@ -30,61 +30,30 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
     <div className="topbar">
       <div className="container" style={{ paddingTop: 18, paddingBottom: 18 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-            <Link 
-              to="/" 
-              style={{ 
-                fontWeight: 800, 
-                fontSize: 22,
-                letterSpacing: "-0.04em", 
-                color: "var(--text)",
-                textDecoration: "none",
-                transition: "color 0.2s ease"
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.color = "var(--primary-hover)"}
-              onMouseLeave={(e) => e.currentTarget.style.color = "var(--text)"}
+          <Link 
+            to="/" 
+            style={{ 
+              fontWeight: 800, 
+              fontSize: 22,
+              letterSpacing: "-0.04em", 
+              color: "var(--text)",
+              textDecoration: "none",
+              transition: "color 0.2s ease"
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = "var(--primary-hover)"}
+            onMouseLeave={(e) => e.currentTarget.style.color = "var(--text)"}
+          >
+            Bento
+          </Link>
+          {uname && (
+            <button 
+              className="btn" 
+              onClick={onLogout}
+              style={{ fontSize: 14, padding: "10px 20px" }}
             >
-              Bento
-            </Link>
-            <nav style={{ display: "flex", gap: 8 }}>
-              {uname && (
-                <Link 
-                  to={`/${uname}`}
-                  className="btn btn-ghost"
-                  style={{ 
-                    fontSize: 14, 
-                    padding: "8px 16px",
-                    fontWeight: location.pathname === `/${uname}` ? 600 : 500
-                  }}
-                >
-                  My Bento
-                </Link>
-              )}
-            </nav>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {uname ? (
-              <>
-                <button 
-                  className="chip" 
-                  onClick={copyPublic} 
-                  title="Скопировать публичную ссылку" 
-                  aria-label="Скопировать ссылку"
-                  style={{ fontSize: 13, padding: "10px 16px" }}
-                >
-                  <span aria-hidden="true">🔗</span>
-                  <span>/@{uname}</span>
-                </button>
-                <button 
-                  className="btn" 
-                  onClick={onLogout}
-                  style={{ fontSize: 14, padding: "10px 20px" }}
-                >
-                  Выйти
-                </button>
-              </>
-            ) : null}
-          </div>
+              Выйти
+            </button>
+          )}
         </div>
         {toast && (
           <div 
