@@ -320,7 +320,7 @@ export default function PublicPage() {
                 <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>
                   Пока нет блоков
                 </h3>
-                <p style={{ color: "var(--muted)", fontSize: 15 }}>
+                <p style={{ color: "var(--text)", fontSize: 15 }}>
                   Этот пользователь еще не добавил блоки
                 </p>
               </div>

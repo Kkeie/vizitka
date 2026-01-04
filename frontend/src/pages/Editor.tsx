@@ -297,7 +297,7 @@ export default function Editor() {
                 {editingProfile ? (
                   <form onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                     <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 6, display: "block" }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Имя
                       </label>
                       <input
@@ -309,11 +309,11 @@ export default function Editor() {
                       />
                     </div>
                     <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 6, display: "block" }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Username
                       </label>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 16, color: "var(--muted)" }}>@</span>
+                        <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
                         <input
                           className="input"
                           placeholder="username"
@@ -325,7 +325,7 @@ export default function Editor() {
                       </div>
                     </div>
                     <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 6, display: "block" }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Описание
                       </label>
                       <textarea
@@ -338,7 +338,7 @@ export default function Editor() {
                       />
                     </div>
                     <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 6, display: "block" }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Фоновое изображение (URL)
                       </label>
                       <input
@@ -349,7 +349,7 @@ export default function Editor() {
                         onChange={(e) => setProfileForm({ ...profileForm, backgroundUrl: e.target.value })}
                         style={{ fontSize: 14, padding: "8px 12px", width: "100%" }}
                       />
-                      <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+                      <p style={{ fontSize: 11, color: "var(--text)", marginTop: 4 }}>
                         Или загрузите изображение с устройства
                       </p>
                       <div style={{ marginTop: 8 }}>
@@ -481,7 +481,7 @@ export default function Editor() {
                   <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>
                     Пока нет блоков
                   </h3>
-                  <p style={{ color: "var(--muted)", fontSize: 15, lineHeight: 1.6 }}>
+                  <p style={{ color: "var(--text)", fontSize: 15, lineHeight: 1.6 }}>
                     Добавьте блоки через меню внизу страницы, чтобы начать создавать свою страницу
                   </p>
                 </div>
