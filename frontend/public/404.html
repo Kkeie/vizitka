@@ -4,9 +4,21 @@
     <meta charset="utf-8">
     <title>Redirecting...</title>
     <script>
-      // Если попали на 404, редиректим на главную
-      // React Router обработает маршрут
-      window.location.replace('/');
+      // Сохраняем оригинальный путь перед редиректом
+      const originalPath = window.location.pathname + window.location.search + window.location.hash;
+      console.log('[404.html] Original path:', originalPath);
+      
+      // Если путь не системный, сохраняем его и редиректим на index.html
+      // React Router восстановит путь из sessionStorage
+      if (originalPath !== '/' && originalPath !== '/index.html' && originalPath !== '/index') {
+        sessionStorage.setItem('originalPath', originalPath);
+        console.log('[404.html] Saved originalPath:', originalPath);
+        // Редиректим на index.html, React Router восстановит путь
+        window.location.replace('/index.html');
+      } else {
+        // Если это системный путь, просто редиректим на главную
+        window.location.replace('/');
+      }
     </script>
   </head>
   <body>

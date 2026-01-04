@@ -15,14 +15,25 @@ function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = React.useState(true);
 
-  // Простая обработка: если попали на /index.html, редиректим на /
-  // Render.com с _redirects должен сохранять путь в URL при редиректе с кодом 200
+  // Обработка редиректа: если попали на /index.html, пытаемся восстановить путь из sessionStorage
+  // 404.html сохраняет путь в sessionStorage перед редиректом на /index.html
   React.useEffect(() => {
     const currentPath = window.location.pathname;
     if (currentPath === "/index.html" || currentPath === "/index") {
-      // Если мы на index.html, но это не должно происходить при правильной настройке
-      // Редиректим на главную, React Router обработает маршрут
-      window.history.replaceState(null, '', "/");
+      const originalPath = sessionStorage.getItem('originalPath');
+      if (originalPath && originalPath !== '/' && originalPath !== '/index.html' && originalPath !== '/index') {
+        console.log('[Shell] Restoring path from sessionStorage:', originalPath);
+        sessionStorage.removeItem('originalPath');
+        // Восстанавливаем путь
+        window.history.replaceState(null, '', originalPath);
+        // Перезагружаем страницу, чтобы React Router обработал правильный маршрут
+        window.location.replace(originalPath);
+        return;
+      }
+      // Если нет сохраненного пути, редиректим на главную
+      console.log('[Shell] No originalPath found, redirecting to /');
+      sessionStorage.removeItem('originalPath');
+      window.history.replaceState(null, '', '/');
     }
   }, []);
 
