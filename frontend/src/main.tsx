@@ -15,22 +15,41 @@ function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = React.useState(true);
 
-  // Обработка редиректа с 404.html для GitHub Pages
+  // Обработка редиректа с 404.html для GitHub Pages и Render
   React.useEffect(() => {
     const currentPath = window.location.pathname;
     
     // Проверяем, является ли текущий путь публичной страницей
-    const SYSTEM_PATHS = ["/", "/login", "/register", "/editor", "/index", "/index.html"];
+    const SYSTEM_PATHS = ["/", "/login", "/register", "/editor"];
     const isPublicPage = currentPath.startsWith("/public/") || 
                         currentPath.startsWith("/u/") || 
                         (!SYSTEM_PATHS.includes(currentPath) && 
                          !currentPath.startsWith("/api") && 
                          currentPath.length > 1 && 
-                         !currentPath.includes(".") &&
-                         !currentPath.startsWith("/assets"));
+                         !currentPath.startsWith("/assets") &&
+                         !currentPath.startsWith("/_"));
     
-    // Если попали на /index или /index.html, НЕ делаем редирект - пусть React Router обработает
-    // Это предотвращает редиректы для публичных страниц
+    // Если попали на /index или /index.html, проверяем, не был ли это редирект с публичной страницы
+    if (currentPath === "/index" || currentPath === "/index.html") {
+      // Проверяем, есть ли в sessionStorage информация о том, что это был редирект с публичной страницы
+      const originalPath = sessionStorage.getItem("originalPath");
+      if (originalPath && (originalPath.startsWith("/public/") || originalPath.startsWith("/u/"))) {
+        // Восстанавливаем оригинальный путь
+        sessionStorage.removeItem("originalPath");
+        window.history.replaceState(null, '', originalPath);
+        return;
+      }
+      // Если это не публичная страница, редиректим на главную
+      if (!isPublicPage) {
+        window.history.replaceState(null, '', "/");
+        return;
+      }
+    }
+    
+    // Сохраняем оригинальный путь, если это публичная страница (на случай редиректа Render)
+    if (isPublicPage && currentPath !== "/index" && currentPath !== "/index.html") {
+      sessionStorage.setItem("originalPath", currentPath);
+    }
     
     // Редирект с 404.html только для системных маршрутов, не для публичных страниц
     const redirect = sessionStorage.redirect;
@@ -81,8 +100,9 @@ function Shell() {
   // Компонент-обертка для Home, который проверяет путь перед рендерингом
   function HomeWrapper() {
     const location = useLocation();
-    // Если путь не "/", "/index" или "/index.html", не рендерим Home
-    if (location.pathname !== "/" && location.pathname !== "/index" && location.pathname !== "/index.html") {
+    // Если путь не "/", не рендерим Home
+    // Убрали проверку на /index и /index.html, так как они больше не являются маршрутами
+    if (location.pathname !== "/") {
       return null;
     }
     return <Home />;
@@ -103,11 +123,11 @@ function Shell() {
     { path: "/login", element: withNav(<Login onAuthed={(u)=>setUser(u)} />) },
     { path: "/register", element: withNav(<Register onAuthed={(u)=>setUser(u)} />) },
     { path: "/editor", element: withNav(<EditorWrapper />) },
-    { path: "/index", element: withNav(<HomeWrapper />) }, // Редирект /index на главную
-    { path: "/index.html", element: withNav(<HomeWrapper />) }, // Редирект /index.html на главную
+    // Публичные страницы должны быть ПЕРЕД catch-all маршрутом
     { path: "/public/:username", element: withNav(<Public />) }, // Публичная страница: /public/username
     { path: "/u/:username", element: withNav(<Public />) }, // Старый формат для обратной совместимости
     { path: "/:username", element: withNav(<Public />) }, // Обратная совместимость: /username (публичная страница, доступна всем)
+    // Убрали /index и /index.html из маршрутов - они обрабатываются в useEffect
     { path: "*", element: withNav(<div className="p-6">404</div>) },
   ]);
 

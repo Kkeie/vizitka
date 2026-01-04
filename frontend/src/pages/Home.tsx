@@ -9,7 +9,8 @@ export default function Home() {
 
   React.useEffect(() => {
     // Проверяем, что мы действительно на главной странице, а не на публичной
-    if (location.pathname !== "/" && location.pathname !== "/index" && location.pathname !== "/index.html") {
+    // Убрали проверку на /index и /index.html, так как они больше не являются маршрутами
+    if (location.pathname !== "/") {
       setChecking(false);
       return;
     }
@@ -27,7 +28,7 @@ export default function Home() {
   }, [location.pathname]);
 
   // Если мы не на главной странице, не делаем редирект
-  if (location.pathname !== "/" && location.pathname !== "/index" && location.pathname !== "/index.html") {
+  if (location.pathname !== "/") {
     return null;
   }
 
