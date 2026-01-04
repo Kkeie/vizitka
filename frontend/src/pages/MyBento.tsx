@@ -44,6 +44,7 @@ export default function MyBento() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
+        backgroundAttachment: "scroll",
         position: "relative",
         minHeight: "100vh",
       }}

@@ -163,6 +163,7 @@ export default function Editor() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
+        backgroundAttachment: "scroll",
         position: "relative",
         minHeight: "100vh",
       }}

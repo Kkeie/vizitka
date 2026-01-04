@@ -20,9 +20,16 @@ export default function PublicPage() {
   React.useEffect(() => {
     (async () => {
       try {
+        if (!username || username.trim() === "") {
+          setState({ loading: false, error: "not_found" });
+          return;
+        }
+        console.log('[Public] Fetching profile for username:', username);
         const data = await getPublic(username);
+        console.log('[Public] Profile data received:', { name: data.name, blocksCount: data.blocks?.length });
         setState({ loading: false, name: data.name, bio: data.bio, avatarUrl: data.avatarUrl, backgroundUrl: data.backgroundUrl, blocks: data.blocks });
-      } catch {
+      } catch (error: any) {
+        console.error('[Public] Error fetching profile:', error);
         setState({ loading: false, error: "not_found" });
       }
     })();
@@ -52,6 +59,7 @@ export default function PublicPage() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
+        backgroundAttachment: "scroll",
         position: "relative",
         minHeight: "100vh",
       }}

@@ -9,16 +9,27 @@ const router = Router();
  */
 router.get("/:username", async (req, res) => {
   try {
-    const username = String(req.params.username || "").toLowerCase();
+    const username = String(req.params.username || "").toLowerCase().trim();
+    console.log(`[PUBLIC] Fetching profile for username: "${username}"`);
+    
+    if (!username || username === "") {
+      console.log(`[PUBLIC] Empty username`);
+      return res.status(404).json({ error: "not_found", message: "Username is required" });
+    }
     
     const profile = db.prepare(`
       SELECT p.*, u.id as userId
       FROM Profile p
       JOIN User u ON p.userId = u.id
-      WHERE p.username = ?
+      WHERE LOWER(TRIM(p.username)) = ?
     `).get(username) as any;
     
-    if (!profile) return res.status(404).json({ error: "not_found" });
+    console.log(`[PUBLIC] Profile found:`, profile ? { id: profile.id, username: profile.username, userId: profile.userId } : 'null');
+    
+    if (!profile) {
+      console.log(`[PUBLIC] Profile not found for username: "${username}"`);
+      return res.status(404).json({ error: "not_found", message: `Profile with username "${username}" not found` });
+    }
 
     const blocks = db.prepare(`
       SELECT * FROM Block 
