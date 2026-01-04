@@ -45,7 +45,7 @@ function Shell() {
   const withNav = (el: React.ReactNode) => (
     <>
       <Navbar user={user} onLogout={onLogout} />
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main style={{ width: "100%", maxWidth: "100%" }}>
         {el}
       </main>
     </>

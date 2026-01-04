@@ -26,8 +26,8 @@
   grid-template-columns: 320px 1fr;
   gap: 48px;
   align-items: start;
-  width: 100%;
-  max-width: 100%;
+  width: 100% !important;
+  max-width: 100% !important;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -85,6 +85,19 @@ a:hover{color:var(--primary-hover)}
   position: relative;
   overflow-x: visible;
   min-width: 0;
+}
+
+/* Принудительно растягиваем контейнер на Render */
+.container {
+  width: 100% !important;
+  max-width: 100vw !important;
+}
+
+@media (min-width: 1401px) {
+  .container {
+    max-width: 1400px !important;
+    width: 100% !important;
+  }
 }
 
 /* Убеждаемся, что контейнер использует всю доступную ширину */
