@@ -2,13 +2,42 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
-// Путь к БД (в Docker будет /app/data/db.sqlite)
-const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), "data", "db.sqlite");
-const dbDir = path.dirname(dbPath);
+// Путь к БД
+// На Render используем /tmp (доступная директория для записи)
+// В Docker будет /app/data/db.sqlite
+// Локально будет ./data/db.sqlite
+function getDbPath(): string {
+  if (process.env.DATABASE_PATH) {
+    return process.env.DATABASE_PATH;
+  }
+  
+  // На Render (production без Docker) используем /tmp
+  if (process.env.NODE_ENV === 'production' && !process.env.DOCKER) {
+    return '/tmp/bento-db.sqlite';
+  }
+  
+  // В Docker или локально используем ./data/db.sqlite
+  return path.join(process.cwd(), "data", "db.sqlite");
+}
 
-// Создаем директорию если её нет
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+let dbPath = getDbPath();
+let dbDir = path.dirname(dbPath);
+
+// Пытаемся создать директорию, если не получается - используем /tmp
+try {
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+} catch (error: any) {
+  // Если не удалось создать директорию, пробуем использовать /tmp
+  if (error.code === 'EACCES' || error.code === 'EPERM') {
+    console.warn(`[DB] Cannot create directory ${dbDir}, using /tmp instead`);
+    dbPath = '/tmp/bento-db.sqlite';
+    dbDir = path.dirname(dbPath);
+    // /tmp всегда существует, не нужно создавать
+  } else {
+    throw error;
+  }
 }
 
 // Создаем и экспортируем базу данных
