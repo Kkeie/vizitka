@@ -6,6 +6,7 @@
     <script>
       // Сохраняем оригинальный путь для восстановления после загрузки React Router
       const originalPath = window.location.pathname + window.location.search + window.location.hash;
+      console.log('[404.html] Saving original path:', originalPath);
       sessionStorage.setItem("originalPath", originalPath);
       // Редиректим на index.html
       window.location.replace('/index.html');

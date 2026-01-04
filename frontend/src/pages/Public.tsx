@@ -40,7 +40,44 @@ export default function PublicPage() {
   const cleanUsername = extractedUsername.trim();
   const lowerUsername = cleanUsername.toLowerCase();
   
-  console.log('[Public] Component loaded with username:', cleanUsername, 'from useParams:', username, 'from extracted:', extractedUsername, 'lowerUsername:', lowerUsername, 'SYSTEM_ROUTES:', SYSTEM_ROUTES, 'window.location.pathname:', typeof window !== 'undefined' ? window.location.pathname : 'N/A');
+  // Если мы на /index.html и username пустой, ждем восстановления пути
+  const [waitingForRestore, setWaitingForRestore] = React.useState(
+    typeof window !== 'undefined' && window.location.pathname === "/index.html" && !cleanUsername
+  );
+  
+  React.useEffect(() => {
+    if (waitingForRestore) {
+      // Ждем немного, чтобы дать время восстановить путь
+      const timer = setTimeout(() => {
+        const currentPath = window.location.pathname;
+        if (currentPath !== "/index.html" && currentPath !== "/index") {
+          setWaitingForRestore(false);
+        } else {
+          // Если путь все еще /index.html, проверяем sessionStorage
+          const originalPath = sessionStorage.getItem("originalPath");
+          if (originalPath && originalPath !== "/index.html" && originalPath !== "/index") {
+            window.history.replaceState(null, '', originalPath);
+            sessionStorage.removeItem("originalPath");
+            setWaitingForRestore(false);
+          } else {
+            setWaitingForRestore(false);
+          }
+        }
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [waitingForRestore]);
+  
+  console.log('[Public] Component loaded with username:', cleanUsername, 'from useParams:', username, 'from extracted:', extractedUsername, 'lowerUsername:', lowerUsername, 'SYSTEM_ROUTES:', SYSTEM_ROUTES, 'window.location.pathname:', typeof window !== 'undefined' ? window.location.pathname : 'N/A', 'waitingForRestore:', waitingForRestore);
+  
+  // Если ждем восстановления пути, показываем загрузку
+  if (waitingForRestore) {
+    return (
+      <div className="page-bg min-h-screen flex items-center justify-center">
+        <div className="muted" style={{ fontSize: 16 }}>Загрузка…</div>
+      </div>
+    );
+  }
   
   // НЕ делаем редирект на "/" если username пустой или системный маршрут
   // Вместо этого просто показываем ошибку "Профиль не найден"

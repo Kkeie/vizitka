@@ -19,48 +19,44 @@ function Shell() {
   React.useEffect(() => {
     const currentPath = window.location.pathname;
     
-    // Проверяем, является ли текущий путь публичной страницей
-    const SYSTEM_PATHS = ["/", "/login", "/register", "/editor"];
-    const isPublicPage = currentPath.startsWith("/public/") || 
-                        currentPath.startsWith("/u/") || 
-                        (!SYSTEM_PATHS.includes(currentPath) && 
-                         !currentPath.startsWith("/api") && 
-                         currentPath.length > 1 && 
-                         !currentPath.startsWith("/assets") &&
-                         !currentPath.startsWith("/_"));
-    
-    // Если попали на /index.html, проверяем, не был ли это редирект с публичной страницы
+    // Если попали на /index.html, пытаемся восстановить оригинальный путь
     if (currentPath === "/index.html") {
-      // Проверяем, есть ли в sessionStorage информация о том, что это был редирект с публичной страницы
       const originalPath = sessionStorage.getItem("originalPath");
-      if (originalPath && (originalPath.startsWith("/public/") || originalPath.startsWith("/u/"))) {
+      if (originalPath && originalPath !== "/index.html" && originalPath !== "/index") {
         console.log('[Shell] Restoring original path from sessionStorage:', originalPath);
         sessionStorage.removeItem("originalPath");
-        // Используем только replaceState без перезагрузки страницы
-        // React Router обработает маршрут автоматически
+        // Используем replaceState для восстановления пути
         window.history.replaceState(null, '', originalPath);
-        // НЕ делаем window.location.replace, чтобы избежать бесконечного цикла редиректов
+        // НЕ делаем перезагрузку страницы - React Router обработает маршрут автоматически
+        // Но нужно дать React Router время на обработку, поэтому используем setTimeout
+        setTimeout(() => {
+          // Проверяем, что путь действительно восстановлен
+          if (window.location.pathname === originalPath) {
+            console.log('[Shell] Path restored successfully');
+          } else {
+            console.log('[Shell] Path restoration failed, forcing reload');
+            window.location.replace(originalPath);
+          }
+        }, 100);
         return;
       }
-      // Если это не публичная страница, редиректим на главную
-      if (!isPublicPage) {
+      // Если нет сохраненного пути или это системный маршрут, редиректим на главную
+      if (!originalPath || originalPath === "/" || originalPath === "/index.html" || originalPath === "/index") {
+        sessionStorage.removeItem("originalPath");
         window.history.replaceState(null, '', "/");
         return;
       }
     }
     
-    // Сохраняем оригинальный путь, если это публичная страница (на случай редиректа Render)
-    if (isPublicPage && currentPath !== "/index" && currentPath !== "/index.html") {
+    // Если это не /index.html, сохраняем текущий путь на случай редиректа Render
+    // Но только если это не системный маршрут
+    const SYSTEM_PATHS = ["/", "/login", "/register", "/editor", "/index", "/index.html"];
+    if (currentPath !== "/index.html" && currentPath !== "/index" && !SYSTEM_PATHS.includes(currentPath)) {
       sessionStorage.setItem("originalPath", currentPath);
     }
     
-    // Редирект с 404.html только для системных маршрутов, не для публичных страниц
-    const redirect = sessionStorage.redirect;
-    if (redirect && redirect !== window.location.href && !isPublicPage) {
-      delete sessionStorage.redirect;
-      window.history.replaceState(null, '', redirect);
-    } else if (redirect) {
-      // Если есть редирект для публичной страницы, просто удаляем его
+    // Очищаем старые редиректы из sessionStorage
+    if (sessionStorage.redirect) {
       delete sessionStorage.redirect;
     }
   }, []);
