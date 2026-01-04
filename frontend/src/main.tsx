@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, useLocation } from "react-router-dom";
 import "./index.css";
 import "./styles.css";
 import Navbar from "./components/Navbar";
@@ -77,13 +77,33 @@ function Shell() {
     </>
   );
 
+  // Компонент-обертка для Home, который проверяет путь перед рендерингом
+  const HomeWrapper = () => {
+    const location = React.useLocation();
+    // Если путь не "/", "/index" или "/index.html", не рендерим Home
+    if (location.pathname !== "/" && location.pathname !== "/index" && location.pathname !== "/index.html") {
+      return null;
+    }
+    return <Home />;
+  };
+
+  // Компонент-обертка для Editor, который проверяет путь перед рендерингом
+  const EditorWrapper = () => {
+    const location = React.useLocation();
+    // Если путь не "/editor", не рендерим Editor
+    if (location.pathname !== "/editor") {
+      return null;
+    }
+    return <Editor />;
+  };
+
   const router = createBrowserRouter([
-    { path: "/", element: withNav(<Home />) },
+    { path: "/", element: withNav(<HomeWrapper />) },
     { path: "/login", element: withNav(<Login onAuthed={(u)=>setUser(u)} />) },
     { path: "/register", element: withNav(<Register onAuthed={(u)=>setUser(u)} />) },
-    { path: "/editor", element: withNav(<Editor />) },
-    { path: "/index", element: withNav(<Home />) }, // Редирект /index на главную
-    { path: "/index.html", element: withNav(<Home />) }, // Редирект /index.html на главную
+    { path: "/editor", element: withNav(<EditorWrapper />) },
+    { path: "/index", element: withNav(<HomeWrapper />) }, // Редирект /index на главную
+    { path: "/index.html", element: withNav(<HomeWrapper />) }, // Редирект /index.html на главную
     { path: "/u/:username", element: withNav(<Public />) }, // Старый формат для обратной совместимости
     // Маршрут /:username должен быть перед catch-all маршрутом, но после всех конкретных маршрутов
     { path: "/:username", element: withNav(<Public />) }, // Новый формат: /username (публичная страница, доступна всем)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, uploadImage, getImageUrl, type Block, type Profile, type BlockType } from "../api";
 import Avatar from "../components/Avatar";
 import BlockCard from "../components/BlockCard";
@@ -8,6 +8,7 @@ import ImageUploader from "../components/ImageUploader";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
 export default function Editor() {
+  const location = useLocation();
   const [blocks, setBlocks] = useState<Block[] | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -20,6 +21,11 @@ export default function Editor() {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
+
+  // Если мы не на странице /editor, не делаем редирект
+  if (location.pathname !== "/editor") {
+    return null;
+  }
 
   useEffect(() => {
     // Проверяем наличие токена перед загрузкой данных

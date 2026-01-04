@@ -1,12 +1,19 @@
 import React from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { me } from "../api";
 
 export default function Home() {
+  const location = useLocation();
   const [checking, setChecking] = React.useState(true);
   const [authed, setAuthed] = React.useState(false);
 
   React.useEffect(() => {
+    // Проверяем, что мы действительно на главной странице, а не на публичной
+    if (location.pathname !== "/" && location.pathname !== "/index" && location.pathname !== "/index.html") {
+      setChecking(false);
+      return;
+    }
+
     (async () => {
       try {
         await me();
@@ -17,7 +24,12 @@ export default function Home() {
         setChecking(false);
       }
     })();
-  }, []);
+  }, [location.pathname]);
+
+  // Если мы не на главной странице, не делаем редирект
+  if (location.pathname !== "/" && location.pathname !== "/index" && location.pathname !== "/index.html") {
+    return null;
+  }
 
   if (checking) {
     return (
