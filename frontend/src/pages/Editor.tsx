@@ -256,9 +256,9 @@ export default function Editor() {
         </div>
 
         {/* Two Column Layout: Profile Left, Blocks Right */}
-        <div className="two-column-layout">
+        <div className="two-column-layout" style={{ alignItems: "start" }}>
           {/* Left Column: Profile */}
-          <div className="profile-column" style={{ position: "sticky", top: 100, maxWidth: "100%", alignSelf: "flex-start" }}>
+          <div className="profile-column" style={{ maxWidth: "100%" }}>
             <div className="reveal reveal-in">
               <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%" }}>
                 {/* Avatar */}

@@ -34,6 +34,17 @@
   min-width: 0;
 }
 
+/* Обеспечиваем правильную работу sticky для первой колонки */
+.two-column-layout > div:first-child,
+.two-column-layout .profile-column {
+  position: sticky;
+  top: 100px;
+  align-self: start;
+  height: fit-content;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+}
+
 @media (max-width: 968px) {
   .two-column-layout {
     grid-template-columns: 1fr;
