@@ -12,6 +12,31 @@ export default function PublicPage() {
   const { username = "" } = useParams();
   const routerLocation = useLocation();
   
+  const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; blocks?: any[]; error?: string }>({ loading: true });
+  const gridRef = useMasonryGrid([state.blocks?.length]);
+  
+  // Принудительное обновление компонента при изменении пути
+  const [pathKey, setPathKey] = React.useState(0);
+  
+  React.useEffect(() => {
+    const checkPath = () => {
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        // Если путь изменился на /public/... или /u/..., принудительно обновляем компонент
+        if ((currentPath.startsWith("/public/") || currentPath.startsWith("/u/")) && (username === "index.html" || !username)) {
+          setPathKey(prev => prev + 1);
+        }
+      }
+    };
+    
+    // Проверяем путь сразу
+    checkPath();
+    
+    // И периодически проверяем, если мы на /index.html
+    const interval = setInterval(checkPath, 100);
+    return () => clearInterval(interval);
+  }, [username]);
+
   // Если username пустой или равен системному маршруту, пытаемся извлечь его из пути
   const extractedUsername = React.useMemo(() => {
     // Если username есть и это не системный маршрут, используем его
@@ -47,35 +72,38 @@ export default function PublicPage() {
     }
     return "";
   }, [username, routerLocation.pathname, pathKey]);
-  
-  const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; blocks?: any[]; error?: string }>({ loading: true });
-  const gridRef = useMasonryGrid([state.blocks?.length]);
-  
-  // Принудительное обновление компонента при изменении пути
-  const [pathKey, setPathKey] = React.useState(0);
-  
-  React.useEffect(() => {
-    const checkPath = () => {
-      if (typeof window !== 'undefined') {
-        const currentPath = window.location.pathname;
-        // Если путь изменился на /public/... или /u/..., принудительно обновляем компонент
-        if ((currentPath.startsWith("/public/") || currentPath.startsWith("/u/")) && (username === "index.html" || !username)) {
-          setPathKey(prev => prev + 1);
-        }
-      }
-    };
-    
-    // Проверяем путь сразу
-    checkPath();
-    
-    // И периодически проверяем, если мы на /index.html
-    const interval = setInterval(checkPath, 100);
-    return () => clearInterval(interval);
-  }, [username]);
 
   // Проверяем, не является ли путь системным маршрутом
   const cleanUsername = extractedUsername.trim();
   const lowerUsername = cleanUsername.toLowerCase();
+  
+  // Если мы на /index.html и username пустой, ждем восстановления пути
+  const [waitingForRestore, setWaitingForRestore] = React.useState(
+    typeof window !== 'undefined' && window.location.pathname === "/index.html" && !cleanUsername
+  );
+  
+  React.useEffect(() => {
+    if (waitingForRestore) {
+      // Ждем немного, чтобы дать время восстановить путь
+      const timer = setTimeout(() => {
+        const currentPath = window.location.pathname;
+        if (currentPath !== "/index.html" && currentPath !== "/index") {
+          setWaitingForRestore(false);
+        } else {
+          // Если путь все еще /index.html, проверяем sessionStorage
+          const originalPath = sessionStorage.getItem("originalPath");
+          if (originalPath && originalPath !== "/index.html" && originalPath !== "/index") {
+            window.history.replaceState(null, '', originalPath);
+            sessionStorage.removeItem("originalPath");
+            setWaitingForRestore(false);
+          } else {
+            setWaitingForRestore(false);
+          }
+        }
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [waitingForRestore, cleanUsername]);
   
   console.log('[Public] Component loaded with username:', cleanUsername, 'from useParams:', username, 'from extracted:', extractedUsername, 'lowerUsername:', lowerUsername, 'SYSTEM_ROUTES:', SYSTEM_ROUTES, 'window.location.pathname:', typeof window !== 'undefined' ? window.location.pathname : 'N/A', 'waitingForRestore:', waitingForRestore);
   
