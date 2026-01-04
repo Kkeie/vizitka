@@ -104,9 +104,9 @@ function Shell() {
     { path: "/editor", element: withNav(<EditorWrapper />) },
     { path: "/index", element: withNav(<HomeWrapper />) }, // Редирект /index на главную
     { path: "/index.html", element: withNav(<HomeWrapper />) }, // Редирект /index.html на главную
+    { path: "/public/:username", element: withNav(<Public />) }, // Публичная страница: /public/username
     { path: "/u/:username", element: withNav(<Public />) }, // Старый формат для обратной совместимости
-    // Маршрут /:username должен быть перед catch-all маршрутом, но после всех конкретных маршрутов
-    { path: "/:username", element: withNav(<Public />) }, // Новый формат: /username (публичная страница, доступна всем)
+    { path: "/:username", element: withNav(<Public />) }, // Обратная совместимость: /username (публичная страница, доступна всем)
     { path: "*", element: withNav(<div className="p-6">404</div>) },
   ]);
 

@@ -217,7 +217,7 @@ export default function Editor() {
           {profile.username && (
             <button
               onClick={async () => {
-                const url = `${window.location.origin}/${profile.username}`;
+                const url = `${window.location.origin}/public/${profile.username}`;
                 try {
                   await navigator.clipboard.writeText(url);
                   setToast("Ссылка скопирована!");

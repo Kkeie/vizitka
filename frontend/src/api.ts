@@ -328,7 +328,7 @@ export async function getPublic(username: string): Promise<{ name: string; bio: 
   return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; blocks: Block[] }>(r);
 }
 export function publicUrl(username: string) {
-  return `${window.location.origin}/${encodeURIComponent(username)}`;
+  return `${window.location.origin}/public/${encodeURIComponent(username)}`;
 }
 
 // New wrappers for layout pages

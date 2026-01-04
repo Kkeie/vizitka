@@ -9,7 +9,7 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
 
   const copyPublic = async () => {
     if (!uname) return;
-    const url = `${window.location.origin}/${uname}`;
+    const url = `${window.location.origin}/public/${uname}`;
     try {
       await navigator.clipboard.writeText(url);
     } catch {
