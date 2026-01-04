@@ -31,41 +31,45 @@ export default function Editor() {
         const headerRect = headerRef.current.getBoundingClientRect();
         const navbarHeight = 70; // Примерная высота Navbar
         
-        // Вычисляем позицию профиля так, чтобы он был ниже header
+        // Вычисляем позицию нижнего края header относительно viewport
         // headerRect.bottom - это позиция нижнего края header относительно viewport
-        // Добавляем отступ 20px, чтобы профиль не прилипал к header
-        const newTop = headerRect.bottom + 20;
+        // Когда страница прокручена вверх, headerRect.bottom будет большим
+        const headerBottom = headerRect.bottom;
         
-        // Минимальное значение - чтобы профиль не был слишком высоко (ниже Navbar)
+        // Минимальная позиция профиля (ниже Navbar)
         const minTop = navbarHeight + 20;
         
-        // Если header виден и его нижний край ниже минимальной позиции
-        if (headerRect.bottom > minTop) {
-          // Используем позицию ниже header с небольшим отступом
-          profileRef.current.style.top = `${newTop}px`;
-        } else {
-          // Когда header прокручен вверх, используем минимальное значение
-          profileRef.current.style.top = `${minTop}px`;
-        }
+        // Всегда используем позицию ниже header с отступом 20px
+        // Это гарантирует, что профиль не будет перекрывать кнопки
+        const newTop = Math.max(minTop, headerBottom + 20);
         
-        // Обновляем max-height для правильного отображения при прокрутке
-        const currentTop = parseFloat(profileRef.current.style.top) || 100;
-        profileRef.current.style.maxHeight = `calc(100vh - ${currentTop}px)`;
+        profileRef.current.style.top = `${newTop}px`;
+        
+        // Обновляем max-height для правильного отображения
+        profileRef.current.style.maxHeight = `calc(100vh - ${newTop}px)`;
+        
+        console.log('[Editor] Profile top updated:', {
+          headerBottom,
+          newTop,
+          scrollY: window.scrollY,
+          headerHeight: headerRect.height
+        });
       }
     };
     
     if (!loading && profile) {
       // Небольшая задержка для правильного вычисления позиций после рендера
-      setTimeout(updateProfileTop, 100);
+      const timeoutId = setTimeout(updateProfileTop, 100);
       updateProfileTop();
       window.addEventListener('scroll', updateProfileTop, { passive: true });
       window.addEventListener('resize', updateProfileTop);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        window.removeEventListener('scroll', updateProfileTop);
+        window.removeEventListener('resize', updateProfileTop);
+      };
     }
-    
-    return () => {
-      window.removeEventListener('scroll', updateProfileTop);
-      window.removeEventListener('resize', updateProfileTop);
-    };
   }, [loading, profile]);
 
   // Если мы не на странице /editor, не делаем редирект
