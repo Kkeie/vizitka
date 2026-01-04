@@ -78,24 +78,24 @@ function Shell() {
   );
 
   // Компонент-обертка для Home, который проверяет путь перед рендерингом
-  const HomeWrapper = () => {
-    const location = React.useLocation();
+  function HomeWrapper() {
+    const location = useLocation();
     // Если путь не "/", "/index" или "/index.html", не рендерим Home
     if (location.pathname !== "/" && location.pathname !== "/index" && location.pathname !== "/index.html") {
       return null;
     }
     return <Home />;
-  };
+  }
 
   // Компонент-обертка для Editor, который проверяет путь перед рендерингом
-  const EditorWrapper = () => {
-    const location = React.useLocation();
+  function EditorWrapper() {
+    const location = useLocation();
     // Если путь не "/editor", не рендерим Editor
     if (location.pathname !== "/editor") {
       return null;
     }
     return <Editor />;
-  };
+  }
 
   const router = createBrowserRouter([
     { path: "/", element: withNav(<HomeWrapper />) },
