@@ -15,8 +15,11 @@ router.get("/:username", async (req, res) => {
     const username = rawUsername.toLowerCase();
     console.log(`[PUBLIC] Fetching profile for username: "${username}" (raw: "${rawUsername}", decoded: "${decodedUsername}")`);
     
-    if (!username || username === "") {
-      console.log(`[PUBLIC] Empty username`);
+    // Системные маршруты, которые не должны обрабатываться как username
+    const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", "404.html", "favicon.ico", "robots.txt"];
+    
+    if (!username || username === "" || SYSTEM_ROUTES.includes(username)) {
+      console.log(`[PUBLIC] Invalid username: "${username}" (system route or empty)`);
       return res.status(404).json({ error: "not_found", message: "Username is required" });
     }
     

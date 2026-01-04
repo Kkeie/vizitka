@@ -5,7 +5,7 @@ import BlockCard from "../components/BlockCard";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
 // Системные маршруты, которые не должны обрабатываться как username
-const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api"];
+const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", "404.html"];
 
 export default function PublicPage() {
   const { username = "" } = useParams();
@@ -13,19 +13,22 @@ export default function PublicPage() {
   const gridRef = useMasonryGrid([state.blocks?.length]);
 
   // Проверяем, не является ли путь системным маршрутом
-  if (SYSTEM_ROUTES.includes(username.toLowerCase())) {
+  const cleanUsername = username?.trim() || "";
+  const lowerUsername = cleanUsername.toLowerCase();
+  
+  if (!cleanUsername || SYSTEM_ROUTES.includes(lowerUsername)) {
+    console.log('[Public] Invalid username or system route:', cleanUsername);
     return <Navigate to="/" replace />;
   }
 
   React.useEffect(() => {
     (async () => {
       try {
-        if (!username || username.trim() === "") {
+        if (!cleanUsername || cleanUsername.trim() === "") {
           console.error('[Public] Empty username');
           setState({ loading: false, error: "not_found" });
           return;
         }
-        const cleanUsername = username.trim();
         console.log('[Public] Fetching profile for username:', cleanUsername);
         const data = await getPublic(cleanUsername);
         console.log('[Public] Profile data received:', { name: data.name, blocksCount: data.blocks?.length });
@@ -34,13 +37,13 @@ export default function PublicPage() {
         console.error('[Public] Error fetching profile:', error);
         console.error('[Public] Error details:', { 
           message: error?.message, 
-          username: username,
+          username: cleanUsername,
           stack: error?.stack 
         });
         setState({ loading: false, error: "not_found" });
       }
     })();
-  }, [username]);
+  }, [cleanUsername]);
 
   if (state.loading) {
     return (

@@ -65,6 +65,7 @@ function Shell() {
     { path: "/register", element: withNav(<Register onAuthed={(u)=>setUser(u)} />) },
     { path: "/editor", element: withNav(<Editor />) },
     { path: "/u/:username", element: withNav(<Public />) }, // Старый формат для обратной совместимости
+    // Маршрут /:username должен быть перед catch-all маршрутом, но после всех конкретных маршрутов
     { path: "/:username", element: withNav(<Public />) }, // Новый формат: /username (публичная страница, доступна всем)
     { path: "*", element: withNav(<div className="p-6">404</div>) },
   ]);
