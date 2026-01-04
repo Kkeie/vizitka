@@ -28,6 +28,7 @@
   align-items: start;
   width: 100%;
   max-width: 100%;
+  box-sizing: border-box;
 }
 
 @media (max-width: 968px) {
@@ -48,9 +49,10 @@ html,body,#root{height:100%}
 /* Reset & Base */
 *{box-sizing:border-box}
 *::before,*::after{box-sizing:inherit}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%; overflow-x: hidden;}
 body{
   margin:0; 
+  padding: 0;
   background:var(--bg); 
   color:var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
@@ -58,6 +60,8 @@ body{
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "kern" 1;
   text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+  width: 100%;
 }
 a{color:var(--primary);text-decoration:none;transition:color 0.2s ease}
 a:hover{color:var(--primary-hover)}
@@ -69,6 +73,8 @@ a:hover{color:var(--primary-hover)}
   padding:40px 32px;
   width: 100%;
   box-sizing: border-box;
+  position: relative;
+  overflow-x: visible;
 }
 .card{
   background:var(--surface); 

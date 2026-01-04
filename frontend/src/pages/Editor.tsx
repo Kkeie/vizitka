@@ -166,6 +166,8 @@ export default function Editor() {
         backgroundAttachment: "scroll",
         position: "relative",
         minHeight: "100vh",
+        width: "100%",
+        overflowX: "hidden",
       }}
     >
       {/* Overlay для читаемости текста */}
@@ -182,7 +184,7 @@ export default function Editor() {
           pointerEvents: "none",
         }} />
       )}
-      <div className="container" style={{ maxWidth: 1400, paddingTop: 40, paddingBottom: 80, position: "relative", zIndex: 1, width: "100%", boxSizing: "border-box" }}>
+      <div className="container" style={{ paddingTop: 40, paddingBottom: 80, position: "relative", zIndex: 1 }}>
         {/* Editor Mode Indicator */}
         <div style={{ marginBottom: 32 }}>
           <div className="card" style={{ padding: "12px 20px", display: "inline-flex", alignItems: "center", gap: 12, background: "var(--primary)", color: "white" }}>
