@@ -26,11 +26,30 @@ function Shell() {
 
   React.useEffect(() => {
     (async () => {
+      const currentPath = window.location.pathname;
+      // Публичные страницы (/:username) не требуют авторизации и не должны редиректить
+      const isPublicPage = currentPath !== "/" && 
+                          currentPath !== "/login" && 
+                          currentPath !== "/register" && 
+                          currentPath !== "/editor" &&
+                          !currentPath.startsWith("/api") &&
+                          !currentPath.startsWith("/u/");
+      
       try { 
         const u = await me(); 
         setUser(u);
+        // Редирект на /editor только если пользователь на главной странице, /login или /register
+        // НЕ редиректим если это публичная страница
+        if (u && !isPublicPage && (currentPath === "/" || currentPath === "/login" || currentPath === "/register")) {
+          window.location.href = "/editor";
+        }
       } catch { 
         setUser(null);
+        // Редирект на /login только если пользователь пытается зайти на /editor без авторизации
+        // НЕ редиректим если это публичная страница
+        if (!isPublicPage && currentPath === "/editor") {
+          window.location.href = "/login";
+        }
       } finally {
         setCheckingAuth(false);
       }
