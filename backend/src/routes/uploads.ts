@@ -5,10 +5,32 @@ import fs from 'fs';
 
 const router = Router();
 
-const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// На Render используем /tmp/uploads для сохранения файлов
+// В Docker или локально используем ./uploads
+function getUploadDir(): string {
+  if (process.env.UPLOAD_DIR) {
+    return process.env.UPLOAD_DIR;
+  }
+  
+  // На Render (production без Docker) используем /tmp/uploads
+  if (process.env.NODE_ENV === 'production' && !process.env.DOCKER) {
+    const tmpDir = '/tmp/uploads';
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+    return tmpDir;
+  }
+  
+  // В Docker или локально используем ./uploads
+  const uploadDir = path.resolve(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  return uploadDir;
 }
+
+const UPLOAD_DIR = getUploadDir();
+console.log(`[UPLOAD] Upload directory: ${UPLOAD_DIR}`);
 
 function sanitizeFilename(name: string) {
   return name.replace(/[^\w.\-]+/g, '_');
@@ -63,9 +85,27 @@ function respondWithFile(res: Response, file: Express.Multer.File | null) {
   console.log(`[UPLOAD] File uploaded: ${file.filename} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
   
   // Возвращаем полный URL или относительный путь в зависимости от окружения
+  // На Render используем BACKEND_URL из переменных окружения или формируем из запроса
   const baseUrl = process.env.BACKEND_URL || '';
-  const url = baseUrl ? `${baseUrl}/uploads/${file.filename}` : `/uploads/${file.filename}`;
+  let url: string;
   
+  if (baseUrl) {
+    // Если указан BACKEND_URL, используем его
+    url = `${baseUrl}/uploads/${file.filename}`;
+  } else {
+    // Иначе формируем из запроса (для локальной разработки и Render)
+    const protocol = res.req.headers['x-forwarded-proto'] || 'https';
+    const host = res.req.headers.host || 'localhost:3000';
+    // На Render всегда используем https
+    const isRender = process.env.RENDER || process.env.NODE_ENV === 'production';
+    if (isRender) {
+      url = `https://${host}/uploads/${file.filename}`;
+    } else {
+      url = `/uploads/${file.filename}`;
+    }
+  }
+  
+  console.log(`[UPLOAD] Returning URL: ${url}`);
   return res.json({ url });
 }
 

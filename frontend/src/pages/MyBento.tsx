@@ -1,5 +1,5 @@
 import React from "react";
-import { me, getPublic } from "../api";
+import { me, getPublic, getImageUrl } from "../api";
 import BlockCard from "../components/BlockCard";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
@@ -40,7 +40,7 @@ export default function MyBento() {
     <div 
       className="page-bg min-h-screen"
       style={{
-        backgroundImage: state.backgroundUrl ? `url(${state.backgroundUrl})` : undefined,
+        backgroundImage: state.backgroundUrl ? `url(${getImageUrl(state.backgroundUrl)})` : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundAttachment: "fixed",
@@ -79,7 +79,7 @@ export default function MyBento() {
                     background: state.backgroundUrl ? "rgba(255,255,255,0.9)" : "transparent"
                   }}>
                     <img
-                      src={state.avatarUrl}
+                      src={getImageUrl(state.avatarUrl)}
                       alt=""
                       style={{ 
                         width: "100%", 

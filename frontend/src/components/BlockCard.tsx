@@ -2,7 +2,7 @@ import React from "react";
 import { useReveal } from "../hooks/useReveal";
 import { extractYouTubeId, toYouTubeEmbed, classifyMusic, osmEmbedUrl, osmLink } from "../lib/embed";
 import { detectSocialType, extractTelegramInfo, extractInstagramUsername } from "../lib/social-preview";
-import { getLinkMetadata } from "../api";
+import { getLinkMetadata, getImageUrl } from "../api";
 
 // Твой тип блока: поля названы как мы ранее использовали в API
 export type Block = {
@@ -324,7 +324,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
 
         {b.type === "photo" && b.photoUrl && (
           <div style={{ borderRadius: "var(--radius-sm)", overflow: "hidden", marginTop: -8 }}>
-            <img src={b.photoUrl} alt="" className="photo" loading="lazy" decoding="async" />
+            <img src={getImageUrl(b.photoUrl)} alt="" className="photo" loading="lazy" decoding="async" />
           </div>
         )}
 

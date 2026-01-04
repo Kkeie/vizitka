@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from "react";
-import { uploadImage } from "../api";
+import { uploadImage, getImageUrl } from "../api";
 
 export type AvatarProps = {
   src: string | null | undefined;
@@ -55,7 +55,7 @@ export default function Avatar({ src, size = 96, editable, onChange, className }
   return (
     <div className={className} style={{ position: "relative", width: px, height: px }}>
       <img
-        src={src || "/avatar-placeholder.svg"}
+        src={src ? getImageUrl(src) : "/avatar-placeholder.svg"}
         alt=""
         aria-hidden={!src ? "true" : "false"}
         style={{

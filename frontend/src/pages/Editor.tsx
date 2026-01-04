@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, uploadImage, type Block, type Profile, type BlockType } from "../api";
+import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, uploadImage, getImageUrl, type Block, type Profile, type BlockType } from "../api";
 import Avatar from "../components/Avatar";
 import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
@@ -159,7 +159,7 @@ export default function Editor() {
     <div 
       className="page-bg min-h-screen"
       style={{
-        backgroundImage: profile.backgroundUrl ? `url(${profile.backgroundUrl})` : undefined,
+        backgroundImage: profile.backgroundUrl ? `url(${getImageUrl(profile.backgroundUrl)})` : undefined,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundAttachment: "fixed",
@@ -296,7 +296,7 @@ export default function Editor() {
                       {profileForm.backgroundUrl && (
                         <div style={{ marginTop: 8 }}>
                           <img
-                            src={profileForm.backgroundUrl.startsWith('/') ? profileForm.backgroundUrl : profileForm.backgroundUrl}
+                            src={getImageUrl(profileForm.backgroundUrl)}
                             alt="Превью фона"
                             style={{
                               width: "100%",

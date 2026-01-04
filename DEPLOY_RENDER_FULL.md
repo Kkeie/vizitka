@@ -33,9 +33,14 @@ Render поддерживает как статические сайты (fronte
 DATABASE_PATH = /app/data/db.sqlite
 JWT_SECRET = ваш_случайный_секретный_ключ_минимум_32_символа
 FRONTEND_URL = https://vizitka.onrender.com
+BACKEND_URL = https://vizitka-backend.onrender.com
 NODE_ENV = production
 PORT = 3000
 ```
+
+⚠️ **Важно**: 
+- Замените `vizitka.onrender.com` на реальный URL вашего frontend сервиса
+- Замените `vizitka-backend.onrender.com` на реальный URL вашего backend сервиса (тот же, что будет использоваться в `VITE_BACKEND_API_URL`)
 
 **Как сгенерировать JWT_SECRET:**
 ```bash
@@ -69,11 +74,13 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 В разделе **"Environment Variables"** добавьте:
 
 ```
-VITE_BACKEND_API_URL = https://vizitka-backend.onrender.com
+VITE_BACKEND_API_URL = https://vizitka-backend.onrender.com/api
 VITE_BASE_PATH = /
 ```
 
-⚠️ **Важно**: Замените `vizitka-backend.onrender.com` на реальный URL вашего backend сервиса!
+⚠️ **Важно**: 
+- Замените `vizitka-backend.onrender.com` на реальный URL вашего backend сервиса!
+- **Обязательно добавьте `/api` в конце URL** (например: `https://vizitka-backend.onrender.com/api`)
 
 ### 3.3 Деплой Frontend
 

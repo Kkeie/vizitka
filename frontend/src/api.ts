@@ -30,8 +30,34 @@ export type Block = {
 
 // API base URL: использует переменную окружения для production или относительный путь для dev
 // В dev режиме Vite проксирует /api на бэкенд (см. vite.config.ts)
-// В production нужно установить VITE_BACKEND_API_URL
+// В production нужно установить VITE_BACKEND_API_URL (с /api в конце!)
 const API = import.meta.env.VITE_BACKEND_API_URL || "/api";
+
+// Базовый URL бэкенда (без /api) для загрузки файлов
+const BACKEND_BASE_URL = API.replace(/\/api$/, '') || '';
+
+// Функция для преобразования относительных путей в полные URL
+export function getImageUrl(url: string | null | undefined): string {
+  if (!url) return '';
+  
+  // Если это уже полный URL (http/https), возвращаем как есть
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  
+  // Если это относительный путь (начинается с /), формируем полный URL
+  if (url.startsWith('/')) {
+    // В production используем BACKEND_BASE_URL, в dev - текущий домен
+    if (BACKEND_BASE_URL && import.meta.env.PROD) {
+      return `${BACKEND_BASE_URL}${url}`;
+    }
+    // В dev режиме относительные пути работают через прокси
+    return url;
+  }
+  
+  // Иначе возвращаем как есть (может быть data URL или другой формат)
+  return url;
+}
 
 // Логирование для отладки
 console.log('[API] Backend URL:', API);
@@ -40,9 +66,10 @@ console.log('[API] VITE_BACKEND_API_URL env:', import.meta.env.VITE_BACKEND_API_
 
 // Предупреждение только для production build
 if (import.meta.env.PROD && API.startsWith('/') && !API.startsWith('http')) {
-  console.warn('[API] WARNING: Running in production mode without VITE_BACKEND_API_URL!');
-  console.warn('[API] Requests will go to:', window.location.origin + API);
-  console.warn('[API] Make sure backend is accessible at this URL or set VITE_BACKEND_API_URL');
+  console.error('[API] ERROR: Running in production mode without VITE_BACKEND_API_URL!');
+  console.error('[API] Requests will go to:', window.location.origin + API);
+  console.error('[API] This will NOT work on Render Static Site!');
+  console.error('[API] Please set VITE_BACKEND_API_URL=https://your-backend.onrender.com/api in Render environment variables');
 }
 
 let token: string | null = localStorage.getItem("token");
@@ -59,19 +86,31 @@ export async function register(username: string, password: string): Promise<{ to
   const url = `${API}/auth/register`;
   console.log('[API] Register request to:', url);
   
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
-  });
-  if (!r.ok) {
-    const errorData = await r.json().catch(() => ({}));
-    const errorMessage = errorData.error || "register_failed";
-    throw new Error(errorMessage);
+  try {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    
+    if (!r.ok) {
+      const errorData = await r.json().catch(() => ({}));
+      const errorMessage = errorData.error || errorData.message || "register_failed";
+      console.error('[API] Register failed:', r.status, errorMessage);
+      throw new Error(errorMessage);
+    }
+    
+    const data = await r.json();
+    setToken(data.token);
+    return data;
+  } catch (error: any) {
+    // Если это сетевая ошибка (CORS, недоступен сервер и т.д.)
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      console.error('[API] Network error:', error);
+      throw new Error('network_error');
+    }
+    throw error;
   }
-  const data = await r.json();
-  setToken(data.token);
-  return data;
 }
 export async function login(username: string, password: string): Promise<{ token: string; user: User }> {
   const r = await fetch(`${API}/auth/login`, {

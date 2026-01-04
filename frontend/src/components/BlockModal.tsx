@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { type BlockType } from "../api";
+import { type BlockType, getImageUrl } from "../api";
 import { detectSocialType, extractTelegramInfo, extractInstagramUsername } from "../lib/social-preview";
 import ImageUploader from "./ImageUploader";
 
@@ -454,7 +454,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
               {formData.photoUrl && (
                 <div style={{ marginTop: 12 }}>
                   <img
-                    src={formData.photoUrl.startsWith('/') ? formData.photoUrl : formData.photoUrl}
+                    src={getImageUrl(formData.photoUrl)}
                     alt="Превью"
                     style={{
                       width: "100%",

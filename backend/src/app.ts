@@ -45,7 +45,22 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // статика для загруженных файлов
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+// На Render используем /tmp/uploads, в Docker/локально - ./uploads
+function getUploadDir(): string {
+  if (process.env.UPLOAD_DIR) {
+    return process.env.UPLOAD_DIR;
+  }
+  
+  if (process.env.NODE_ENV === 'production' && !process.env.DOCKER) {
+    return '/tmp/uploads';
+  }
+  
+  return path.join(process.cwd(), "uploads");
+}
+
+const uploadDir = getUploadDir();
+console.log(`[APP] Serving uploads from: ${uploadDir}`);
+app.use("/uploads", express.static(uploadDir));
 
 app.get("/api/health", (_, res) => res.json({ ok: true }));
 
