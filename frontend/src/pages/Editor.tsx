@@ -24,23 +24,38 @@ export default function Editor() {
   const [toast, setToast] = useState<string | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
   
-  // Вычисляем высоту header для использования в CSS
-  const [headerHeight, setHeaderHeight] = useState(0);
-  
+  // Динамически изменяем top профиля в зависимости от прокрутки
   useEffect(() => {
-    const updateHeaderHeight = () => {
-      if (headerRef.current && window.innerWidth >= 969) {
-        const height = headerRef.current.offsetHeight;
-        setHeaderHeight(height);
+    const updateProfileTop = () => {
+      if (profileRef.current && headerRef.current && window.innerWidth >= 969) {
+        const headerRect = headerRef.current.getBoundingClientRect();
+        const navbarHeight = 70; // Примерная высота Navbar
+        
+        // Вычисляем позицию нижнего края header относительно viewport
+        const headerBottom = headerRect.bottom;
+        
+        // Всегда используем позицию ниже header с отступом 40px
+        // Это гарантирует, что профиль не будет перекрывать кнопки
+        const newTop = Math.max(navbarHeight + 20, headerBottom + 40);
+        
+        profileRef.current.style.top = `${newTop}px`;
+        
+        // Обновляем max-height для правильного отображения
+        profileRef.current.style.maxHeight = `calc(100vh - ${newTop}px)`;
       }
     };
     
     if (!loading && profile) {
-      updateHeaderHeight();
-      window.addEventListener('resize', updateHeaderHeight);
+      // Небольшая задержка для правильного вычисления позиций после рендера
+      const timeoutId = setTimeout(updateProfileTop, 100);
+      updateProfileTop();
+      window.addEventListener('scroll', updateProfileTop, { passive: true });
+      window.addEventListener('resize', updateProfileTop);
       
       return () => {
-        window.removeEventListener('resize', updateHeaderHeight);
+        clearTimeout(timeoutId);
+        window.removeEventListener('scroll', updateProfileTop);
+        window.removeEventListener('resize', updateProfileTop);
       };
     }
   }, [loading, profile]);
@@ -284,8 +299,8 @@ export default function Editor() {
         <div className="two-column-layout" style={{ alignItems: "start" }}>
           {/* Left Column: Profile (fixed) + Placeholder for grid */}
           <div style={{ width: "100%", maxWidth: "100%" }}>
-            {/* Sticky profile */}
-            <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%", top: headerHeight ? `${headerHeight + 40}px` : '200px' }}>
+            {/* Fixed profile */}
+            <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
             <div className="reveal reveal-in">
               <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%" }}>
                 {/* Avatar */}
