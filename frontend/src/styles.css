@@ -87,6 +87,23 @@ a:hover{color:var(--primary-hover)}
   min-width: 0;
 }
 
+/* Убеждаемся, что контейнер использует всю доступную ширину */
+@media (min-width: 1401px) {
+  .container {
+    max-width: 1400px;
+    width: 100%;
+  }
+}
+
+@media (max-width: 1400px) {
+  .container {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+
 /* Убеждаемся, что контейнер не ограничивается по высоте */
 .container,
 .two-column-layout,
@@ -106,11 +123,14 @@ a:hover{color:var(--primary-hover)}
   min-width: 0;
   width: 100%;
   max-width: 100%;
+  flex: 1 1 auto;
 }
 
 /* Убеждаемся, что контейнер не выходит за границы экрана */
 @media (max-width: 1400px) {
   .container {
+    max-width: 100% !important;
+    width: 100% !important;
     padding-left: 32px;
     padding-right: 32px;
   }
@@ -118,6 +138,8 @@ a:hover{color:var(--primary-hover)}
 
 @media (max-width: 968px) {
   .container {
+    max-width: 100% !important;
+    width: 100% !important;
     padding-left: 24px;
     padding-right: 24px;
   }
@@ -372,6 +394,7 @@ p {
   .container {
     padding: 24px 20px;
     max-width: 100%;
+    width: 100%;
   }
   .title {
     font-size: clamp(28px, 4vw, 40px);
@@ -518,7 +541,8 @@ body {
 
 @media (max-width: 480px) {
   .container {
-    max-width: 100vw;
+    max-width: 100%;
+    width: 100%;
     padding-left: 16px;
     padding-right: 16px;
   }
