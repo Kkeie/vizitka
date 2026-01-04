@@ -15,30 +15,6 @@ function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = React.useState(true);
 
-  // Обработка редиректа с 404.html: восстанавливаем путь из URL параметра
-  React.useEffect(() => {
-    const currentPath = window.location.pathname;
-    const searchParams = new URLSearchParams(window.location.search);
-    const pathParam = searchParams.get('__path');
-    
-    if (pathParam && (currentPath === "/index.html" || currentPath === "/index")) {
-      const decodedPath = decodeURIComponent(pathParam);
-      console.log('[Shell] Restoring path from URL param:', decodedPath);
-      // Очищаем флаг редиректа
-      sessionStorage.removeItem('404Redirected');
-      // Используем replace для полной перезагрузки страницы с правильным путем
-      // Это предотвращает попытки браузера загрузить несуществующие файлы
-      window.location.replace(decodedPath);
-      return;
-    }
-    
-    // Если попали на /index.html без параметра, редиректим на главную
-    if (currentPath === "/index.html" || currentPath === "/index") {
-      console.log('[Shell] On /index.html without path param, redirecting to /');
-      sessionStorage.removeItem('404Redirected');
-      window.location.replace('/');
-    }
-  }, []);
 
   React.useEffect(() => {
     (async () => {
