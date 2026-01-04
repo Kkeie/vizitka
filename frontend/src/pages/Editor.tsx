@@ -204,7 +204,7 @@ export default function Editor() {
           left: 0,
           right: 0,
           bottom: 0,
-          background: "rgba(250, 250, 250, 0.7)",
+          background: "rgba(250, 250, 250, 0.55)",
           backdropFilter: "blur(2px)",
           zIndex: 0,
           pointerEvents: "none",
@@ -528,7 +528,7 @@ export default function Editor() {
           right: 0,
           background: "var(--surface)",
           borderTop: "1px solid var(--border)",
-          padding: "6px 0",
+          padding: "10px 0",
           zIndex: 1000,
           boxShadow: "0 -2px 8px rgba(0,0,0,0.05)",
           width: "100%",
@@ -562,15 +562,15 @@ export default function Editor() {
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: "2px",
-                    padding: "4px 8px",
+                    gap: "3px",
+                    padding: "6px 10px",
                     background: "transparent",
                     border: "none",
                     cursor: "pointer",
                     borderRadius: "var(--radius-sm)",
                     transition: "all 0.2s ease",
                     color: "var(--text)",
-                    minWidth: "60px",
+                    minWidth: "65px",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "var(--accent)";
@@ -581,8 +581,8 @@ export default function Editor() {
                     e.currentTarget.style.transform = "translateY(0)";
                   }}
                 >
-                  <span style={{ fontSize: "18px", lineHeight: 1 }}>{icon}</span>
-                  <span style={{ fontSize: "10px", fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
+                  <span style={{ fontSize: "20px", lineHeight: 1 }}>{icon}</span>
+                  <span style={{ fontSize: "11px", fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
                 </button>
               ))}
             </div>
