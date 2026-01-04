@@ -29,20 +29,36 @@ export default function Editor() {
     const updateProfileTop = () => {
       if (profileRef.current && headerRef.current && window.innerWidth >= 969) {
         const headerRect = headerRef.current.getBoundingClientRect();
-        const scrollY = window.scrollY;
-        // Если header виден (scrollY < высота header), устанавливаем top так, чтобы профиль был ниже header
-        if (scrollY < headerRect.height + 60) {
-          profileRef.current.style.top = `${Math.max(140, headerRect.bottom + 20)}px`;
+        const navbarHeight = 70; // Примерная высота Navbar
+        
+        // Вычисляем позицию профиля так, чтобы он был ниже header
+        // headerRect.bottom - это позиция нижнего края header относительно viewport
+        // Добавляем отступ 20px, чтобы профиль не прилипал к header
+        const newTop = headerRect.bottom + 20;
+        
+        // Минимальное значение - чтобы профиль не был слишком высоко (ниже Navbar)
+        const minTop = navbarHeight + 20;
+        
+        // Если header виден и его нижний край ниже минимальной позиции
+        if (headerRect.bottom > minTop) {
+          // Используем позицию ниже header с небольшим отступом
+          profileRef.current.style.top = `${newTop}px`;
         } else {
-          // Когда header прокручен, используем стандартное значение
-          profileRef.current.style.top = '100px';
+          // Когда header прокручен вверх, используем минимальное значение
+          profileRef.current.style.top = `${minTop}px`;
         }
+        
+        // Обновляем max-height для правильного отображения при прокрутке
+        const currentTop = parseFloat(profileRef.current.style.top) || 100;
+        profileRef.current.style.maxHeight = `calc(100vh - ${currentTop}px)`;
       }
     };
     
     if (!loading && profile) {
+      // Небольшая задержка для правильного вычисления позиций после рендера
+      setTimeout(updateProfileTop, 100);
       updateProfileTop();
-      window.addEventListener('scroll', updateProfileTop);
+      window.addEventListener('scroll', updateProfileTop, { passive: true });
       window.addEventListener('resize', updateProfileTop);
     }
     
