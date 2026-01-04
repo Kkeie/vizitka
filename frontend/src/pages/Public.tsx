@@ -48,15 +48,27 @@ export default function PublicPage() {
     <div 
       className="page-bg min-h-screen"
       style={{
-        backgroundImage: state.backgroundUrl ? `url(${getImageUrl(state.backgroundUrl)})` : undefined,
-        backgroundSize: "cover",
-        backgroundPosition: "center center",
-        backgroundRepeat: "no-repeat",
-        backgroundAttachment: "fixed",
         position: "relative",
         minHeight: "100vh",
       }}
     >
+      {/* Фоновое изображение */}
+      {state.backgroundUrl && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundImage: `url(${getImageUrl(state.backgroundUrl)})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+          backgroundRepeat: "no-repeat",
+          backgroundAttachment: "fixed",
+          zIndex: 0,
+          pointerEvents: "none",
+        }} />
+      )}
       {/* Overlay для читаемости текста */}
       {state.backgroundUrl && (
         <div style={{
@@ -67,11 +79,11 @@ export default function PublicPage() {
           bottom: 0,
           background: "rgba(250, 250, 250, 0.85)",
           backdropFilter: "blur(2px)",
-          zIndex: 0,
+          zIndex: 1,
           pointerEvents: "none",
         }} />
       )}
-      <div className="container" style={{ maxWidth: 1400, paddingTop: 60, paddingBottom: 80, position: "relative", zIndex: 1, width: "100%", boxSizing: "border-box" }}>
+      <div className="container" style={{ maxWidth: 1400, paddingTop: 60, paddingBottom: 80, position: "relative", zIndex: 2, width: "100%", boxSizing: "border-box" }}>
         {/* Two Column Layout: Profile Left, Blocks Right */}
         <div className="two-column-layout">
           {/* Left Column: Profile */}
