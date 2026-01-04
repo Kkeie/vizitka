@@ -16,8 +16,10 @@ export default function PublicPage() {
   const cleanUsername = username?.trim() || "";
   const lowerUsername = cleanUsername.toLowerCase();
   
+  console.log('[Public] Component loaded with username:', cleanUsername, 'lowerUsername:', lowerUsername, 'SYSTEM_ROUTES:', SYSTEM_ROUTES);
+  
   if (!cleanUsername || SYSTEM_ROUTES.includes(lowerUsername)) {
-    console.log('[Public] Invalid username or system route:', cleanUsername);
+    console.log('[Public] Invalid username or system route, redirecting to /:', cleanUsername);
     return <Navigate to="/" replace />;
   }
 
