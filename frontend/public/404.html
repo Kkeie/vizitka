@@ -4,17 +4,16 @@
     <meta charset="utf-8">
     <title>Redirecting...</title>
     <script>
-      // Сохраняем оригинальный путь перед редиректом
+      // Сохраняем оригинальный путь в URL параметре
       const originalPath = window.location.pathname + window.location.search + window.location.hash;
       console.log('[404.html] Original path:', originalPath);
       
-      // Если путь не системный, сохраняем его и редиректим на index.html
-      // React Router восстановит путь из sessionStorage
+      // Если путь не системный, сохраняем его в URL параметре и редиректим на index.html
       if (originalPath !== '/' && originalPath !== '/index.html' && originalPath !== '/index') {
-        sessionStorage.setItem('originalPath', originalPath);
-        console.log('[404.html] Saved originalPath:', originalPath);
-        // Редиректим на index.html, React Router восстановит путь
-        window.location.replace('/index.html');
+        // Используем URL параметр вместо sessionStorage, чтобы избежать проблем с циклом
+        const encodedPath = encodeURIComponent(originalPath);
+        console.log('[404.html] Redirecting to index.html with path param:', encodedPath);
+        window.location.replace('/index.html?__path=' + encodedPath);
       } else {
         // Если это системный путь, просто редиректим на главную
         window.location.replace('/');

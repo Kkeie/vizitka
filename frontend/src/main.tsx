@@ -15,24 +15,24 @@ function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = React.useState(true);
 
-  // Обработка редиректа: если попали на /index.html, пытаемся восстановить путь из sessionStorage
-  // 404.html сохраняет путь в sessionStorage перед редиректом на /index.html
+  // Обработка редиректа с 404.html: восстанавливаем путь из URL параметра
   React.useEffect(() => {
     const currentPath = window.location.pathname;
+    const searchParams = new URLSearchParams(window.location.search);
+    const pathParam = searchParams.get('__path');
+    
+    if (pathParam && (currentPath === "/index.html" || currentPath === "/index")) {
+      const decodedPath = decodeURIComponent(pathParam);
+      console.log('[Shell] Restoring path from URL param:', decodedPath);
+      // Убираем параметр из URL и восстанавливаем путь
+      window.history.replaceState(null, '', decodedPath);
+      // React Router автоматически обработает новый путь
+      return;
+    }
+    
+    // Если попали на /index.html без параметра, редиректим на главную
     if (currentPath === "/index.html" || currentPath === "/index") {
-      const originalPath = sessionStorage.getItem('originalPath');
-      if (originalPath && originalPath !== '/' && originalPath !== '/index.html' && originalPath !== '/index') {
-        console.log('[Shell] Restoring path from sessionStorage:', originalPath);
-        sessionStorage.removeItem('originalPath');
-        // Восстанавливаем путь
-        window.history.replaceState(null, '', originalPath);
-        // Перезагружаем страницу, чтобы React Router обработал правильный маршрут
-        window.location.replace(originalPath);
-        return;
-      }
-      // Если нет сохраненного пути, редиректим на главную
-      console.log('[Shell] No originalPath found, redirecting to /');
-      sessionStorage.removeItem('originalPath');
+      console.log('[Shell] On /index.html without path param, redirecting to /');
       window.history.replaceState(null, '', '/');
     }
   }, []);
@@ -94,6 +94,7 @@ function Shell() {
 
   const router = createBrowserRouter([
     { path: "/", element: withNav(<HomeWrapper />) },
+    { path: "/index.html", element: withNav(<HomeWrapper />) }, // Обрабатываем /index.html как главную
     { path: "/login", element: withNav(<Login onAuthed={(u)=>setUser(u)} />) },
     { path: "/register", element: withNav(<Register onAuthed={(u)=>setUser(u)} />) },
     { path: "/editor", element: withNav(<EditorWrapper />) },
