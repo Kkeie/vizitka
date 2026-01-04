@@ -35,15 +35,18 @@
 }
 
 /* Обеспечиваем правильную работу sticky для первой колонки */
-.two-column-layout > div:first-child,
-.two-column-layout .profile-column,
-.profile-column {
-  position: sticky !important;
-  top: 100px !important;
-  align-self: start !important;
-  height: fit-content !important;
-  max-height: calc(100vh - 100px) !important;
-  overflow-y: auto !important;
+/* Используем более специфичный селектор для больших экранов */
+@media (min-width: 969px) {
+  .two-column-layout > div:first-child,
+  .two-column-layout .profile-column,
+  .profile-column {
+    position: sticky !important;
+    top: 100px !important;
+    align-self: start !important;
+    height: fit-content !important;
+    max-height: calc(100vh - 100px) !important;
+    overflow-y: auto !important;
+  }
 }
 
 @media (max-width: 968px) {
@@ -52,10 +55,14 @@
     gap: 32px;
   }
   
+  /* На мобильных устройствах убираем sticky */
   .two-column-layout > div:first-child,
+  .two-column-layout .profile-column,
   .profile-column {
     position: relative !important;
     top: 0 !important;
+    max-height: none !important;
+    overflow-y: visible !important;
   }
 }
 
