@@ -221,7 +221,7 @@ export default function PublicPage() {
           left: 0,
           right: 0,
           bottom: 0,
-          background: "rgba(250, 250, 250, 0.85)",
+          background: "rgba(250, 250, 250, 0.7)",
           backdropFilter: "blur(2px)",
           zIndex: 0,
           pointerEvents: "none",
