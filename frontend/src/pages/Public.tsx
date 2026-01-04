@@ -12,6 +12,7 @@ export default function PublicPage() {
   const { username = "" } = useParams();
   const routerLocation = useLocation();
   
+  // ВСЕ хуки должны быть вызваны ДО любых условных возвратов
   const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; blocks?: any[]; error?: string }>({ loading: true });
   const gridRef = useMasonryGrid([state.blocks?.length]);
   
@@ -105,7 +106,17 @@ export default function PublicPage() {
     }
   }, [waitingForRestore, cleanUsername]);
   
-  console.log('[Public] Component loaded with username:', cleanUsername, 'from useParams:', username, 'from extracted:', extractedUsername, 'lowerUsername:', lowerUsername, 'SYSTEM_ROUTES:', SYSTEM_ROUTES, 'window.location.pathname:', typeof window !== 'undefined' ? window.location.pathname : 'N/A', 'waitingForRestore:', waitingForRestore);
+  // Проверяем системные маршруты ПОСЛЕ всех хуков
+  const currentPath = routerLocation.pathname;
+  const SYSTEM_PATHS = ["/", "/login", "/register", "/editor", "/index", "/index.html"];
+  
+  console.log('[Public] Component loaded with username:', cleanUsername, 'from useParams:', username, 'from extracted:', extractedUsername, 'lowerUsername:', lowerUsername, 'SYSTEM_ROUTES:', SYSTEM_ROUTES, 'window.location.pathname:', typeof window !== 'undefined' ? window.location.pathname : 'N/A', 'waitingForRestore:', waitingForRestore, 'currentPath:', currentPath);
+  
+  // Если это системный маршрут, не рендерим компонент (ПОСЛЕ всех хуков!)
+  if (SYSTEM_PATHS.includes(currentPath)) {
+    console.log('[Public] System path detected, returning null:', currentPath);
+    return null;
+  }
   
   // Если ждем восстановления пути, показываем загрузку
   if (waitingForRestore) {
@@ -124,8 +135,8 @@ export default function PublicPage() {
     console.log('[Public] Invalid username or system route, showing error:', cleanUsername, 'extractedUsername:', extractedUsername, 'username from useParams:', username, 'window.location.pathname:', typeof window !== 'undefined' ? window.location.pathname : 'N/A');
     // Если путь правильный (/public/...), но username еще не обновился, ждем немного и перезагружаем компонент
     if (typeof window !== 'undefined') {
-      const currentPath = window.location.pathname;
-      if (currentPath.startsWith("/public/") || currentPath.startsWith("/u/")) {
+      const windowPath = window.location.pathname;
+      if (windowPath.startsWith("/public/") || windowPath.startsWith("/u/")) {
         // Путь правильный, но username не извлечен - ждем и перезагружаем
         return (
           <div className="page-bg min-h-screen flex items-center justify-center">

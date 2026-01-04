@@ -49,10 +49,15 @@ function Shell() {
     }
     
     // Если это не /index.html, сохраняем текущий путь на случай редиректа Render
-    // Но только если это не системный маршрут
+    // Но только если это не системный маршрут и это публичная страница
     const SYSTEM_PATHS = ["/", "/login", "/register", "/editor", "/index", "/index.html"];
-    if (currentPath !== "/index.html" && currentPath !== "/index" && !SYSTEM_PATHS.includes(currentPath)) {
+    const isPublicPage = (currentPath.startsWith("/public/") || currentPath.startsWith("/u/")) && 
+                        !SYSTEM_PATHS.includes(currentPath);
+    if (currentPath !== "/index.html" && currentPath !== "/index" && isPublicPage) {
       sessionStorage.setItem("originalPath", currentPath);
+    } else if (!isPublicPage && currentPath !== "/index.html" && currentPath !== "/index") {
+      // Для системных маршрутов не сохраняем путь
+      sessionStorage.removeItem("originalPath");
     }
     
     // Очищаем старые редиректы из sessionStorage
