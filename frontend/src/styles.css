@@ -26,6 +26,8 @@
   grid-template-columns: 320px 1fr;
   gap: 48px;
   align-items: start;
+  width: 100%;
+  max-width: 100%;
 }
 
 @media (max-width: 968px) {
@@ -61,7 +63,13 @@ a{color:var(--primary);text-decoration:none;transition:color 0.2s ease}
 a:hover{color:var(--primary-hover)}
 
 /* Layout */
-.container{max-width:1400px; margin:0 auto; padding:40px 32px}
+.container{
+  max-width:1400px; 
+  margin:0 auto; 
+  padding:40px 32px;
+  width: 100%;
+  box-sizing: border-box;
+}
 .card{
   background:var(--surface); 
   border:1px solid var(--border);

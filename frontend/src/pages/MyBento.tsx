@@ -42,9 +42,11 @@ export default function MyBento() {
       style={{
         backgroundImage: state.backgroundUrl ? `url(${getImageUrl(state.backgroundUrl)})` : undefined,
         backgroundSize: "cover",
-        backgroundPosition: "center",
+        backgroundPosition: "center center",
+        backgroundRepeat: "no-repeat",
         backgroundAttachment: "fixed",
         position: "relative",
+        minHeight: "100vh",
       }}
     >
       {/* Overlay для читаемости текста */}
@@ -61,7 +63,7 @@ export default function MyBento() {
           pointerEvents: "none",
         }} />
       )}
-      <div className="container" style={{ maxWidth: 1400, paddingTop: 60, paddingBottom: 80, position: "relative", zIndex: 1 }}>
+      <div className="container" style={{ maxWidth: 1400, paddingTop: 60, paddingBottom: 80, position: "relative", zIndex: 1, width: "100%", boxSizing: "border-box" }}>
         {/* Two Column Layout: Profile Left, Blocks Right */}
         <div className="two-column-layout">
           {/* Left Column: Profile */}

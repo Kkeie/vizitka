@@ -161,7 +161,8 @@ export default function Editor() {
       style={{
         backgroundImage: profile.backgroundUrl ? `url(${getImageUrl(profile.backgroundUrl)})` : undefined,
         backgroundSize: "cover",
-        backgroundPosition: "center",
+        backgroundPosition: "center center",
+        backgroundRepeat: "no-repeat",
         backgroundAttachment: "fixed",
         position: "relative",
       }}
