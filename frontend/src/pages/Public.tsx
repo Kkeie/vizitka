@@ -80,11 +80,11 @@ export default function PublicPage() {
   
   // Если мы на /index.html и username пустой, ждем восстановления пути
   const [waitingForRestore, setWaitingForRestore] = React.useState(
-    typeof window !== 'undefined' && window.location.pathname === "/index.html" && !cleanUsername
+    typeof window !== 'undefined' && (window.location.pathname === "/index.html" || window.location.pathname === "/index") && !cleanUsername
   );
   
   React.useEffect(() => {
-    if (waitingForRestore) {
+    if (waitingForRestore || (typeof window !== 'undefined' && (window.location.pathname === "/index.html" || window.location.pathname === "/index") && !cleanUsername)) {
       // Ждем немного, чтобы дать время восстановить путь
       const timer = setTimeout(() => {
         const currentPath = window.location.pathname;
@@ -94,14 +94,17 @@ export default function PublicPage() {
           // Если путь все еще /index.html, проверяем sessionStorage
           const originalPath = sessionStorage.getItem("originalPath");
           if (originalPath && originalPath !== "/index.html" && originalPath !== "/index") {
+            console.log('[Public] Restoring path from sessionStorage:', originalPath);
             window.history.replaceState(null, '', originalPath);
             sessionStorage.removeItem("originalPath");
             setWaitingForRestore(false);
+            // Принудительно обновляем компонент
+            setPathKey(prev => prev + 1);
           } else {
             setWaitingForRestore(false);
           }
         }
-      }, 200);
+      }, 300);
       return () => clearTimeout(timer);
     }
   }, [waitingForRestore, cleanUsername]);

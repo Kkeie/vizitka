@@ -15,54 +15,14 @@ function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
   const [checkingAuth, setCheckingAuth] = React.useState(true);
 
-  // Обработка редиректа с 404.html для GitHub Pages и Render
+  // Простая обработка: если попали на /index.html, редиректим на /
+  // Render.com с _redirects должен сохранять путь в URL при редиректе с кодом 200
   React.useEffect(() => {
     const currentPath = window.location.pathname;
-    
-    // Если попали на /index.html, пытаемся восстановить оригинальный путь
-    if (currentPath === "/index.html") {
-      const originalPath = sessionStorage.getItem("originalPath");
-      if (originalPath && originalPath !== "/index.html" && originalPath !== "/index") {
-        console.log('[Shell] Restoring original path from sessionStorage:', originalPath);
-        sessionStorage.removeItem("originalPath");
-        // Используем replaceState для восстановления пути
-        window.history.replaceState(null, '', originalPath);
-        // НЕ делаем перезагрузку страницы - React Router обработает маршрут автоматически
-        // Но нужно дать React Router время на обработку, поэтому используем setTimeout
-        setTimeout(() => {
-          // Проверяем, что путь действительно восстановлен
-          if (window.location.pathname === originalPath) {
-            console.log('[Shell] Path restored successfully');
-          } else {
-            console.log('[Shell] Path restoration failed, forcing reload');
-            window.location.replace(originalPath);
-          }
-        }, 100);
-        return;
-      }
-      // Если нет сохраненного пути или это системный маршрут, редиректим на главную
-      if (!originalPath || originalPath === "/" || originalPath === "/index.html" || originalPath === "/index") {
-        sessionStorage.removeItem("originalPath");
-        window.history.replaceState(null, '', "/");
-        return;
-      }
-    }
-    
-    // Если это не /index.html, сохраняем текущий путь на случай редиректа Render
-    // Но только если это не системный маршрут и это публичная страница
-    const SYSTEM_PATHS = ["/", "/login", "/register", "/editor", "/index", "/index.html"];
-    const isPublicPage = (currentPath.startsWith("/public/") || currentPath.startsWith("/u/")) && 
-                        !SYSTEM_PATHS.includes(currentPath);
-    if (currentPath !== "/index.html" && currentPath !== "/index" && isPublicPage) {
-      sessionStorage.setItem("originalPath", currentPath);
-    } else if (!isPublicPage && currentPath !== "/index.html" && currentPath !== "/index") {
-      // Для системных маршрутов не сохраняем путь
-      sessionStorage.removeItem("originalPath");
-    }
-    
-    // Очищаем старые редиректы из sessionStorage
-    if (sessionStorage.redirect) {
-      delete sessionStorage.redirect;
+    if (currentPath === "/index.html" || currentPath === "/index") {
+      // Если мы на index.html, но это не должно происходить при правильной настройке
+      // Редиректим на главную, React Router обработает маршрут
+      window.history.replaceState(null, '', "/");
     }
   }, []);
 
@@ -105,7 +65,6 @@ function Shell() {
   function HomeWrapper() {
     const location = useLocation();
     // Если путь не "/", не рендерим Home
-    // Убрали проверку на /index и /index.html, так как они больше не являются маршрутами
     if (location.pathname !== "/") {
       return null;
     }
@@ -131,7 +90,6 @@ function Shell() {
     { path: "/public/:username", element: withNav(<Public />) }, // Публичная страница: /public/username
     { path: "/u/:username", element: withNav(<Public />) }, // Старый формат для обратной совместимости
     { path: "/:username", element: withNav(<Public />) }, // Обратная совместимость: /username (публичная страница, доступна всем)
-    // Убрали /index и /index.html из маршрутов - они обрабатываются в useEffect
     { path: "*", element: withNav(<div className="p-6">404</div>) },
   ]);
 

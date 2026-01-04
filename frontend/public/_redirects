@@ -1,7 +1,6 @@
 # Redirects for Render static site hosting
 # All routes should fallback to index.html for React Router SPA
+# Render.com will preserve the original URL path when redirecting with 200 status
 
-/public/*  /index.html  200
-/u/*      /index.html  200
-/*        /index.html  200
+/*  /index.html  200
 
