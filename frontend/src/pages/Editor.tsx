@@ -9,6 +9,8 @@ import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
 export default function Editor() {
   const location = useLocation();
+  const profileRef = React.useRef<HTMLDivElement>(null);
+  const headerRef = React.useRef<HTMLDivElement>(null);
   const [blocks, setBlocks] = useState<Block[] | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -21,6 +23,34 @@ export default function Editor() {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
+  
+  // Динамически изменяем top профиля в зависимости от прокрутки
+  useEffect(() => {
+    const updateProfileTop = () => {
+      if (profileRef.current && headerRef.current && window.innerWidth >= 969) {
+        const headerRect = headerRef.current.getBoundingClientRect();
+        const scrollY = window.scrollY;
+        // Если header виден (scrollY < высота header), устанавливаем top так, чтобы профиль был ниже header
+        if (scrollY < headerRect.height + 60) {
+          profileRef.current.style.top = `${Math.max(140, headerRect.bottom + 20)}px`;
+        } else {
+          // Когда header прокручен, используем стандартное значение
+          profileRef.current.style.top = '100px';
+        }
+      }
+    };
+    
+    if (!loading && profile) {
+      updateProfileTop();
+      window.addEventListener('scroll', updateProfileTop);
+      window.addEventListener('resize', updateProfileTop);
+    }
+    
+    return () => {
+      window.removeEventListener('scroll', updateProfileTop);
+      window.removeEventListener('resize', updateProfileTop);
+    };
+  }, [loading, profile]);
 
   // Если мы не на странице /editor, не делаем редирект
   if (location.pathname !== "/editor") {
@@ -209,7 +239,7 @@ export default function Editor() {
       )}
       <div className="container" style={{ paddingTop: 40, paddingBottom: 120, position: "relative", zIndex: 1 }}>
         {/* Editor Mode Indicator and Copy Link Button */}
-        <div style={{ marginBottom: 32, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div ref={headerRef} style={{ marginBottom: 32, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div className="card" style={{ padding: "12px 20px", display: "inline-flex", alignItems: "center", gap: 12, background: "var(--primary)", color: "white" }}>
             <span style={{ fontSize: 16 }}>✏️</span>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Редактор</span>
@@ -260,7 +290,7 @@ export default function Editor() {
           {/* Left Column: Profile (fixed) + Placeholder for grid */}
           <div style={{ width: "100%", maxWidth: "100%" }}>
             {/* Fixed profile */}
-            <div className="profile-column" style={{ maxWidth: "100%", top: "200px", maxHeight: "calc(100vh - 200px)" }}>
+            <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
             <div className="reveal reveal-in">
               <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%" }}>
                 {/* Avatar */}
