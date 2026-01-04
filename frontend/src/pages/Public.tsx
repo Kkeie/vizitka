@@ -276,7 +276,7 @@ export default function PublicPage() {
                   </h1>
                   {state.bio && (
                     <p style={{ 
-                      color: "var(--muted)", 
+                      color: "var(--text)", 
                       fontSize: 14, 
                       lineHeight: 1.6, 
                       textAlign: "left", 

@@ -430,7 +430,7 @@ export default function Editor() {
                       </h1>
                       <p style={{ 
                         fontSize: 16, 
-                        color: "var(--muted)", 
+                        color: "var(--text)", 
                         marginBottom: 16, 
                         fontWeight: 500,
                         textShadow: profile.backgroundUrl ? "0 1px 4px rgba(255,255,255,0.9)" : undefined
@@ -439,7 +439,7 @@ export default function Editor() {
                       </p>
                       {profile.bio && (
                         <p style={{ 
-                          color: "var(--muted)", 
+                          color: "var(--text)", 
                           fontSize: 14, 
                           lineHeight: 1.6, 
                           textAlign: "left",
