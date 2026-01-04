@@ -109,6 +109,15 @@ router.post("/", requireAuth, async (req: AuthedRequest, res) => {
   const { type } = req.body as { type: string };
   if (!type) return res.status(400).json({ error: "type_required" });
 
+  const userId = req.user!.id;
+  
+  // Проверяем, что пользователь существует в базе данных
+  const userExists = db.prepare("SELECT id FROM User WHERE id = ?").get(userId);
+  if (!userExists) {
+    console.error(`[BLOCKS] User ${userId} not found in database`);
+    return res.status(401).json({ error: "user_not_found", message: "User does not exist in database" });
+  }
+
   const dbData = mapUnifiedToDb(type, req.body);
   
   const insert = db.prepare(`
@@ -116,21 +125,32 @@ router.post("/", requireAuth, async (req: AuthedRequest, res) => {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
-  const result = insert.run(
-    req.user!.id,
-    type,
-    typeof req.body.sort === "number" ? req.body.sort : 0,
-    dbData.note ?? null,
-    dbData.linkUrl ?? null,
-    dbData.photoUrl ?? null,
-    dbData.videoUrl ?? null,
-    dbData.musicEmbed ?? null,
-    dbData.mapLat ?? null,
-    dbData.mapLng ?? null
-  );
+  try {
+    const result = insert.run(
+      userId,
+      type,
+      typeof req.body.sort === "number" ? req.body.sort : 0,
+      dbData.note ?? null,
+      dbData.linkUrl ?? null,
+      dbData.photoUrl ?? null,
+      dbData.videoUrl ?? null,
+      dbData.musicEmbed ?? null,
+      dbData.mapLat ?? null,
+      dbData.mapLng ?? null
+    );
 
-  const created = db.prepare("SELECT * FROM Block WHERE id = ?").get(result.lastInsertRowid) as any;
-  res.json(mapDbToLegacy(created));
+    const created = db.prepare("SELECT * FROM Block WHERE id = ?").get(result.lastInsertRowid) as any;
+    res.json(mapDbToLegacy(created));
+  } catch (error: any) {
+    console.error(`[BLOCKS] Failed to create block for user ${userId}:`, error);
+    if (error.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      return res.status(400).json({ 
+        error: "foreign_key_constraint_failed", 
+        message: "User does not exist or database constraint violation" 
+      });
+    }
+    return res.status(500).json({ error: "create_block_failed", message: error.message });
+  }
 });
 
 /**

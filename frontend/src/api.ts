@@ -258,17 +258,41 @@ export async function deleteBlock(id: number): Promise<void> {
     throw new Error(errorData.error || errorData.message || "delete_block_failed");
   }
 }
-export async function reorderBlocks(items: { id: number; sort: number }[]) {
+export async function reorderBlocks(items: { id: number; sort: number }[]): Promise<void> {
   const r = await fetch(`${API}/blocks/reorder`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ items }),
   });
+  
+  // Читаем ответ один раз
+  const text = await r.text();
+  
   if (!r.ok) {
-    const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
-    throw new Error(errorData.error || errorData.message || "reorder_failed");
+    // Для ошибок пытаемся распарсить JSON
+    try {
+      const errorData = text ? JSON.parse(text) : {};
+      throw new Error(errorData.error || errorData.message || "reorder_failed");
+    } catch (e: any) {
+      // Если это уже наша ошибка, пробрасываем её
+      if (e.message && e.message !== "reorder_failed") {
+        throw e;
+      }
+      // Иначе создаём новую ошибку
+      throw new Error("reorder_failed");
+    }
   }
-  return safeJsonParse(r);
+  
+  // Для успешного ответа проверяем, что это валидный JSON (если есть тело)
+  if (text && text.trim().length > 0) {
+    try {
+      JSON.parse(text);
+    } catch (e) {
+      console.warn('[API] reorderBlocks: response body is not valid JSON, but request succeeded');
+    }
+  }
+  
+  // reorderBlocks не возвращает данные, только статус успеха
 }
 
 // Metadata

@@ -8,6 +8,14 @@ router.use(requireAuth);
 // GET /api/profile
 router.get("/", async (req: AuthedRequest, res) => {
   const userId = req.user!.id;
+  
+  // Проверяем, что пользователь существует
+  const user = db.prepare("SELECT id FROM User WHERE id = ?").get(userId) as any;
+  if (!user) {
+    console.error(`[PROFILE] User ${userId} not found in database`);
+    return res.status(401).json({ error: "user_not_found", message: "User does not exist in database" });
+  }
+  
   const profile = db.prepare("SELECT * FROM Profile WHERE userId = ?").get(userId) as any;
   res.json(profile);
 });
@@ -16,6 +24,13 @@ router.get("/", async (req: AuthedRequest, res) => {
 router.patch("/", async (req: AuthedRequest, res) => {
   const userId = req.user!.id;
   const { username, name, bio, avatarUrl, backgroundUrl } = req.body || {};
+  
+  // Проверяем, что пользователь существует
+  const user = db.prepare("SELECT id FROM User WHERE id = ?").get(userId) as any;
+  if (!user) {
+    console.error(`[PROFILE] User ${userId} not found in database`);
+    return res.status(401).json({ error: "user_not_found", message: "User does not exist in database" });
+  }
   
   // если меняем username — проверить уникальность
   if (username !== undefined) {
