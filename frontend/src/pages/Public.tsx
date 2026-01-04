@@ -196,7 +196,7 @@ export default function PublicPage() {
 
   return (
     <div 
-      className="page-bg min-h-screen"
+      className="page-bg min-h-screen public-page"
       style={{
         backgroundImage: state.backgroundUrl ? `url(${getImageUrl(state.backgroundUrl)})` : undefined,
         backgroundSize: "cover",

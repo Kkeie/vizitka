@@ -24,41 +24,6 @@ export default function Editor() {
   const [toast, setToast] = useState<string | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
   
-  // Динамически изменяем top профиля в зависимости от прокрутки
-  useEffect(() => {
-    const updateProfileTop = () => {
-      if (profileRef.current && headerRef.current && window.innerWidth >= 969) {
-        const headerRect = headerRef.current.getBoundingClientRect();
-        const navbarHeight = 70; // Примерная высота Navbar
-        
-        // Вычисляем позицию нижнего края header относительно viewport
-        const headerBottom = headerRect.bottom;
-        
-        // Всегда используем позицию ниже header с отступом 40px
-        // Это гарантирует, что профиль не будет перекрывать кнопки
-        const newTop = Math.max(navbarHeight + 20, headerBottom + 40);
-        
-        profileRef.current.style.top = `${newTop}px`;
-        
-        // Обновляем max-height для правильного отображения
-        profileRef.current.style.maxHeight = `calc(100vh - ${newTop}px)`;
-      }
-    };
-    
-    if (!loading && profile) {
-      // Небольшая задержка для правильного вычисления позиций после рендера
-      const timeoutId = setTimeout(updateProfileTop, 100);
-      updateProfileTop();
-      window.addEventListener('scroll', updateProfileTop, { passive: true });
-      window.addEventListener('resize', updateProfileTop);
-      
-      return () => {
-        clearTimeout(timeoutId);
-        window.removeEventListener('scroll', updateProfileTop);
-        window.removeEventListener('resize', updateProfileTop);
-      };
-    }
-  }, [loading, profile]);
 
   // Если мы не на странице /editor, не делаем редирект
   if (location.pathname !== "/editor") {
@@ -214,7 +179,7 @@ export default function Editor() {
 
   return (
     <div 
-      className="page-bg min-h-screen editor-page"
+      className="page-bg min-h-screen"
       style={{
         backgroundImage: profile.backgroundUrl ? `url(${getImageUrl(profile.backgroundUrl)})` : undefined,
         backgroundSize: "cover",
@@ -245,7 +210,7 @@ export default function Editor() {
           pointerEvents: "none",
         }} />
       )}
-      <div className="container" style={{ paddingTop: 40, paddingBottom: 120, position: "relative", zIndex: 1 }}>
+      <div className="container" style={{ paddingTop: 40, paddingBottom: 80, position: "relative", zIndex: 1 }}>
         {/* Editor Mode Indicator and Copy Link Button */}
         <div ref={headerRef} style={{ marginBottom: 32, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", position: "relative", zIndex: 100 }}>
           <div className="card" style={{ padding: "12px 20px", display: "inline-flex", alignItems: "center", gap: 12, background: "var(--primary)", color: "white", position: "relative", zIndex: 101 }}>
@@ -563,7 +528,7 @@ export default function Editor() {
           right: 0,
           background: "var(--surface)",
           borderTop: "1px solid var(--border)",
-          padding: "16px 0",
+          padding: "4px 0",
           zIndex: 1000,
           boxShadow: "0 -2px 8px rgba(0,0,0,0.05)",
           width: "100%",
@@ -579,7 +544,7 @@ export default function Editor() {
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
-              gap: "32px",
+              gap: "12px",
               flexWrap: "wrap",
             }}>
               {[
@@ -597,15 +562,15 @@ export default function Editor() {
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: "8px",
-                    padding: "12px 16px",
+                    gap: "2px",
+                    padding: "3px 8px",
                     background: "transparent",
                     border: "none",
                     cursor: "pointer",
                     borderRadius: "var(--radius-sm)",
                     transition: "all 0.2s ease",
                     color: "var(--text)",
-                    minWidth: "80px",
+                    minWidth: "60px",
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "var(--accent)";
@@ -616,8 +581,8 @@ export default function Editor() {
                     e.currentTarget.style.transform = "translateY(0)";
                   }}
                 >
-                  <span style={{ fontSize: "28px", lineHeight: 1 }}>{icon}</span>
-                  <span style={{ fontSize: "12px", fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
+                  <span style={{ fontSize: "18px", lineHeight: 1 }}>{icon}</span>
+                  <span style={{ fontSize: "10px", fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
                 </button>
               ))}
             </div>
