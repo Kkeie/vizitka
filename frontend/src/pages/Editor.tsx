@@ -166,10 +166,12 @@ export default function Editor() {
         backgroundAttachment: "scroll",
         position: "relative",
         minHeight: "100vh",
-        width: "100vw",
-        maxWidth: "100vw",
+        width: "100%",
+        maxWidth: "100%",
         overflowX: "hidden",
         boxSizing: "border-box",
+        margin: 0,
+        padding: 0,
       }}
     >
       {/* Overlay для читаемости текста */}
