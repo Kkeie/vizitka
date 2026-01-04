@@ -9,8 +9,6 @@ import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
 export default function Editor() {
   const location = useLocation();
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const profileRef = React.useRef<HTMLDivElement>(null);
   const [blocks, setBlocks] = useState<Block[] | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -23,27 +21,6 @@ export default function Editor() {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
-  
-  // Вычисляем позицию профиля относительно контейнера
-  useEffect(() => {
-    const updateProfilePosition = () => {
-      if (containerRef.current && profileRef.current && window.innerWidth >= 969) {
-        const containerRect = containerRef.current.getBoundingClientRect();
-        profileRef.current.style.left = `${containerRect.left + 32}px`;
-      }
-    };
-    
-    if (!loading && profile) {
-      updateProfilePosition();
-      window.addEventListener('resize', updateProfilePosition);
-      window.addEventListener('scroll', updateProfilePosition);
-    }
-    
-    return () => {
-      window.removeEventListener('resize', updateProfilePosition);
-      window.removeEventListener('scroll', updateProfilePosition);
-    };
-  }, [loading, profile]);
 
   // Если мы не на странице /editor, не делаем редирект
   if (location.pathname !== "/editor") {
@@ -230,7 +207,7 @@ export default function Editor() {
           pointerEvents: "none",
         }} />
       )}
-      <div ref={containerRef} className="container" style={{ paddingTop: 40, paddingBottom: 120, position: "relative", zIndex: 1 }}>
+      <div className="container" style={{ paddingTop: 40, paddingBottom: 120, position: "relative", zIndex: 1 }}>
         {/* Editor Mode Indicator and Copy Link Button */}
         <div style={{ marginBottom: 32, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div className="card" style={{ padding: "12px 20px", display: "inline-flex", alignItems: "center", gap: 12, background: "var(--primary)", color: "white" }}>
@@ -283,7 +260,7 @@ export default function Editor() {
           {/* Left Column: Profile (fixed) + Placeholder for grid */}
           <div style={{ width: "100%", maxWidth: "100%" }}>
             {/* Fixed profile */}
-            <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
+            <div className="profile-column" style={{ maxWidth: "100%" }}>
             <div className="reveal reveal-in">
               <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%" }}>
                 {/* Avatar */}
