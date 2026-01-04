@@ -21,15 +21,22 @@ export default function PublicPage() {
     (async () => {
       try {
         if (!username || username.trim() === "") {
+          console.error('[Public] Empty username');
           setState({ loading: false, error: "not_found" });
           return;
         }
-        console.log('[Public] Fetching profile for username:', username);
-        const data = await getPublic(username);
+        const cleanUsername = username.trim();
+        console.log('[Public] Fetching profile for username:', cleanUsername);
+        const data = await getPublic(cleanUsername);
         console.log('[Public] Profile data received:', { name: data.name, blocksCount: data.blocks?.length });
         setState({ loading: false, name: data.name, bio: data.bio, avatarUrl: data.avatarUrl, backgroundUrl: data.backgroundUrl, blocks: data.blocks });
       } catch (error: any) {
         console.error('[Public] Error fetching profile:', error);
+        console.error('[Public] Error details:', { 
+          message: error?.message, 
+          username: username,
+          stack: error?.stack 
+        });
         setState({ loading: false, error: "not_found" });
       }
     })();

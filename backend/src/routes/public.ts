@@ -9,25 +9,61 @@ const router = Router();
  */
 router.get("/:username", async (req, res) => {
   try {
-    const username = String(req.params.username || "").toLowerCase().trim();
-    console.log(`[PUBLIC] Fetching profile for username: "${username}"`);
+    // Декодируем username из URL (на случай если он был закодирован)
+    const decodedUsername = decodeURIComponent(String(req.params.username || ""));
+    const rawUsername = decodedUsername.trim();
+    const username = rawUsername.toLowerCase();
+    console.log(`[PUBLIC] Fetching profile for username: "${username}" (raw: "${rawUsername}", decoded: "${decodedUsername}")`);
     
     if (!username || username === "") {
       console.log(`[PUBLIC] Empty username`);
       return res.status(404).json({ error: "not_found", message: "Username is required" });
     }
     
-    const profile = db.prepare(`
+    // Пробуем найти профиль разными способами для совместимости
+    let profile = db.prepare(`
       SELECT p.*, u.id as userId
       FROM Profile p
       JOIN User u ON p.userId = u.id
       WHERE LOWER(TRIM(p.username)) = ?
     `).get(username) as any;
     
+    // Если не нашли, пробуем без LOWER и TRIM (на случай если username уже в нижнем регистре)
+    if (!profile) {
+      console.log(`[PUBLIC] Trying exact match for username: "${rawUsername}"`);
+      profile = db.prepare(`
+        SELECT p.*, u.id as userId
+        FROM Profile p
+        JOIN User u ON p.userId = u.id
+        WHERE p.username = ?
+      `).get(rawUsername) as any;
+    }
+    
+    // Если все еще не нашли, пробуем с TRIM но без LOWER
+    if (!profile) {
+      console.log(`[PUBLIC] Trying TRIM match for username: "${rawUsername}"`);
+      profile = db.prepare(`
+        SELECT p.*, u.id as userId
+        FROM Profile p
+        JOIN User u ON p.userId = u.id
+        WHERE TRIM(p.username) = ?
+      `).get(rawUsername) as any;
+    }
+    
+    // Для отладки: выводим все профили с похожим username
+    if (!profile) {
+      const allProfiles = db.prepare(`
+        SELECT p.id, p.username, LOWER(TRIM(p.username)) as lower_trimmed, p.userId
+        FROM Profile p
+        LIMIT 20
+      `).all() as any[];
+      console.log(`[PUBLIC] All profiles in DB (first 20):`, allProfiles);
+    }
+    
     console.log(`[PUBLIC] Profile found:`, profile ? { id: profile.id, username: profile.username, userId: profile.userId } : 'null');
     
     if (!profile) {
-      console.log(`[PUBLIC] Profile not found for username: "${username}"`);
+      console.log(`[PUBLIC] Profile not found for username: "${username}" (raw: "${rawUsername}")`);
       return res.status(404).json({ error: "not_found", message: `Profile with username "${username}" not found` });
     }
 
