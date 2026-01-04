@@ -29,31 +29,19 @@ export default function Editor() {
     const updateProfileTop = () => {
       if (profileRef.current && headerRef.current && window.innerWidth >= 969) {
         const headerRect = headerRef.current.getBoundingClientRect();
-        const navbarHeight = 70; // Примерная высота Navbar
         
         // Вычисляем позицию нижнего края header относительно viewport
         // headerRect.bottom - это позиция нижнего края header относительно viewport
-        // Когда страница прокручена вверх, headerRect.bottom будет большим
         const headerBottom = headerRect.bottom;
         
-        // Минимальная позиция профиля (ниже Navbar)
-        const minTop = navbarHeight + 20;
-        
-        // Всегда используем позицию ниже header с отступом 20px
+        // Всегда используем позицию ниже header с отступом 50px для надежности
         // Это гарантирует, что профиль не будет перекрывать кнопки
-        const newTop = Math.max(minTop, headerBottom + 20);
+        const newTop = headerBottom + 50;
         
         profileRef.current.style.top = `${newTop}px`;
         
         // Обновляем max-height для правильного отображения
         profileRef.current.style.maxHeight = `calc(100vh - ${newTop}px)`;
-        
-        console.log('[Editor] Profile top updated:', {
-          headerBottom,
-          newTop,
-          scrollY: window.scrollY,
-          headerHeight: headerRect.height
-        });
       }
     };
     
@@ -259,8 +247,8 @@ export default function Editor() {
       )}
       <div className="container" style={{ paddingTop: 40, paddingBottom: 120, position: "relative", zIndex: 1 }}>
         {/* Editor Mode Indicator and Copy Link Button */}
-        <div ref={headerRef} style={{ marginBottom: 32, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div className="card" style={{ padding: "12px 20px", display: "inline-flex", alignItems: "center", gap: 12, background: "var(--primary)", color: "white" }}>
+        <div ref={headerRef} style={{ marginBottom: 32, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", position: "relative", zIndex: 100 }}>
+          <div className="card" style={{ padding: "12px 20px", display: "inline-flex", alignItems: "center", gap: 12, background: "var(--primary)", color: "white", position: "relative", zIndex: 101 }}>
             <span style={{ fontSize: 16 }}>✏️</span>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Редактор</span>
           </div>
@@ -297,6 +285,8 @@ export default function Editor() {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: 8,
+                position: "relative",
+                zIndex: 101,
               }}
             >
               <span>🔗</span>

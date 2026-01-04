@@ -53,7 +53,7 @@
     height: fit-content !important;
     max-height: calc(100vh - 100px) !important;
     overflow-y: auto !important;
-    z-index: 10 !important;
+    z-index: 5 !important; /* Меньше чем у кнопок, чтобы не перекрывать их */
     transform: none !important;
     will-change: auto !important;
     align-self: start !important;
