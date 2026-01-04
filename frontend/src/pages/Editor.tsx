@@ -188,7 +188,7 @@ export default function Editor() {
           pointerEvents: "none",
         }} />
       )}
-      <div className="container" style={{ paddingTop: 40, paddingBottom: 80, position: "relative", zIndex: 1 }}>
+      <div className="container" style={{ paddingTop: 40, paddingBottom: 120, position: "relative", zIndex: 1 }}>
         {/* Editor Mode Indicator */}
         <div style={{ marginBottom: 32 }}>
           <div className="card" style={{ padding: "12px 20px", display: "inline-flex", alignItems: "center", gap: 12, background: "var(--primary)", color: "white" }}>
@@ -405,39 +405,6 @@ export default function Editor() {
 
           {/* Right Column: Blocks */}
           <div style={{ minWidth: 0, width: "100%" }}>
-            {/* Add Blocks Section */}
-            <div className="reveal reveal-in" style={{ marginBottom: 40 }}>
-              <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 20, color: "var(--text)", letterSpacing: "-0.02em" }}>
-                Добавить блок
-              </h2>
-              <div className="card" style={{ padding: 24 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-                  {[
-                    { type: "note" as BlockType, label: "Заметка", icon: "📝" },
-                    { type: "link" as BlockType, label: "Ссылка", icon: "🔗" },
-                    { type: "photo" as BlockType, label: "Фото", icon: "🖼️" },
-                    { type: "video" as BlockType, label: "Видео", icon: "🎥" },
-                    { type: "music" as BlockType, label: "Музыка", icon: "🎵" },
-                    { type: "map" as BlockType, label: "Карта", icon: "🗺️" },
-                  ].map(({ type, label, icon }) => (
-                    <button
-                      key={type}
-                      onClick={() => handleAddBlockClick(type)}
-                      className="tile"
-                      style={{
-                        height: 100,
-                        fontSize: 28,
-                        gap: 8,
-                      }}
-                    >
-                      <span>{icon}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600 }}>{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
             {/* Blocks Grid */}
             <div className="reveal reveal-in">
               {(sortedBlocks || []).length === 0 ? (
@@ -447,7 +414,7 @@ export default function Editor() {
                     Пока нет блоков
                   </h3>
                   <p style={{ color: "var(--muted)", fontSize: 15, lineHeight: 1.6 }}>
-                    Добавьте блоки выше, чтобы начать создавать свою страницу
+                    Добавьте блоки через меню внизу страницы, чтобы начать создавать свою страницу
                   </p>
                 </div>
               ) : (
@@ -481,6 +448,75 @@ export default function Editor() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Navigation Bar - Block Selection */}
+        <div style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: "var(--surface)",
+          borderTop: "1px solid var(--border)",
+          padding: "16px 0",
+          zIndex: 1000,
+          boxShadow: "0 -2px 8px rgba(0,0,0,0.05)",
+          width: "100%",
+        }}>
+          <div style={{
+            maxWidth: "1400px",
+            margin: "0 auto",
+            padding: "0 32px",
+            width: "100%",
+            boxSizing: "border-box",
+          }}>
+            <div style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: "32px",
+              flexWrap: "wrap",
+            }}>
+              {[
+                { type: "note" as BlockType, label: "Заметка", icon: "📝" },
+                { type: "link" as BlockType, label: "Ссылка", icon: "🔗" },
+                { type: "photo" as BlockType, label: "Фото", icon: "🖼️" },
+                { type: "video" as BlockType, label: "Видео", icon: "🎥" },
+                { type: "music" as BlockType, label: "Музыка", icon: "🎵" },
+                { type: "map" as BlockType, label: "Карта", icon: "🗺️" },
+              ].map(({ type, label, icon }) => (
+                <button
+                  key={type}
+                  onClick={() => handleAddBlockClick(type)}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "8px",
+                    padding: "12px 16px",
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    borderRadius: "var(--radius-sm)",
+                    transition: "all 0.2s ease",
+                    color: "var(--text)",
+                    minWidth: "80px",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--accent)";
+                    e.currentTarget.style.transform = "translateY(-2px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.transform = "translateY(0)";
+                  }}
+                >
+                  <span style={{ fontSize: "28px", lineHeight: 1 }}>{icon}</span>
+                  <span style={{ fontSize: "12px", fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
