@@ -4,12 +4,23 @@
     <meta charset="utf-8">
     <title>Redirecting...</title>
     <script>
+      // Проверяем, не было ли уже редиректа (чтобы избежать бесконечного цикла)
+      const redirected = sessionStorage.getItem('404Redirected');
+      if (redirected === 'true') {
+        console.log('[404.html] Already redirected, going to /');
+        sessionStorage.removeItem('404Redirected');
+        window.location.replace('/');
+        return;
+      }
+      
       // Сохраняем оригинальный путь в URL параметре
       const originalPath = window.location.pathname + window.location.search + window.location.hash;
       console.log('[404.html] Original path:', originalPath);
       
       // Если путь не системный, сохраняем его в URL параметре и редиректим на index.html
       if (originalPath !== '/' && originalPath !== '/index.html' && originalPath !== '/index') {
+        // Устанавливаем флаг, чтобы избежать повторного редиректа
+        sessionStorage.setItem('404Redirected', 'true');
         // Используем URL параметр вместо sessionStorage, чтобы избежать проблем с циклом
         const encodedPath = encodeURIComponent(originalPath);
         console.log('[404.html] Redirecting to index.html with path param:', encodedPath);

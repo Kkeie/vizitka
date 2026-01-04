@@ -24,16 +24,19 @@ function Shell() {
     if (pathParam && (currentPath === "/index.html" || currentPath === "/index")) {
       const decodedPath = decodeURIComponent(pathParam);
       console.log('[Shell] Restoring path from URL param:', decodedPath);
-      // Убираем параметр из URL и восстанавливаем путь
-      window.history.replaceState(null, '', decodedPath);
-      // React Router автоматически обработает новый путь
+      // Очищаем флаг редиректа
+      sessionStorage.removeItem('404Redirected');
+      // Используем replace для полной перезагрузки страницы с правильным путем
+      // Это предотвращает попытки браузера загрузить несуществующие файлы
+      window.location.replace(decodedPath);
       return;
     }
     
     // Если попали на /index.html без параметра, редиректим на главную
     if (currentPath === "/index.html" || currentPath === "/index") {
       console.log('[Shell] On /index.html without path param, redirecting to /');
-      window.history.replaceState(null, '', '/');
+      sessionStorage.removeItem('404Redirected');
+      window.location.replace('/');
     }
   }, []);
 
