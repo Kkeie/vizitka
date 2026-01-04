@@ -34,10 +34,10 @@
   min-width: 0;
 }
 
-/* Обеспечиваем правильную работу fixed для первой колонки */
-/* Используем более специфичный селектор для больших экранов */
+/* Обеспечиваем правильную работу sticky для первой колонки */
+/* Используем sticky вместо fixed, чтобы профиль не перекрывал элементы сверху */
 @media (min-width: 969px) {
-  /* Убираем transform и другие свойства, которые могут мешать fixed */
+  /* Убираем transform и другие свойства, которые могут мешать sticky */
   .container,
   .two-column-layout,
   .two-column-layout > div:first-child {
@@ -47,28 +47,16 @@
   }
   
   .profile-column {
-    position: fixed !important;
-    top: 100px !important;
+    position: sticky !important;
+    top: 140px !important; /* Учитываем Navbar (~70px) + отступ сверху (~70px) */
     width: 320px !important;
     height: fit-content !important;
-    max-height: calc(100vh - 100px) !important;
+    max-height: calc(100vh - 140px) !important;
     overflow-y: auto !important;
     z-index: 10 !important;
     transform: none !important;
     will-change: auto !important;
-  }
-  
-  /* Вычисляем left позицию для разных размеров экрана */
-  @media (min-width: 1401px) {
-    .profile-column {
-      left: calc((100vw - 1400px) / 2 + 32px) !important;
-    }
-  }
-  
-  @media (max-width: 1400px) {
-    .profile-column {
-      left: 32px !important;
-    }
+    align-self: start !important;
   }
   
   /* Placeholder видим на больших экранах для резервирования места в grid */

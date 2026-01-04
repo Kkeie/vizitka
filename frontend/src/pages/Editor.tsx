@@ -260,7 +260,7 @@ export default function Editor() {
           {/* Left Column: Profile (fixed) + Placeholder for grid */}
           <div style={{ width: "100%", maxWidth: "100%" }}>
             {/* Fixed profile */}
-            <div className="profile-column" style={{ maxWidth: "100%" }}>
+            <div className="profile-column" style={{ maxWidth: "100%", top: "200px", maxHeight: "calc(100vh - 200px)" }}>
             <div className="reveal reveal-in">
               <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%" }}>
                 {/* Avatar */}
