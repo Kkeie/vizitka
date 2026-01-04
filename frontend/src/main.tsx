@@ -19,17 +19,18 @@ function Shell() {
   React.useEffect(() => {
     const currentPath = window.location.pathname;
     
-    // Если попали на /index или /index.html, редиректим на главную
-    if (currentPath === "/index" || currentPath === "/index.html") {
-      window.history.replaceState(null, '', "/");
-      return;
-    }
-    
-    // Не делаем редирект если текущий путь - это публичная страница (не системный маршрут)
+    // Проверяем, является ли текущий путь публичной страницей
     const SYSTEM_PATHS = ["/", "/login", "/register", "/editor", "/index", "/index.html"];
-    const isPublicPage = !SYSTEM_PATHS.includes(currentPath) &&
-                        !currentPath.startsWith("/api") &&
-                        !currentPath.startsWith("/u/");
+    const isPublicPage = currentPath.startsWith("/public/") || 
+                        currentPath.startsWith("/u/") || 
+                        (!SYSTEM_PATHS.includes(currentPath) && 
+                         !currentPath.startsWith("/api") && 
+                         currentPath.length > 1 && 
+                         !currentPath.includes(".") &&
+                         !currentPath.startsWith("/assets"));
+    
+    // Если попали на /index или /index.html, НЕ делаем редирект - пусть React Router обработает
+    // Это предотвращает редиректы для публичных страниц
     
     // Редирект с 404.html только для системных маршрутов, не для публичных страниц
     const redirect = sessionStorage.redirect;

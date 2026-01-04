@@ -5,7 +5,8 @@ import BlockCard from "../components/BlockCard";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
 // Системные маршруты, которые не должны обрабатываться как username
-const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", "404.html", "index", "public"];
+// Примечание: "public" удален из списка, так как теперь мы используем маршрут /public/:username
+const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", "404.html", "index"];
 
 export default function PublicPage() {
   const { username = "" } = useParams();
@@ -18,9 +19,16 @@ export default function PublicPage() {
   
   console.log('[Public] Component loaded with username:', cleanUsername, 'lowerUsername:', lowerUsername, 'SYSTEM_ROUTES:', SYSTEM_ROUTES);
   
+  // НЕ делаем редирект на "/" если username пустой или системный маршрут
+  // Вместо этого просто показываем ошибку "Профиль не найден"
+  // Это предотвращает бесконечные редиректы
   if (!cleanUsername || SYSTEM_ROUTES.includes(lowerUsername)) {
-    console.log('[Public] Invalid username or system route, redirecting to /:', cleanUsername);
-    return <Navigate to="/" replace />;
+    console.log('[Public] Invalid username or system route, showing error:', cleanUsername);
+    return (
+      <div className="page-bg min-h-screen flex items-center justify-center">
+        <div className="ribbon error">Профиль не найден</div>
+      </div>
+    );
   }
 
   React.useEffect(() => {

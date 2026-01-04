@@ -1,0 +1,7 @@
+# Redirects for Render static site hosting
+# All routes should fallback to index.html for React Router SPA
+
+/public/*  /index.html  200
+/u/*      /index.html  200
+/*        /index.html  200
+
