@@ -84,9 +84,9 @@ export default function PublicPage() {
           pointerEvents: "none",
         }} />
       )}
-      <div className="container" style={{ paddingTop: 60, paddingBottom: 80, position: "relative", zIndex: 1, width: "100%", maxWidth: "100%" }}>
+      <div className="container" style={{ paddingTop: 60, paddingBottom: 80, position: "relative", zIndex: 1 }}>
         {/* Two Column Layout: Profile Left, Blocks Right */}
-        <div className="two-column-layout" style={{ width: "100%", maxWidth: "100%" }}>
+        <div className="two-column-layout">
           {/* Left Column: Profile */}
           <div style={{ position: "sticky", top: 100, maxWidth: "100%" }}>
             <div className="reveal reveal-in">
@@ -153,14 +153,12 @@ export default function PublicPage() {
           </div>
 
           {/* Right Column: Blocks */}
-          <div style={{ minWidth: 0, width: "100%", maxWidth: "100%", overflow: "hidden" }}>
+          <div style={{ minWidth: 0, width: "100%" }}>
             {state.blocks && state.blocks.length > 0 ? (
               <div ref={gridRef} className="grid" style={{ 
                 gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", 
                 gap: 16,
-                gridAutoRows: "8px",
-                width: "100%",
-                maxWidth: "100%"
+                gridAutoRows: "8px"
               }}>
                 {state.blocks.map((b: any, index: number) => (
                   <div key={b.id} className="reveal reveal-in" style={{ animationDelay: `${index * 0.03}s` }}>

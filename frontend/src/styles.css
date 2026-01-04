@@ -31,6 +31,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  min-width: 0;
 }
 
 @media (max-width: 968px) {
@@ -82,6 +83,7 @@ a:hover{color:var(--primary-hover)}
   box-sizing: border-box;
   position: relative;
   overflow-x: visible;
+  min-width: 0;
 }
 
 /* Убеждаемся, что контейнер не ограничивается по высоте */
@@ -96,6 +98,13 @@ a:hover{color:var(--primary-hover)}
 .container {
   margin-left: auto;
   margin-right: auto;
+}
+
+/* Убеждаемся, что правая колонка правильно растягивается */
+.two-column-layout > div:last-child {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Убеждаемся, что контейнер не выходит за границы экрана */
