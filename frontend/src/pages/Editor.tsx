@@ -182,7 +182,7 @@ export default function Editor() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-        backgroundAttachment: "scroll",
+        backgroundAttachment: "fixed",
         position: "relative",
         minHeight: "100vh",
         width: "100%",
@@ -258,7 +258,7 @@ export default function Editor() {
         {/* Two Column Layout: Profile Left, Blocks Right */}
         <div className="two-column-layout">
           {/* Left Column: Profile */}
-          <div className="profile-column" style={{ maxWidth: "100%" }}>
+          <div className="profile-column" style={{ position: "sticky", top: 100, maxWidth: "100%", alignSelf: "flex-start" }}>
             <div className="reveal reveal-in">
               <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%" }}>
                 {/* Avatar */}

@@ -203,7 +203,7 @@ export default function PublicPage() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-        backgroundAttachment: "scroll",
+        backgroundAttachment: "fixed",
         position: "relative",
         minHeight: "100vh",
         width: "100%",
@@ -232,7 +232,7 @@ export default function PublicPage() {
         {/* Two Column Layout: Profile Left, Blocks Right */}
         <div className="two-column-layout">
           {/* Left Column: Profile */}
-          <div style={{ maxWidth: "100%" }}>
+          <div style={{ position: "sticky", top: 100, maxWidth: "100%", alignSelf: "flex-start" }}>
             <div className="reveal reveal-in">
               <div style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "center", textAlign: "center", width: "100%", maxWidth: "100%" }}>
                 {state.avatarUrl && (
