@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { Navigate } from "react-router-dom";
 import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, uploadImage, getImageUrl, type Block, type Profile, type BlockType } from "../api";
 import Avatar from "../components/Avatar";
 import BlockCard from "../components/BlockCard";
@@ -16,16 +17,15 @@ export default function Editor() {
   const [profileForm, setProfileForm] = useState({ username: "", name: "", bio: "", backgroundUrl: "" });
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<BlockType | null>(null);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
 
   useEffect(() => {
     // Проверяем наличие токена перед загрузкой данных
     const token = localStorage.getItem("token");
     if (!token) {
-      setError("Вы не авторизованы. Перенаправление на страницу входа...");
-      setTimeout(() => {
-        window.location.href = "/login";
-      }, 1500);
+      setIsAuthorized(false);
+      setLoading(false);
       return;
     }
     loadData();
@@ -44,6 +44,7 @@ export default function Editor() {
         bio: p.bio || "",
         backgroundUrl: p.backgroundUrl || "",
       });
+      setIsAuthorized(true);
     } catch (e: any) {
       console.error("Ошибка загрузки данных:", e);
       const errorMessage = e?.message || "Не удалось загрузить данные";
@@ -52,27 +53,24 @@ export default function Editor() {
       if (errorMessage === "unauthorized" || errorMessage === "profile_load_failed" || errorMessage === "load_blocks_failed") {
         const token = localStorage.getItem("token");
         if (!token) {
-          setError("Вы не авторизованы. Перенаправление на страницу входа...");
-          setTimeout(() => {
-            window.location.href = "/login";
-          }, 1500);
+          setIsAuthorized(false);
           return;
         }
-        setError("Ошибка авторизации. Токен недействителен. Перенаправление на страницу входа...");
-        setTimeout(() => {
-          localStorage.removeItem("token");
-          window.location.href = "/login";
-        }, 2000);
+        // Токен недействителен
+        localStorage.removeItem("token");
+        setIsAuthorized(false);
         return;
       }
       
       // Проверка на сетевые ошибки
       if (e instanceof TypeError && e.message.includes("fetch")) {
         setError("Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на http://localhost:3000");
+        setIsAuthorized(true); // Не редиректим при сетевых ошибках
         return;
       }
       
       setError(errorMessage === "Не удалось загрузить данные" ? errorMessage : `Ошибка: ${errorMessage}`);
+      setIsAuthorized(true); // Не редиректим при других ошибках
     } finally {
       setLoading(false);
     }
@@ -136,6 +134,11 @@ export default function Editor() {
   }, [blocks]);
 
 
+
+  // Редирект на страницу входа, если пользователь не авторизован
+  if (isAuthorized === false) {
+    return <Navigate to="/login" replace />;
+  }
 
   if (loading) {
     return (

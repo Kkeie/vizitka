@@ -6,9 +6,6 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
   const uname = user?.profile?.username || user?.username;
   const [toast, setToast] = React.useState<string | null>(null);
   const location = useLocation();
-  
-  // Показываем "Editor" везде кроме самой страницы Editor
-  const isEditorPage = location.pathname === "/editor";
 
   const copyPublic = async () => {
     if (!uname) return;
@@ -50,19 +47,6 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
               Bento
             </Link>
             <nav style={{ display: "flex", gap: 8 }}>
-              {!isEditorPage && (
-                <Link 
-                  to="/editor" 
-                  className="btn btn-ghost"
-                  style={{ 
-                    fontSize: 14, 
-                    padding: "8px 16px",
-                    fontWeight: location.pathname === "/editor" ? 600 : 500
-                  }}
-                >
-                  Editor
-                </Link>
-              )}
               {uname && (
                 <Link 
                   to={`/${uname}`}
