@@ -194,12 +194,7 @@ export default function Editor() {
         </div>
 
         {/* Two Column Layout: Profile Left, Blocks Right */}
-        <div className="two-column-layout" style={{ position: "relative", zIndex: 2, 
-          display: "grid", 
-          gridTemplateColumns: "320px 1fr", 
-          gap: 48, 
-          alignItems: "start"
-        }}>
+        <div className="two-column-layout" style={{ width: "100%", maxWidth: "100%" }}>
           {/* Left Column: Profile */}
           <div className="profile-column" style={{ position: "sticky", top: 100, maxWidth: "100%" }}>
             <div className="reveal reveal-in">
@@ -405,7 +400,7 @@ export default function Editor() {
           </div>
 
           {/* Right Column: Blocks */}
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, width: "100%", maxWidth: "100%", overflow: "hidden" }}>
             {/* Add Blocks Section */}
             <div className="reveal reveal-in" style={{ marginBottom: 40 }}>
               <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 20, color: "var(--text)", letterSpacing: "-0.02em" }}>
@@ -462,7 +457,9 @@ export default function Editor() {
                   style={{ 
                     gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", 
                     gap: 16,
-                    gridAutoRows: "8px"
+                    gridAutoRows: "8px",
+                    width: "100%",
+                    maxWidth: "100%"
                   }}
                 >
                   {sortedBlocks.map((b, index) => (

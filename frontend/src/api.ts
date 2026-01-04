@@ -34,7 +34,18 @@ export type Block = {
 const API = import.meta.env.VITE_BACKEND_API_URL || "/api";
 
 // Базовый URL бэкенда (без /api) для загрузки файлов
-const BACKEND_BASE_URL = API.replace(/\/api$/, '') || '';
+// Используем переменную окружения VITE_BACKEND_BASE_URL если она установлена, иначе извлекаем из API
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL || API.replace(/\/api$/, '') || '';
+
+// Логирование для отладки
+if (import.meta.env.PROD) {
+  console.log('[API] getImageUrl config:', {
+    API,
+    BACKEND_BASE_URL,
+    VITE_BACKEND_BASE_URL: import.meta.env.VITE_BACKEND_BASE_URL,
+    PROD: import.meta.env.PROD
+  });
+}
 
 // Функция для преобразования относительных путей в полные URL
 export function getImageUrl(url: string | null | undefined): string {
@@ -49,7 +60,9 @@ export function getImageUrl(url: string | null | undefined): string {
   if (url.startsWith('/')) {
     // В production используем BACKEND_BASE_URL, в dev - текущий домен
     if (BACKEND_BASE_URL && import.meta.env.PROD) {
-      return `${BACKEND_BASE_URL}${url}`;
+      const fullUrl = `${BACKEND_BASE_URL}${url}`;
+      console.log('[API] getImageUrl:', { input: url, output: fullUrl });
+      return fullUrl;
     }
     // В dev режиме относительные пути работают через прокси
     return url;

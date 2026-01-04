@@ -75,12 +75,14 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ```
 VITE_BACKEND_API_URL = https://vizitka-backend.onrender.com/api
+VITE_BACKEND_BASE_URL = https://vizitka-backend.onrender.com
 VITE_BASE_PATH = /
 ```
 
 ⚠️ **Важно**: 
 - Замените `vizitka-backend.onrender.com` на реальный URL вашего backend сервиса!
-- **Обязательно добавьте `/api` в конце URL** (например: `https://vizitka-backend.onrender.com/api`)
+- **Обязательно добавьте `/api` в конце URL** для `VITE_BACKEND_API_URL` (например: `https://vizitka-backend.onrender.com/api`)
+- **Для `VITE_BACKEND_BASE_URL` НЕ добавляйте `/api`** (например: `https://vizitka-backend.onrender.com`)
 
 ### 3.3 Деплой Frontend
 
