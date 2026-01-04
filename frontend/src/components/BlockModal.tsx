@@ -82,7 +82,23 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&limit=1&addressdetails=1`
       );
-      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error('geocoding_failed');
+      }
+      
+      const text = await response.text();
+      if (!text || text.trim().length === 0) {
+        throw new Error('empty_response');
+      }
+      
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (error) {
+        console.error('[BlockModal] Failed to parse geocoding response:', text.substring(0, 200));
+        throw new Error('invalid_json_response');
+      }
       
       if (data && data.length > 0) {
         const { lat, lon, display_name } = data[0];

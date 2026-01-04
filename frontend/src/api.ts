@@ -81,6 +81,21 @@ export function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// Безопасный парсинг JSON из Response
+async function safeJsonParse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  if (!text || text.trim().length === 0) {
+    console.warn('[API] Empty response body');
+    return {} as T;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch (error) {
+    console.error('[API] Failed to parse JSON:', text.substring(0, 200));
+    throw new Error('invalid_json_response');
+  }
+}
+
 // Auth
 export async function register(username: string, password: string): Promise<{ token: string; user: User }> {
   const url = `${API}/auth/register`;
@@ -94,13 +109,13 @@ export async function register(username: string, password: string): Promise<{ to
     });
     
     if (!r.ok) {
-      const errorData = await r.json().catch(() => ({}));
+      const errorData = await safeJsonParse(r).catch(() => ({}));
       const errorMessage = errorData.error || errorData.message || "register_failed";
       console.error('[API] Register failed:', r.status, errorMessage);
       throw new Error(errorMessage);
     }
     
-    const data = await r.json();
+    const data = await safeJsonParse<{ token: string; user: User }>(r);
     setToken(data.token);
     return data;
   } catch (error: any) {
@@ -118,15 +133,18 @@ export async function login(username: string, password: string): Promise<{ token
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
   });
-  if (!r.ok) throw new Error("login_failed");
-  const data = await r.json();
+  if (!r.ok) {
+    const errorData = await safeJsonParse(r).catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || "login_failed");
+  }
+  const data = await safeJsonParse<{ token: string; user: User }>(r);
   setToken(data.token);
   return data;
 }
 export async function me(): Promise<User> {
   const r = await fetch(`${API}/user/me`, { headers: authHeaders() });
   if (!r.ok) throw new Error("unauthorized");
-  return r.json();
+  return safeJsonParse<User>(r);
 }
 
 // Profile
@@ -143,7 +161,7 @@ export async function getProfile(): Promise<Profile> {
     console.error('[API] getProfile error:', errorText);
     throw new Error(r.status === 401 ? "unauthorized" : "profile_load_failed");
   }
-  return r.json();
+  return safeJsonParse<Profile>(r);
 }
 export async function updateProfile(p: Partial<Pick<Profile, "username" | "name" | "bio" | "avatarUrl" | "backgroundUrl">>): Promise<Profile> {
   const r = await fetch(`${API}/profile`, {
@@ -151,8 +169,11 @@ export async function updateProfile(p: Partial<Pick<Profile, "username" | "name"
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(p),
   });
-  if (!r.ok) throw new Error("profile_update_failed");
-  return r.json();
+  if (!r.ok) {
+    const errorData = await safeJsonParse(r).catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || "profile_update_failed");
+  }
+  return safeJsonParse<Profile>(r);
 }
 
 // Uploads
@@ -168,14 +189,14 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
     });
     
     if (!r.ok) {
-      const errorData = await r.json().catch(() => ({}));
+      const errorData = await safeJsonParse(r).catch(() => ({}));
       if (r.status === 413) {
         throw new Error('file_too_large');
       }
       throw new Error(errorData.error || 'upload_failed');
     }
     
-    return r.json();
+    return safeJsonParse<{ url: string }>(r);
   } catch (error: any) {
     if (error.message === 'file_too_large') {
       throw new Error('Файл слишком большой. Максимальный размер: 50MB');
@@ -198,7 +219,7 @@ export async function listBlocks(): Promise<Block[]> {
     console.error('[API] listBlocks error:', errorText);
     throw new Error(r.status === 401 ? "unauthorized" : "load_blocks_failed");
   }
-  return r.json();
+  return safeJsonParse<Block[]>(r);
 }
 export async function createBlock(partial: Partial<Block> & { type: BlockType; sort?: number }): Promise<Block> {
   const r = await fetch(`${API}/blocks`, {
@@ -206,8 +227,11 @@ export async function createBlock(partial: Partial<Block> & { type: BlockType; s
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(partial),
   });
-  if (!r.ok) throw new Error("create_block_failed");
-  return r.json();
+  if (!r.ok) {
+    const errorData = await safeJsonParse(r).catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || "create_block_failed");
+  }
+  return safeJsonParse<Block>(r);
 }
 export async function updateBlock(id: number, partial: Partial<Block>): Promise<Block> {
   const r = await fetch(`${API}/blocks/${id}`, {
@@ -215,12 +239,18 @@ export async function updateBlock(id: number, partial: Partial<Block>): Promise<
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify(partial),
   });
-  if (!r.ok) throw new Error("update_block_failed");
-  return r.json();
+  if (!r.ok) {
+    const errorData = await safeJsonParse(r).catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || "update_block_failed");
+  }
+  return safeJsonParse<Block>(r);
 }
 export async function deleteBlock(id: number): Promise<void> {
   const r = await fetch(`${API}/blocks/${id}`, { method: "DELETE", headers: authHeaders() });
-  if (!r.ok) throw new Error("delete_block_failed");
+  if (!r.ok) {
+    const errorData = await safeJsonParse(r).catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || "delete_block_failed");
+  }
 }
 export async function reorderBlocks(items: { id: number; sort: number }[]) {
   const r = await fetch(`${API}/blocks/reorder`, {
@@ -228,22 +258,31 @@ export async function reorderBlocks(items: { id: number; sort: number }[]) {
     headers: { "Content-Type": "application/json", ...authHeaders() },
     body: JSON.stringify({ items }),
   });
-  if (!r.ok) throw new Error("reorder_failed");
-  return r.json();
+  if (!r.ok) {
+    const errorData = await safeJsonParse(r).catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || "reorder_failed");
+  }
+  return safeJsonParse(r);
 }
 
 // Metadata
 export async function getLinkMetadata(url: string): Promise<{ title?: string; description?: string; image?: string; url: string }> {
   const r = await fetch(`${API}/metadata?url=${encodeURIComponent(url)}`);
-  if (!r.ok) throw new Error("metadata_fetch_failed");
-  return r.json();
+  if (!r.ok) {
+    const errorData = await safeJsonParse(r).catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || "metadata_fetch_failed");
+  }
+  return safeJsonParse<{ title?: string; description?: string; image?: string; url: string }>(r);
 }
 
 // Public
 export async function getPublic(username: string): Promise<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; blocks: Block[] }> {
   const r = await fetch(`${API}/public/${encodeURIComponent(username)}`);
-  if (!r.ok) throw new Error("not_found");
-  return r.json();
+  if (!r.ok) {
+    const errorData = await safeJsonParse(r).catch(() => ({}));
+    throw new Error(errorData.error || errorData.message || "not_found");
+  }
+  return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; blocks: Block[] }>(r);
 }
 export function publicUrl(username: string) {
   return `${window.location.origin}/${encodeURIComponent(username)}`;

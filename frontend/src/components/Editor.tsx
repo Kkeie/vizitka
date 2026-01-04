@@ -18,13 +18,26 @@ function authHeaders(): HeadersInit {
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
+async function safeJsonParse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  if (!text || text.trim().length === 0) {
+    return {} as T;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch (error) {
+    console.error('[Editor] Failed to parse JSON:', text.substring(0, 200));
+    throw new Error('invalid_json_response');
+  }
+}
+
 async function listBlocks(): Promise<Block[]> {
   const res = await fetch("/api/blocks", { headers: authHeaders() });
   if (!res.ok) {
     const txt = await res.text();
     throw new Error(`${res.status} ${res.statusText}: ${txt}`);
   }
-  return res.json();
+  return safeJsonParse<Block[]>(res);
 }
 
 async function createBlock(payload: CreatePayload): Promise<Block> {
@@ -37,7 +50,7 @@ async function createBlock(payload: CreatePayload): Promise<Block> {
     const txt = await res.text();
     throw new Error(`${res.status} ${res.statusText}: ${txt}`);
   }
-  return res.json();
+  return safeJsonParse<Block>(res);
 }
 
 async function deleteBlock(id: number) {
