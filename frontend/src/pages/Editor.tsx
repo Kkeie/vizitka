@@ -159,42 +159,29 @@ export default function Editor() {
     <div 
       className="page-bg min-h-screen"
       style={{
+        backgroundImage: profile.backgroundUrl ? `url(${getImageUrl(profile.backgroundUrl)})` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
         position: "relative",
         minHeight: "100vh",
       }}
     >
-      {/* Фоновое изображение */}
-      {profile.backgroundUrl && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundImage: `url(${getImageUrl(profile.backgroundUrl)})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center center",
-          backgroundRepeat: "no-repeat",
-          backgroundAttachment: "fixed",
-          zIndex: 0,
-          pointerEvents: "none",
-        }} />
-      )}
       {/* Overlay для читаемости текста */}
       {profile.backgroundUrl && (
         <div style={{
-          position: "fixed",
+          position: "absolute",
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
           background: "rgba(250, 250, 250, 0.85)",
           backdropFilter: "blur(2px)",
-          zIndex: 1,
+          zIndex: 0,
           pointerEvents: "none",
         }} />
       )}
-      <div className="container" style={{ maxWidth: 1400, paddingTop: 40, paddingBottom: 80, position: "relative", zIndex: 2, width: "100%", boxSizing: "border-box" }}>
+      <div className="container" style={{ maxWidth: 1400, paddingTop: 40, paddingBottom: 80, position: "relative", zIndex: 1, width: "100%", boxSizing: "border-box" }}>
         {/* Editor Mode Indicator */}
         <div style={{ marginBottom: 32 }}>
           <div className="card" style={{ padding: "12px 20px", display: "inline-flex", alignItems: "center", gap: 12, background: "var(--primary)", color: "white" }}>
