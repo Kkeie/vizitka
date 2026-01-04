@@ -18,6 +18,7 @@ export default function Editor() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<BlockType | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
 
   useEffect(() => {
@@ -201,12 +202,51 @@ export default function Editor() {
         }} />
       )}
       <div className="container" style={{ paddingTop: 40, paddingBottom: 120, position: "relative", zIndex: 1 }}>
-        {/* Editor Mode Indicator */}
-        <div style={{ marginBottom: 32 }}>
+        {/* Editor Mode Indicator and Copy Link Button */}
+        <div style={{ marginBottom: 32, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div className="card" style={{ padding: "12px 20px", display: "inline-flex", alignItems: "center", gap: 12, background: "var(--primary)", color: "white" }}>
             <span style={{ fontSize: 16 }}>✏️</span>
             <span style={{ fontSize: 14, fontWeight: 600 }}>Редактор</span>
           </div>
+          {profile.username && (
+            <button
+              onClick={async () => {
+                const url = `${window.location.origin}/${profile.username}`;
+                try {
+                  await navigator.clipboard.writeText(url);
+                  setToast("Ссылка скопирована!");
+                  setTimeout(() => setToast(null), 2000);
+                } catch {
+                  try {
+                    const ta = document.createElement("textarea");
+                    ta.value = url;
+                    ta.style.position = "fixed";
+                    ta.style.opacity = "0";
+                    document.body.appendChild(ta);
+                    ta.focus();
+                    ta.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(ta);
+                    setToast("Ссылка скопирована!");
+                    setTimeout(() => setToast(null), 2000);
+                  } catch {
+                    window.prompt("Скопируйте ссылку:", url);
+                  }
+                }
+              }}
+              className="btn btn-ghost"
+              style={{
+                fontSize: 14,
+                padding: "12px 20px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span>🔗</span>
+              <span>Скопировать ссылку на страницу</span>
+            </button>
+          )}
         </div>
 
         {/* Two Column Layout: Profile Left, Blocks Right */}
@@ -546,6 +586,37 @@ export default function Editor() {
           onSubmit={handleBlockSubmit}
         />
       )}
+
+      {/* Toast Notification */}
+      {toast && (
+        <div 
+          className="card" 
+          style={{ 
+            position: "fixed", 
+            right: 24, 
+            top: 24, 
+            padding: "14px 18px",
+            zIndex: 10000,
+            boxShadow: "var(--shadow-xl)",
+            animation: "slideIn 0.3s ease"
+          }}
+        >
+          {toast}
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }
