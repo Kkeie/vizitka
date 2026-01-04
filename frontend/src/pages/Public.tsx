@@ -11,10 +11,31 @@ const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", 
 export default function PublicPage() {
   const { username = "" } = useParams();
   const routerLocation = useLocation();
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const profileRef = React.useRef<HTMLDivElement>(null);
   
   // ВСЕ хуки должны быть вызваны ДО любых условных возвратов
   const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; blocks?: any[]; error?: string }>({ loading: true });
   const gridRef = useMasonryGrid([state.blocks?.length]);
+  
+  // Вычисляем позицию профиля относительно контейнера
+  React.useEffect(() => {
+    const updateProfilePosition = () => {
+      if (containerRef.current && profileRef.current && window.innerWidth >= 969) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        profileRef.current.style.left = `${containerRect.left + 32}px`;
+      }
+    };
+    
+    updateProfilePosition();
+    window.addEventListener('resize', updateProfilePosition);
+    window.addEventListener('scroll', updateProfilePosition);
+    
+    return () => {
+      window.removeEventListener('resize', updateProfilePosition);
+      window.removeEventListener('scroll', updateProfilePosition);
+    };
+  }, [state.loading]);
   
   // Принудительное обновление компонента при изменении пути
   const [pathKey, setPathKey] = React.useState(0);
@@ -228,11 +249,13 @@ export default function PublicPage() {
           pointerEvents: "none",
         }} />
       )}
-      <div className="container" style={{ paddingTop: 60, paddingBottom: 80, position: "relative", zIndex: 1 }}>
+      <div ref={containerRef} className="container" style={{ paddingTop: 60, paddingBottom: 80, position: "relative", zIndex: 1 }}>
         {/* Two Column Layout: Profile Left, Blocks Right */}
         <div className="two-column-layout" style={{ alignItems: "start" }}>
-          {/* Left Column: Profile */}
-          <div className="profile-column" style={{ maxWidth: "100%" }}>
+          {/* Left Column: Profile (fixed) + Placeholder for grid */}
+          <div style={{ width: "100%", maxWidth: "100%" }}>
+            {/* Fixed profile */}
+            <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
             <div className="reveal reveal-in">
               <div style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "center", textAlign: "center", width: "100%", maxWidth: "100%" }}>
                 {state.avatarUrl && (
@@ -294,6 +317,9 @@ export default function PublicPage() {
                 </div>
               </div>
             </div>
+            </div>
+            {/* Placeholder для сохранения места в grid на больших экранах */}
+            <div className="profile-placeholder" style={{ width: "100%", minHeight: "400px" }}></div>
           </div>
 
           {/* Right Column: Blocks */}
