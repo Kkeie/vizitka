@@ -30,6 +30,7 @@ router.get("/:username", async (req, res) => {
       name: profile.name || profile.username,
       bio: profile.bio,
       avatarUrl: profile.avatarUrl,
+      backgroundUrl: profile.backgroundUrl,
       blocks: blocks.map((b) => ({
         id: b.id,
         type: b.type,

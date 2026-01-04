@@ -48,10 +48,21 @@ export function initDatabase() {
       name TEXT,
       bio TEXT,
       avatarUrl TEXT,
+      backgroundUrl TEXT,
       userId INTEGER NOT NULL UNIQUE,
       FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
     )
   `);
+  
+  // Добавляем поле backgroundUrl если его нет (миграция)
+  try {
+    db.exec(`ALTER TABLE Profile ADD COLUMN backgroundUrl TEXT`);
+  } catch (e: any) {
+    // Игнорируем ошибку если колонка уже существует
+    if (!e.message?.includes('duplicate column')) {
+      console.warn('[DB] Could not add backgroundUrl column:', e.message);
+    }
+  }
 
   // Таблица блоков
   db.exec(`
@@ -114,6 +125,7 @@ export interface Profile {
   name: string | null;
   bio: string | null;
   avatarUrl: string | null;
+  backgroundUrl: string | null;
   userId: number;
 }
 

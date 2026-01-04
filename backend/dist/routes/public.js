@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const prisma_1 = require("../utils/prisma");
+const db_1 = require("../utils/db");
 const router = (0, express_1.Router)();
 /**
  * Публичная страница визитки:
@@ -10,16 +10,19 @@ const router = (0, express_1.Router)();
 router.get("/:username", async (req, res) => {
     try {
         const username = String(req.params.username || "").toLowerCase();
-        const profile = await prisma_1.prisma.profile.findUnique({
-            where: { username },
-            include: { user: true },
-        });
+        const profile = db_1.db.prepare(`
+      SELECT p.*, u.id as userId
+      FROM Profile p
+      JOIN User u ON p.userId = u.id
+      WHERE p.username = ?
+    `).get(username);
         if (!profile)
             return res.status(404).json({ error: "not_found" });
-        const blocks = await prisma_1.prisma.block.findMany({
-            where: { userId: profile.userId },
-            orderBy: { sort: "asc" },
-        });
+        const blocks = db_1.db.prepare(`
+      SELECT * FROM Block 
+      WHERE userId = ? 
+      ORDER BY sort ASC
+    `).all(profile.userId);
         res.json({
             name: profile.name || profile.username,
             bio: profile.bio,
@@ -31,7 +34,7 @@ router.get("/:username", async (req, res) => {
                 note: b.note,
                 linkUrl: b.linkUrl,
                 photoUrl: b.photoUrl,
-                videoUrl: b.videoUrl, // ожидается youtube embeddable url в редакторе
+                videoUrl: b.videoUrl,
                 musicEmbed: b.musicEmbed,
                 mapLat: b.mapLat,
                 mapLng: b.mapLng,

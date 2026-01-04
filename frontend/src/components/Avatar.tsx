@@ -21,6 +21,22 @@ export default function Avatar({ src, size = 96, editable, onChange, className }
   const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Проверка размера файла (максимум 5MB для аватарки)
+    const fileSizeMB = file.size / (1024 * 1024);
+    if (fileSizeMB > 5) {
+      alert("Файл слишком большой. Максимальный размер для аватарки: 5MB");
+      e.target.value = "";
+      return;
+    }
+
+    // Проверка типа файла
+    if (!file.type.match(/^image\//)) {
+      alert("Выберите изображение");
+      e.target.value = "";
+      return;
+    }
+
     try {
       setLoading(true);
       const { url } = await uploadImage(file);

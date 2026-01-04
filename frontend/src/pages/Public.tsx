@@ -5,11 +5,11 @@ import BlockCard from "../components/BlockCard";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
 // Системные маршруты, которые не должны обрабатываться как username
-const SYSTEM_ROUTES = ["login", "register", "editor", "mybento", "u", "api"];
+const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api"];
 
 export default function PublicPage() {
   const { username = "" } = useParams();
-  const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; blocks?: any[]; error?: string }>({ loading: true });
+  const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; blocks?: any[]; error?: string }>({ loading: true });
   const gridRef = useMasonryGrid([state.blocks?.length]);
 
   // Проверяем, не является ли путь системным маршрутом
@@ -21,7 +21,7 @@ export default function PublicPage() {
     (async () => {
       try {
         const data = await getPublic(username);
-        setState({ loading: false, name: data.name, bio: data.bio, avatarUrl: data.avatarUrl, blocks: data.blocks });
+        setState({ loading: false, name: data.name, bio: data.bio, avatarUrl: data.avatarUrl, backgroundUrl: data.backgroundUrl, blocks: data.blocks });
       } catch {
         setState({ loading: false, error: "not_found" });
       }
@@ -45,96 +45,124 @@ export default function PublicPage() {
   }
 
   return (
-    <div className="page-bg min-h-screen">
-      <div className="container" style={{ maxWidth: 1200, paddingTop: 60, paddingBottom: 80 }}>
-        <div className="reveal reveal-in">
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 48, flexWrap: "wrap", gap: 24 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 24, flex: 1, minWidth: 0 }}>
-              {state.avatarUrl && (
-                <img
-                  src={state.avatarUrl}
-                  alt=""
-                  style={{ 
+    <div 
+      className="page-bg min-h-screen"
+      style={{
+        backgroundImage: state.backgroundUrl ? `url(${state.backgroundUrl})` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+        position: "relative",
+      }}
+    >
+      {/* Overlay для читаемости текста */}
+      {state.backgroundUrl && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(250, 250, 250, 0.85)",
+          backdropFilter: "blur(2px)",
+          zIndex: 0,
+          pointerEvents: "none",
+        }} />
+      )}
+      <div className="container" style={{ maxWidth: 1400, paddingTop: 60, paddingBottom: 80, position: "relative", zIndex: 1 }}>
+        {/* Two Column Layout: Profile Left, Blocks Right */}
+        <div className="two-column-layout">
+          {/* Left Column: Profile */}
+          <div style={{ position: "sticky", top: 100, maxWidth: "100%" }}>
+            <div className="reveal reveal-in">
+              <div style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "center", textAlign: "center", width: "100%", maxWidth: "100%" }}>
+                {state.avatarUrl && (
+                  <div style={{ 
                     width: 120, 
                     height: 120, 
                     borderRadius: "50%", 
-                    objectFit: "cover", 
-                    display: "block", 
-                    border: "2px solid var(--border)", 
-                    boxShadow: "var(--shadow-md)",
-                    flexShrink: 0
-                  }}
-                  onError={(e)=>{ (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                  loading="lazy"
-                />
-              )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h1 className="title" style={{ marginBottom: 12 }}>
-                  {state.name}
-                </h1>
-                {state.bio && (
-                  <p className="subtitle" style={{ marginTop: 8, maxWidth: 600 }}>
-                    {state.bio}
-                  </p>
+                    border: "3px solid rgba(255,255,255,0.9)",
+                    boxShadow: state.backgroundUrl ? "0 4px 16px rgba(0,0,0,0.2), 0 0 32px rgba(255,255,255,0.5)" : "var(--shadow-md)",
+                    padding: "3px",
+                    background: state.backgroundUrl ? "rgba(255,255,255,0.9)" : "transparent"
+                  }}>
+                    <img
+                      src={state.avatarUrl}
+                      alt=""
+                      style={{ 
+                        width: "100%", 
+                        height: "100%", 
+                        borderRadius: "50%", 
+                        objectFit: "cover", 
+                        display: "block"
+                      }}
+                      onError={(e)=>{ (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                      loading="lazy"
+                    />
+                  </div>
                 )}
+                <div style={{ width: "100%", maxWidth: "100%" }}>
+                  <h1 style={{ 
+                    fontSize: 32, 
+                    fontWeight: 800, 
+                    letterSpacing: "-0.03em", 
+                    lineHeight: 1.2, 
+                    color: "var(--text)", 
+                    marginBottom: 8, 
+                    wordBreak: "break-word",
+                    textShadow: state.backgroundUrl ? "0 2px 8px rgba(255,255,255,0.9), 0 0 16px rgba(255,255,255,0.5)" : undefined
+                  }}>
+                    {state.name}
+                  </h1>
+                  {state.bio && (
+                    <p style={{ 
+                      color: "var(--muted)", 
+                      fontSize: 14, 
+                      lineHeight: 1.6, 
+                      textAlign: "left", 
+                      marginTop: 12,
+                      wordWrap: "break-word",
+                      wordBreak: "break-word",
+                      overflowWrap: "break-word",
+                      whiteSpace: "pre-wrap",
+                      width: "100%",
+                      maxWidth: "100%",
+                      textShadow: state.backgroundUrl ? "0 1px 4px rgba(255,255,255,0.9)" : undefined
+                    }}>
+                      {state.bio}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
-            <button
-              className="chip"
-              onClick={async () => {
-                const url = window.location.href;
-                try { 
-                  await navigator.clipboard.writeText(url);
-                  const toast = document.createElement("div");
-                  toast.className = "card";
-                  toast.style.cssText = "position: fixed; right: 24px; top: 24px; padding: 14px 18px; z-index: 1000; box-shadow: var(--shadow-xl); animation: slideIn 0.3s ease;";
-                  toast.textContent = "Ссылка скопирована";
-                  document.body.appendChild(toast);
-                  setTimeout(() => {
-                    toast.style.opacity = "0";
-                    toast.style.transition = "opacity 0.3s ease";
-                    setTimeout(() => document.body.removeChild(toast), 300);
-                  }, 2000);
-                }
-                catch {
-                  try {
-                    const ta = document.createElement("textarea");
-                    ta.value = url; ta.style.position = "fixed"; ta.style.opacity = "0";
-                    document.body.appendChild(ta); ta.focus(); ta.select();
-                    document.execCommand("copy"); document.body.removeChild(ta);
-                  } catch { 
-                    window.prompt("Скопируйте ссылку:", url); 
-                  }
-                }
-              }}
-              title="Скопировать публичную ссылку" 
-              aria-label="Скопировать ссылку"
-              style={{ fontSize: 14, flexShrink: 0 }}
-            >
-              <span aria-hidden="true">🔗</span>
-              <span>Скопировать ссылку</span>
-            </button>
           </div>
-          
-          {state.blocks && state.blocks.length > 0 ? (
-            <div ref={gridRef} className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 24 }}>
-              {state.blocks.map((b: any) => (
-                <div key={b.id} className="reveal reveal-in" style={{ animationDelay: `${state.blocks!.indexOf(b) * 0.05}s` }}>
-                  <BlockCard b={b} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="card reveal reveal-in" style={{ padding: 64, textAlign: "center" }}>
-              <div style={{ fontSize: 64, marginBottom: 20 }}>📦</div>
-              <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>
-                Пока нет блоков
-              </h3>
-              <p style={{ color: "var(--muted)", fontSize: 15 }}>
-                Этот пользователь еще не добавил блоки
-              </p>
-            </div>
-          )}
+
+          {/* Right Column: Blocks */}
+          <div style={{ minWidth: 0 }}>
+            {state.blocks && state.blocks.length > 0 ? (
+              <div ref={gridRef} className="grid" style={{ 
+                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", 
+                gap: 16,
+                gridAutoRows: "8px"
+              }}>
+                {state.blocks.map((b: any, index: number) => (
+                  <div key={b.id} className="reveal reveal-in" style={{ animationDelay: `${index * 0.03}s` }}>
+                    <BlockCard b={b} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="card reveal reveal-in" style={{ padding: 60, textAlign: "center" }}>
+                <div style={{ fontSize: 64, marginBottom: 20 }}>📦</div>
+                <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>
+                  Пока нет блоков
+                </h3>
+                <p style={{ color: "var(--muted)", fontSize: 15 }}>
+                  Этот пользователь еще не добавил блоки
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <style>{`

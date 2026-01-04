@@ -14,7 +14,32 @@ const public_1 = __importDefault(require("./routes/public"));
 const uploads_1 = __importDefault(require("./routes/uploads"));
 const profile_1 = __importDefault(require("./routes/profile"));
 const app = (0, express_1.default)();
-app.use((0, cors_1.default)());
+// CORS настройки для production и development
+// Временно разрешаем все origins для отладки, потом можно ограничить
+const corsOptions = {
+    origin: process.env.FRONTEND_URL
+        ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+        : true, // Разрешаем все origins если FRONTEND_URL не установлен
+    credentials: true,
+    optionsSuccessStatus: 200,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+};
+app.use((0, cors_1.default)(corsOptions));
+// Логирование всех запросов для отладки
+app.use((req, res, next) => {
+    console.log(`[${req.method}] ${req.path}`, {
+        origin: req.headers.origin,
+        'content-type': req.headers['content-type'],
+        'authorization': req.headers.authorization ? 'Bearer ***' : 'none'
+    });
+    next();
+});
+// Логирование ошибок
+app.use((err, req, res, next) => {
+    console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+    res.status(500).json({ error: 'internal_error', message: err.message });
+});
 app.use(express_1.default.json({ limit: "10mb" }));
 app.use(express_1.default.urlencoded({ extended: true }));
 // статика для загруженных файлов

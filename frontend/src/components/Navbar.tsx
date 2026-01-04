@@ -1,10 +1,14 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { type User } from "../api";
 
 export default function Navbar({ user, onLogout }: { user: User | null; onLogout: () => void }) {
   const uname = user?.profile?.username || user?.username;
   const [toast, setToast] = React.useState<string | null>(null);
+  const location = useLocation();
+  
+  // Показываем "Editor" везде кроме самой страницы Editor
+  const isEditorPage = location.pathname === "/editor";
 
   const copyPublic = async () => {
     if (!uname) return;
@@ -45,19 +49,29 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
             >
               Bento
             </Link>
-            <nav style={{ display: "flex", gap: 6 }}>
-              <Link 
-                to="/editor" 
-                className="btn btn-ghost"
-                style={{ fontSize: 14, padding: "8px 16px" }}
-              >
-                Editor
-              </Link>
+            <nav style={{ display: "flex", gap: 8 }}>
+              {!isEditorPage && (
+                <Link 
+                  to="/editor" 
+                  className="btn btn-ghost"
+                  style={{ 
+                    fontSize: 14, 
+                    padding: "8px 16px",
+                    fontWeight: location.pathname === "/editor" ? 600 : 500
+                  }}
+                >
+                  Editor
+                </Link>
+              )}
               {uname && (
                 <Link 
-                  to="/mybento" 
+                  to={`/${uname}`}
                   className="btn btn-ghost"
-                  style={{ fontSize: 14, padding: "8px 16px" }}
+                  style={{ 
+                    fontSize: 14, 
+                    padding: "8px 16px",
+                    fontWeight: location.pathname === `/${uname}` ? 600 : 500
+                  }}
                 >
                   My Bento
                 </Link>

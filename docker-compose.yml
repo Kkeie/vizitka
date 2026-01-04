@@ -31,6 +31,8 @@ services:
         condition: service_healthy
     ports:
       - "8080:80"
+    environment:
+      - PORT=80
 
 volumes:
   backend_data:

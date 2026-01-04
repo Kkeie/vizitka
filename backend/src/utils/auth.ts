@@ -44,12 +44,17 @@ export type AuthedRequest = Request & { user?: AuthedUser };
 export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   const h = req.headers.authorization || "";
   const token = h.startsWith("Bearer ") ? h.slice(7) : null;
-  if (!token) return res.status(401).json({ error: "unauthorized" });
+  if (!token) {
+    console.log(`[AUTH] No token for ${req.method} ${req.path}`);
+    return res.status(401).json({ error: "unauthorized" });
+  }
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     req.user = { id: decoded.id, username: decoded.username };
+    console.log(`[AUTH] Authenticated user ${decoded.id} (${decoded.username}) for ${req.method} ${req.path}`);
     next();
-  } catch {
+  } catch (err) {
+    console.log(`[AUTH] Invalid token for ${req.method} ${req.path}:`, err);
     return res.status(401).json({ error: "unauthorized" });
   }
 }

@@ -18,12 +18,6 @@ COPY index.html ./index.html
 COPY public ./public
 COPY src ./src
 
-# Передаем переменные окружения для сборки Vite
-ARG VITE_BACKEND_API_URL
-ARG VITE_BASE_PATH
-ENV VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL
-ENV VITE_BASE_PATH=$VITE_BASE_PATH
-
 RUN npm run build
 
 # --- run ---
@@ -38,13 +32,18 @@ COPY nginx.conf /etc/nginx/nginx.conf.template
 # Копируем статические файлы
 COPY --from=build /app/dist/ /usr/share/nginx/html/
 
-# Копируем entrypoint скрипт
-COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
-
 EXPOSE 80
 
 # Используем PORT из переменной окружения (Railway предоставляет его)
 ENV PORT=80
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
+# Создаем entrypoint скрипт прямо в образе
+RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
+    echo 'set -e' >> /docker-entrypoint.sh && \
+    echo 'export PORT=${PORT:-80}' >> /docker-entrypoint.sh && \
+    echo 'envsubst '"'"'${PORT}'"'"' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf' >> /docker-entrypoint.sh && \
+    echo 'nginx -t' >> /docker-entrypoint.sh && \
+    echo 'exec nginx -g "daemon off;"' >> /docker-entrypoint.sh && \
+    chmod +x /docker-entrypoint.sh
+
+ENTRYPOINT ["/bin/sh", "/docker-entrypoint.sh"]

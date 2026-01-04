@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const prisma_1 = require("../utils/prisma");
+const db_1 = require("../utils/db");
 const auth_1 = require("../utils/auth");
 const router = (0, express_1.Router)();
 // Возвращаем legacy-формат блоков, как в публичном API и как ожидает фронт
@@ -19,7 +19,7 @@ function mapDbToLegacy(b) {
         mapLng: b.mapLng,
     };
 }
-function mapUnifiedToPrisma(type, patch) {
+function mapUnifiedToDb(type, patch) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     const data = {};
     if (typeof patch.sort === "number")
@@ -122,10 +122,11 @@ function mapUnifiedToPrisma(type, patch) {
  * GET /api/blocks — список моих блоков (legacy формат, как ожидает фронт)
  */
 router.get("/", auth_1.requireAuth, async (req, res) => {
-    const blocks = await prisma_1.prisma.block.findMany({
-        where: { userId: req.user.id },
-        orderBy: [{ sort: "asc" }, { id: "asc" }]
-    });
+    const blocks = db_1.db.prepare(`
+    SELECT * FROM Block 
+    WHERE userId = ? 
+    ORDER BY sort ASC, id ASC
+  `).all(req.user.id);
     res.json(blocks.map(mapDbToLegacy));
 });
 /**
@@ -133,19 +134,17 @@ router.get("/", auth_1.requireAuth, async (req, res) => {
  * body: { type: "note"|"link"|..., url?: string|null, content?: string|null, sort?: number }
  */
 router.post("/", auth_1.requireAuth, async (req, res) => {
+    var _a, _b, _c, _d, _e, _f, _g;
     const { type } = req.body;
     if (!type)
         return res.status(400).json({ error: "type_required" });
-    const prismaData = mapUnifiedToPrisma(type, req.body);
-    const created = await prisma_1.prisma.block.create({
-        data: {
-            userId: req.user.id,
-            type,
-            sort: typeof req.body.sort === "number" ? req.body.sort : 0,
-            // типоспецифичные поля
-            ...prismaData
-        }
-    });
+    const dbData = mapUnifiedToDb(type, req.body);
+    const insert = db_1.db.prepare(`
+    INSERT INTO Block (userId, type, sort, note, linkUrl, photoUrl, videoUrl, musicEmbed, mapLat, mapLng)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+    const result = insert.run(req.user.id, type, typeof req.body.sort === "number" ? req.body.sort : 0, (_a = dbData.note) !== null && _a !== void 0 ? _a : null, (_b = dbData.linkUrl) !== null && _b !== void 0 ? _b : null, (_c = dbData.photoUrl) !== null && _c !== void 0 ? _c : null, (_d = dbData.videoUrl) !== null && _d !== void 0 ? _d : null, (_e = dbData.musicEmbed) !== null && _e !== void 0 ? _e : null, (_f = dbData.mapLat) !== null && _f !== void 0 ? _f : null, (_g = dbData.mapLng) !== null && _g !== void 0 ? _g : null);
+    const created = db_1.db.prepare("SELECT * FROM Block WHERE id = ?").get(result.lastInsertRowid);
     res.json(mapDbToLegacy(created));
 });
 /**
@@ -153,14 +152,51 @@ router.post("/", auth_1.requireAuth, async (req, res) => {
  */
 router.patch("/:id", auth_1.requireAuth, async (req, res) => {
     const id = Number(req.params.id);
-    const existing = await prisma_1.prisma.block.findFirst({ where: { id, userId: req.user.id } });
+    const existing = db_1.db.prepare("SELECT * FROM Block WHERE id = ? AND userId = ?").get(id, req.user.id);
     if (!existing)
         return res.status(404).json({ error: "not_found" });
-    const prismaData = mapUnifiedToPrisma(existing.type, req.body);
-    const updated = await prisma_1.prisma.block.update({
-        where: { id },
-        data: prismaData
-    });
+    const dbData = mapUnifiedToDb(existing.type, req.body);
+    // Строим UPDATE запрос динамически, обновляя только переданные поля
+    const updates = [];
+    const values = [];
+    if (dbData.sort !== undefined) {
+        updates.push("sort = ?");
+        values.push(dbData.sort);
+    }
+    if (dbData.note !== undefined) {
+        updates.push("note = ?");
+        values.push(dbData.note);
+    }
+    if (dbData.linkUrl !== undefined) {
+        updates.push("linkUrl = ?");
+        values.push(dbData.linkUrl);
+    }
+    if (dbData.photoUrl !== undefined) {
+        updates.push("photoUrl = ?");
+        values.push(dbData.photoUrl);
+    }
+    if (dbData.videoUrl !== undefined) {
+        updates.push("videoUrl = ?");
+        values.push(dbData.videoUrl);
+    }
+    if (dbData.musicEmbed !== undefined) {
+        updates.push("musicEmbed = ?");
+        values.push(dbData.musicEmbed);
+    }
+    if (dbData.mapLat !== undefined) {
+        updates.push("mapLat = ?");
+        values.push(dbData.mapLat);
+    }
+    if (dbData.mapLng !== undefined) {
+        updates.push("mapLng = ?");
+        values.push(dbData.mapLng);
+    }
+    if (updates.length > 0) {
+        values.push(id);
+        const update = db_1.db.prepare(`UPDATE Block SET ${updates.join(", ")} WHERE id = ?`);
+        update.run(...values);
+    }
+    const updated = db_1.db.prepare("SELECT * FROM Block WHERE id = ?").get(id);
     res.json(mapDbToLegacy(updated));
 });
 /**
@@ -169,10 +205,13 @@ router.patch("/:id", auth_1.requireAuth, async (req, res) => {
 router.post("/reorder", auth_1.requireAuth, async (req, res) => {
     const payload = req.body || {};
     const items = Array.isArray(payload.items) ? payload.items : [];
-    await prisma_1.prisma.$transaction(items.map((it) => prisma_1.prisma.block.update({
-        where: { id: Number(it.id) },
-        data: { sort: Number(it.sort) },
-    })));
+    const update = db_1.db.prepare("UPDATE Block SET sort = ? WHERE id = ? AND userId = ?");
+    const transaction = db_1.db.transaction(() => {
+        for (const it of items) {
+            update.run(Number(it.sort), Number(it.id), req.user.id);
+        }
+    });
+    transaction();
     res.json({ ok: true });
 });
 /**
@@ -180,7 +219,7 @@ router.post("/reorder", auth_1.requireAuth, async (req, res) => {
  */
 router.delete("/:id", auth_1.requireAuth, async (req, res) => {
     const id = Number(req.params.id);
-    await prisma_1.prisma.block.delete({ where: { id } });
+    db_1.db.prepare("DELETE FROM Block WHERE id = ? AND userId = ?").run(id, req.user.id);
     res.json({ ok: true });
 });
 exports.default = router;

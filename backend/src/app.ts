@@ -9,6 +9,7 @@ import blocksRouter from "./routes/blocks";
 import publicRouter from "./routes/public";
 import uploadsRouter from "./routes/uploads";
 import profileRouter from "./routes/profile";
+import metadataRouter from "./routes/metadata";
 
 const app = express();
 
@@ -29,9 +30,16 @@ app.use(cors(corsOptions));
 app.use((req, res, next) => {
   console.log(`[${req.method}] ${req.path}`, {
     origin: req.headers.origin,
-    'content-type': req.headers['content-type']
+    'content-type': req.headers['content-type'],
+    'authorization': req.headers.authorization ? 'Bearer ***' : 'none'
   });
   next();
+});
+
+// Логирование ошибок
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+  res.status(500).json({ error: 'internal_error', message: err.message });
 });
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
@@ -48,6 +56,7 @@ app.use("/api/blocks", blocksRouter);
 app.use("/api/public", publicRouter);
 app.use("/api/storage", uploadsRouter);
 app.use("/api/profile", profileRouter);
+app.use("/api/metadata", metadataRouter);
 
 // обработчик 404 для /api/*
 app.use("/api", (_req, res) => res.status(404).json({ error: "not_found" }));

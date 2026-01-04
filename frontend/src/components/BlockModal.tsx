@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { type BlockType } from "../api";
+import { detectSocialType, extractTelegramInfo, extractInstagramUsername } from "../lib/social-preview";
+import ImageUploader from "./ImageUploader";
 
 interface BlockModalProps {
   type: BlockType;
@@ -12,13 +14,60 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
   const [formData, setFormData] = useState<any>({});
   const [searchAddress, setSearchAddress] = useState("");
   const [searching, setSearching] = useState(false);
+  const [linkPreview, setLinkPreview] = useState<{ type?: 'telegram' | 'instagram'; username?: string } | null>(null);
+  const [selectedSocialType, setSelectedSocialType] = useState<'telegram' | 'instagram' | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setFormData({});
       setSearchAddress("");
+      setLinkPreview(null);
+      setSelectedSocialType(null);
     }
   }, [isOpen, type]);
+
+  // Определяем тип ссылки при вводе
+  useEffect(() => {
+    if (type === "link" && formData.linkUrl) {
+      const url = formData.linkUrl.trim();
+      
+      // Если это не полный URL, пытаемся определить тип
+      if (!url.startsWith('http')) {
+        const username = url.replace(/^@/, '').trim();
+        // Более гибкая проверка username (минимум 1 символ, максимум 32)
+        // Разрешаем буквы, цифры, подчеркивания и точки (для Instagram)
+        if (username.match(/^[a-zA-Z0-9_.]{1,30}$/)) {
+          // Используем выбранный тип или Telegram по умолчанию
+          const currentType = selectedSocialType || linkPreview?.type || 'telegram';
+          setLinkPreview({ type: currentType, username });
+        } else {
+          setLinkPreview(null);
+        }
+      } else {
+        // Проверяем полный URL
+        const socialType = detectSocialType(url);
+        if (socialType === 'telegram') {
+          const info = extractTelegramInfo(url);
+          if (info) {
+            setLinkPreview({ type: 'telegram', username: info.username });
+          } else {
+            setLinkPreview(null);
+          }
+        } else if (socialType === 'instagram') {
+          const instaUser = extractInstagramUsername(url);
+          if (instaUser) {
+            setLinkPreview({ type: 'instagram', username: instaUser });
+          } else {
+            setLinkPreview(null);
+          }
+        } else {
+          setLinkPreview(null);
+        }
+      }
+    } else {
+      setLinkPreview(null);
+    }
+  }, [formData.linkUrl, type]);
 
   const handleGeocodeAddress = async () => {
     if (!searchAddress.trim()) return;
@@ -72,18 +121,56 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         
       case "link":
         if (!formData.linkUrl?.trim()) {
-          alert("Введите URL ссылки");
+          alert("Введите URL ссылки или username");
           return;
         }
-        submitData.linkUrl = formData.linkUrl;
+        let linkUrl = formData.linkUrl.trim();
+        
+        // Преобразуем username в полный URL
+        if (!linkUrl.startsWith('http')) {
+          const username = linkUrl.replace(/^@/, '').trim();
+          
+          // Проверяем формат username (Telegram/Instagram)
+          // Разрешаем буквы, цифры, подчеркивания и точки (для Instagram)
+          if (username.match(/^[a-zA-Z0-9_.]{1,30}$/)) {
+            // Используем выбранный тип или тип из превью
+            const socialType = selectedSocialType || linkPreview?.type || 'telegram';
+            if (socialType === 'instagram') {
+              linkUrl = `https://instagram.com/${username}`;
+            } else {
+              linkUrl = `https://t.me/${username}`;
+            }
+          } else {
+            alert("Некорректный формат username. Используйте формат: @username или полный URL");
+            return;
+          }
+        } else {
+          // Если это уже полный URL, проверяем что он валидный
+          try {
+            new URL(linkUrl);
+          } catch {
+            alert("Некорректный формат URL");
+            return;
+          }
+        }
+        
+        submitData.linkUrl = linkUrl;
         break;
         
       case "photo":
         if (!formData.photoUrl?.trim()) {
-          alert("Введите URL изображения");
+          alert("Введите URL изображения или загрузите фото");
           return;
         }
-        submitData.photoUrl = formData.photoUrl;
+        // Принимаем как полные URL, так и относительные пути (/uploads/...)
+        let photoUrl = formData.photoUrl.trim();
+        // Если это относительный путь (/uploads/...), оставляем как есть
+        // Если это полный URL (http:// или https://), проверяем валидность
+        if (!photoUrl.startsWith('/') && !photoUrl.startsWith('http://') && !photoUrl.startsWith('https://')) {
+          alert("Введите корректный URL изображения или загрузите фото с устройства");
+          return;
+        }
+        submitData.photoUrl = photoUrl;
         break;
         
       case "video":
@@ -215,34 +302,173 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
           {type === "link" && (
             <div className="field">
               <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
-                URL ссылки
+                URL ссылки или username
               </label>
               <input
                 className="input"
-                type="url"
-                placeholder="https://example.com"
+                type="text"
+                placeholder="https://example.com или @username (Telegram/Instagram)"
                 value={formData.linkUrl || ""}
                 onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
                 style={{ fontSize: 15 }}
                 autoFocus
               />
+              <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
+                Поддерживаются: полные URL или username для Telegram (@channelname) и Instagram (@username)
+              </p>
+              
+              {/* Превью для username */}
+              {linkPreview && (
+                <div className="card" style={{ marginTop: 12, padding: 16, background: "var(--accent)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    {linkPreview.type === 'telegram' ? (
+                      <>
+                        <div style={{ 
+                          width: 40, 
+                          height: 40, 
+                          borderRadius: "10px", 
+                          background: "linear-gradient(135deg, #0088cc 0%, #229ED9 100%)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 20,
+                          flexShrink: 0
+                        }}>
+                          ✈️
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>
+                            Telegram
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                            @{linkPreview.username}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+                            Будет создана ссылка: t.me/{linkPreview.username}
+                          </div>
+                        </div>
+                      </>
+                    ) : linkPreview.type === 'instagram' ? (
+                      <>
+                        <div style={{ 
+                          width: 40, 
+                          height: 40, 
+                          borderRadius: "10px", 
+                          background: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 20,
+                          flexShrink: 0
+                        }}>
+                          📷
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>
+                            Instagram
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                            @{linkPreview.username}
+                          </div>
+                          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+                            Будет создана ссылка: instagram.com/{linkPreview.username}
+                          </div>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                  
+                  {/* Выбор типа для неопределенного username */}
+                  {!formData.linkUrl?.startsWith('http') && linkPreview && (
+                    <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const username = (formData.linkUrl || '').replace(/^@/, '').trim();
+                          setSelectedSocialType('telegram');
+                          setLinkPreview({ type: 'telegram', username });
+                          // Не меняем linkUrl, чтобы пользователь мог видеть username
+                          // URL будет сгенерирован при отправке формы
+                        }}
+                        className="btn"
+                        style={{ 
+                          fontSize: 12, 
+                          padding: "6px 12px", 
+                          flex: 1,
+                          background: (selectedSocialType || linkPreview.type) === 'telegram' ? 'var(--primary)' : 'transparent',
+                          color: (selectedSocialType || linkPreview.type) === 'telegram' ? 'white' : 'var(--text)'
+                        }}
+                      >
+                        Использовать как Telegram
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const username = (formData.linkUrl || '').replace(/^@/, '').trim();
+                          setSelectedSocialType('instagram');
+                          setLinkPreview({ type: 'instagram', username });
+                          // Не меняем linkUrl, чтобы пользователь мог видеть username
+                          // URL будет сгенерирован при отправке формы
+                        }}
+                        className="btn"
+                        style={{ 
+                          fontSize: 12, 
+                          padding: "6px 12px", 
+                          flex: 1,
+                          background: (selectedSocialType || linkPreview.type) === 'instagram' ? 'var(--primary)' : 'transparent',
+                          color: (selectedSocialType || linkPreview.type) === 'instagram' ? 'white' : 'var(--text)'
+                        }}
+                      >
+                        Использовать как Instagram
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {type === "photo" && (
             <div className="field">
               <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
-                URL изображения
+                URL изображения или загрузка с устройства
               </label>
               <input
                 className="input"
-                type="url"
-                placeholder="https://example.com/image.jpg"
+                type="text"
+                placeholder="https://example.com/image.jpg или /uploads/image.png"
                 value={formData.photoUrl || ""}
                 onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
-                style={{ fontSize: 15 }}
+                style={{ fontSize: 15, marginBottom: 12 }}
                 autoFocus
               />
+              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8, textAlign: "center" }}>
+                или
+              </div>
+              <ImageUploader
+                onUploaded={(url) => setFormData({ ...formData, photoUrl: url })}
+                label="Загрузить фото с устройства"
+                showPreview={true}
+                maxSizeMB={10}
+              />
+              {formData.photoUrl && (
+                <div style={{ marginTop: 12 }}>
+                  <img
+                    src={formData.photoUrl.startsWith('/') ? formData.photoUrl : formData.photoUrl}
+                    alt="Превью"
+                    style={{
+                      width: "100%",
+                      maxHeight: 200,
+                      objectFit: "cover",
+                      borderRadius: "var(--radius-sm)",
+                      border: "1px solid var(--border)",
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -480,3 +706,4 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
     </div>
   );
 }
+

@@ -58,7 +58,15 @@ function pickFirstFile(req: Request): Express.Multer.File | null {
 
 function respondWithFile(res: Response, file: Express.Multer.File | null) {
   if (!file) return res.status(400).json({ error: 'no_file' });
-  return res.json({ url: `/uploads/${file.filename}` });
+  
+  // Логируем успешную загрузку
+  console.log(`[UPLOAD] File uploaded: ${file.filename} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+  
+  // Возвращаем полный URL или относительный путь в зависимости от окружения
+  const baseUrl = process.env.BACKEND_URL || '';
+  const url = baseUrl ? `${baseUrl}/uploads/${file.filename}` : `/uploads/${file.filename}`;
+  
+  return res.json({ url });
 }
 
 function multerErrorHandler(

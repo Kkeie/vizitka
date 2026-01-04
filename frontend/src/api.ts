@@ -4,6 +4,7 @@ export type Profile = {
   name: string | null;
   bio: string | null;
   avatarUrl?: string | null;
+  backgroundUrl?: string | null;
   userId: number;
 };
 export type User = {
@@ -28,18 +29,20 @@ export type Block = {
 };
 
 // API base URL: использует переменную окружения для production или относительный путь для dev
+// В dev режиме Vite проксирует /api на бэкенд (см. vite.config.ts)
+// В production нужно установить VITE_BACKEND_API_URL
 const API = import.meta.env.VITE_BACKEND_API_URL || "/api";
 
-// Логирование для отладки (всегда показываем в production для диагностики)
+// Логирование для отладки
 console.log('[API] Backend URL:', API);
+console.log('[API] Mode:', import.meta.env.MODE);
 console.log('[API] VITE_BACKEND_API_URL env:', import.meta.env.VITE_BACKEND_API_URL);
-console.log('[API] All env vars:', Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')));
 
-// Проверка: если API начинается с "/", значит переменная не установлена
-if (API.startsWith('/') && !API.startsWith('http')) {
-  console.error('[API] WARNING: VITE_BACKEND_API_URL not set! Using relative path:', API);
-  console.error('[API] This will cause requests to go to frontend instead of backend!');
-  console.error('[API] Please set VITE_BACKEND_API_URL in Railway Frontend service variables');
+// Предупреждение только для production build
+if (import.meta.env.PROD && API.startsWith('/') && !API.startsWith('http')) {
+  console.warn('[API] WARNING: Running in production mode without VITE_BACKEND_API_URL!');
+  console.warn('[API] Requests will go to:', window.location.origin + API);
+  console.warn('[API] Make sure backend is accessible at this URL or set VITE_BACKEND_API_URL');
 }
 
 let token: string | null = localStorage.getItem("token");
@@ -89,11 +92,21 @@ export async function me(): Promise<User> {
 
 // Profile
 export async function getProfile(): Promise<Profile> {
-  const r = await fetch(`${API}/profile`, { headers: { "Content-Type": "application/json", ...authHeaders() } });
-  if (!r.ok) throw new Error("profile_load_failed");
+  const url = `${API}/profile`;
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...authHeaders() };
+  console.log('[API] getProfile request:', { url, headers: { ...headers, Authorization: headers.Authorization ? 'Bearer ***' : 'none' } });
+  
+  const r = await fetch(url, { headers });
+  console.log('[API] getProfile response:', { status: r.status, statusText: r.statusText, ok: r.ok });
+  
+  if (!r.ok) {
+    const errorText = await r.text().catch(() => '');
+    console.error('[API] getProfile error:', errorText);
+    throw new Error(r.status === 401 ? "unauthorized" : "profile_load_failed");
+  }
   return r.json();
 }
-export async function updateProfile(p: Partial<Pick<Profile, "username" | "name" | "bio" | "avatarUrl">>): Promise<Profile> {
+export async function updateProfile(p: Partial<Pick<Profile, "username" | "name" | "bio" | "avatarUrl" | "backgroundUrl">>): Promise<Profile> {
   const r = await fetch(`${API}/profile`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -107,15 +120,45 @@ export async function updateProfile(p: Partial<Pick<Profile, "username" | "name"
 export async function uploadImage(file: File): Promise<{ url: string }> {
   const form = new FormData();
   form.append('image', file);
-  const r = await fetch(`${API}/storage/image`, { method: 'POST', headers: { ...authHeaders() }, body: form });
-  if (!r.ok) throw new Error('upload_failed');
-  return r.json();
+  
+  try {
+    const r = await fetch(`${API}/storage/image`, { 
+      method: 'POST', 
+      headers: { ...authHeaders() }, 
+      body: form 
+    });
+    
+    if (!r.ok) {
+      const errorData = await r.json().catch(() => ({}));
+      if (r.status === 413) {
+        throw new Error('file_too_large');
+      }
+      throw new Error(errorData.error || 'upload_failed');
+    }
+    
+    return r.json();
+  } catch (error: any) {
+    if (error.message === 'file_too_large') {
+      throw new Error('Файл слишком большой. Максимальный размер: 50MB');
+    }
+    throw error;
+  }
 }
 
 // Blocks
 export async function listBlocks(): Promise<Block[]> {
-  const r = await fetch(`${API}/blocks`, { headers: authHeaders() });
-  if (!r.ok) throw new Error("load_blocks_failed");
+  const url = `${API}/blocks`;
+  const headers: Record<string, string> = authHeaders();
+  console.log('[API] listBlocks request:', { url, headers: { ...headers, Authorization: headers.Authorization ? 'Bearer ***' : 'none' } });
+  
+  const r = await fetch(url, { headers });
+  console.log('[API] listBlocks response:', { status: r.status, statusText: r.statusText, ok: r.ok });
+  
+  if (!r.ok) {
+    const errorText = await r.text().catch(() => '');
+    console.error('[API] listBlocks error:', errorText);
+    throw new Error(r.status === 401 ? "unauthorized" : "load_blocks_failed");
+  }
   return r.json();
 }
 export async function createBlock(partial: Partial<Block> & { type: BlockType; sort?: number }): Promise<Block> {
@@ -150,8 +193,15 @@ export async function reorderBlocks(items: { id: number; sort: number }[]) {
   return r.json();
 }
 
+// Metadata
+export async function getLinkMetadata(url: string): Promise<{ title?: string; description?: string; image?: string; url: string }> {
+  const r = await fetch(`${API}/metadata?url=${encodeURIComponent(url)}`);
+  if (!r.ok) throw new Error("metadata_fetch_failed");
+  return r.json();
+}
+
 // Public
-export async function getPublic(username: string): Promise<{ name: string; bio: string | null; avatarUrl: string | null; blocks: Block[] }> {
+export async function getPublic(username: string): Promise<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; blocks: Block[] }> {
   const r = await fetch(`${API}/public/${encodeURIComponent(username)}`);
   if (!r.ok) throw new Error("not_found");
   return r.json();

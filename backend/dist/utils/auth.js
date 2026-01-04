@@ -47,14 +47,18 @@ exports.signToken = signToken;
 function requireAuth(req, res, next) {
     const h = req.headers.authorization || "";
     const token = h.startsWith("Bearer ") ? h.slice(7) : null;
-    if (!token)
+    if (!token) {
+        console.log(`[AUTH] No token for ${req.method} ${req.path}`);
         return res.status(401).json({ error: "unauthorized" });
+    }
     try {
         const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
         req.user = { id: decoded.id, username: decoded.username };
+        console.log(`[AUTH] Authenticated user ${decoded.id} (${decoded.username}) for ${req.method} ${req.path}`);
         next();
     }
-    catch {
+    catch (err) {
+        console.log(`[AUTH] Invalid token for ${req.method} ${req.path}:`, err);
         return res.status(401).json({ error: "unauthorized" });
     }
 }

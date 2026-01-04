@@ -8,12 +8,20 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Editor from "./pages/Editor";
-import MyBento from "./pages/MyBento";
 import Public from "./pages/Public";
 import { me, setToken, type User } from "./api";
 
 function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
+
+  // Обработка редиректа с 404.html для GitHub Pages
+  React.useEffect(() => {
+    const redirect = sessionStorage.redirect;
+    delete sessionStorage.redirect;
+    if (redirect && redirect !== window.location.href) {
+      window.history.replaceState(null, '', redirect);
+    }
+  }, []);
 
   React.useEffect(() => {
     (async () => {
@@ -48,7 +56,6 @@ function Shell() {
     { path: "/login", element: withNav(<Login onAuthed={(u)=>setUser(u)} />) },
     { path: "/register", element: withNav(<Register onAuthed={(u)=>setUser(u)} />) },
     { path: "/editor", element: withNav(<Editor />) },
-    { path: "/mybento", element: withNav(<MyBento />) },
     { path: "/u/:username", element: withNav(<Public />) }, // Старый формат для обратной совместимости
     { path: "/:username", element: withNav(<Public />) }, // Новый формат: /username (публичная страница, доступна всем)
     { path: "*", element: withNav(<div className="p-6">404</div>) },

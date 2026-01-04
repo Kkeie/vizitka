@@ -15,7 +15,7 @@ router.get("/", async (req: AuthedRequest, res) => {
 // PATCH /api/profile
 router.patch("/", async (req: AuthedRequest, res) => {
   const userId = req.user!.id;
-  const { username, name, bio, avatarUrl } = req.body || {};
+  const { username, name, bio, avatarUrl, backgroundUrl } = req.body || {};
   
   // если меняем username — проверить уникальность
   if (username !== undefined) {
@@ -42,6 +42,10 @@ router.patch("/", async (req: AuthedRequest, res) => {
   if (avatarUrl !== undefined) {
     updates.push("avatarUrl = ?");
     values.push(avatarUrl);
+  }
+  if (backgroundUrl !== undefined) {
+    updates.push("backgroundUrl = ?");
+    values.push(backgroundUrl);
   }
   
   if (updates.length > 0) {
