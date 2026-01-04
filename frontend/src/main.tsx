@@ -17,10 +17,28 @@ function Shell() {
 
   // Обработка редиректа с 404.html для GitHub Pages
   React.useEffect(() => {
+    const currentPath = window.location.pathname;
+    
+    // Если попали на /index или /index.html, редиректим на главную
+    if (currentPath === "/index" || currentPath === "/index.html") {
+      window.history.replaceState(null, '', "/");
+      return;
+    }
+    
+    // Не делаем редирект если текущий путь - это публичная страница (не системный маршрут)
+    const SYSTEM_PATHS = ["/", "/login", "/register", "/editor", "/index", "/index.html"];
+    const isPublicPage = !SYSTEM_PATHS.includes(currentPath) &&
+                        !currentPath.startsWith("/api") &&
+                        !currentPath.startsWith("/u/");
+    
+    // Редирект с 404.html только для системных маршрутов, не для публичных страниц
     const redirect = sessionStorage.redirect;
-    delete sessionStorage.redirect;
-    if (redirect && redirect !== window.location.href) {
+    if (redirect && redirect !== window.location.href && !isPublicPage) {
+      delete sessionStorage.redirect;
       window.history.replaceState(null, '', redirect);
+    } else if (redirect) {
+      // Если есть редирект для публичной страницы, просто удаляем его
+      delete sessionStorage.redirect;
     }
   }, []);
 
@@ -64,6 +82,8 @@ function Shell() {
     { path: "/login", element: withNav(<Login onAuthed={(u)=>setUser(u)} />) },
     { path: "/register", element: withNav(<Register onAuthed={(u)=>setUser(u)} />) },
     { path: "/editor", element: withNav(<Editor />) },
+    { path: "/index", element: withNav(<Home />) }, // Редирект /index на главную
+    { path: "/index.html", element: withNav(<Home />) }, // Редирект /index.html на главную
     { path: "/u/:username", element: withNav(<Public />) }, // Старый формат для обратной совместимости
     // Маршрут /:username должен быть перед catch-all маршрутом, но после всех конкретных маршрутов
     { path: "/:username", element: withNav(<Public />) }, // Новый формат: /username (публичная страница, доступна всем)

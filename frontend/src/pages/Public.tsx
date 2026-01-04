@@ -5,7 +5,7 @@ import BlockCard from "../components/BlockCard";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
 // Системные маршруты, которые не должны обрабатываться как username
-const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", "404.html"];
+const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", "404.html", "index"];
 
 export default function PublicPage() {
   const { username = "" } = useParams();

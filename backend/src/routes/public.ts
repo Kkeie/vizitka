@@ -16,7 +16,7 @@ router.get("/:username", async (req, res) => {
     console.log(`[PUBLIC] Fetching profile for username: "${username}" (raw: "${rawUsername}", decoded: "${decodedUsername}")`);
     
     // Системные маршруты, которые не должны обрабатываться как username
-    const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", "404.html", "favicon.ico", "robots.txt"];
+    const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", "404.html", "index", "favicon.ico", "robots.txt"];
     
     if (!username || username === "" || SYSTEM_ROUTES.includes(username)) {
       console.log(`[PUBLIC] Invalid username: "${username}" (system route or empty)`);
