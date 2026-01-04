@@ -6,67 +6,76 @@ import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
 // Системные маршруты, которые не должны обрабатываться как username
 // Примечание: "public" удален из списка, так как теперь мы используем маршрут /public/:username
-const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", "404.html", "index"];
+const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", "404.html", "index", "assets"];
 
 export default function PublicPage() {
   const { username = "" } = useParams();
   const routerLocation = useLocation();
   
-  // Если username пустой, пытаемся извлечь его из пути
+  // Если username пустой или равен системному маршруту, пытаемся извлечь его из пути
   const extractedUsername = React.useMemo(() => {
-    if (username && username.trim()) {
+    // Если username есть и это не системный маршрут, используем его
+    if (username && username.trim() && !SYSTEM_ROUTES.includes(username.toLowerCase())) {
       return username;
     }
+    // Иначе пытаемся извлечь из window.location.pathname
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
+      console.log('[Public] Extracting username from path:', path);
       if (path.startsWith("/public/")) {
         const match = path.match(/^\/public\/(.+)$/);
-        if (match) return decodeURIComponent(match[1]);
+        if (match && match[1]) {
+          const extracted = decodeURIComponent(match[1]);
+          console.log('[Public] Extracted from /public/:', extracted);
+          return extracted;
+        }
       } else if (path.startsWith("/u/")) {
         const match = path.match(/^\/u\/(.+)$/);
-        if (match) return decodeURIComponent(match[1]);
-      } else if (path !== "/" && path !== "/index.html" && !path.startsWith("/api") && !path.startsWith("/assets")) {
+        if (match && match[1]) {
+          const extracted = decodeURIComponent(match[1]);
+          console.log('[Public] Extracted from /u/:', extracted);
+          return extracted;
+        }
+      } else if (path !== "/" && path !== "/index.html" && !path.startsWith("/api") && !path.startsWith("/assets") && !path.startsWith("/_")) {
         const match = path.match(/^\/(.+)$/);
-        if (match) return decodeURIComponent(match[1]);
+        if (match && match[1] && !SYSTEM_ROUTES.includes(match[1].toLowerCase())) {
+          const extracted = decodeURIComponent(match[1]);
+          console.log('[Public] Extracted from root path:', extracted);
+          return extracted;
+        }
       }
     }
     return "";
-  }, [username, routerLocation.pathname]);
+  }, [username, routerLocation.pathname, pathKey]);
   
   const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; blocks?: any[]; error?: string }>({ loading: true });
   const gridRef = useMasonryGrid([state.blocks?.length]);
+  
+  // Принудительное обновление компонента при изменении пути
+  const [pathKey, setPathKey] = React.useState(0);
+  
+  React.useEffect(() => {
+    const checkPath = () => {
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        // Если путь изменился на /public/... или /u/..., принудительно обновляем компонент
+        if ((currentPath.startsWith("/public/") || currentPath.startsWith("/u/")) && (username === "index.html" || !username)) {
+          setPathKey(prev => prev + 1);
+        }
+      }
+    };
+    
+    // Проверяем путь сразу
+    checkPath();
+    
+    // И периодически проверяем, если мы на /index.html
+    const interval = setInterval(checkPath, 100);
+    return () => clearInterval(interval);
+  }, [username]);
 
   // Проверяем, не является ли путь системным маршрутом
   const cleanUsername = extractedUsername.trim();
   const lowerUsername = cleanUsername.toLowerCase();
-  
-  // Если мы на /index.html и username пустой, ждем восстановления пути
-  const [waitingForRestore, setWaitingForRestore] = React.useState(
-    typeof window !== 'undefined' && window.location.pathname === "/index.html" && !cleanUsername
-  );
-  
-  React.useEffect(() => {
-    if (waitingForRestore) {
-      // Ждем немного, чтобы дать время восстановить путь
-      const timer = setTimeout(() => {
-        const currentPath = window.location.pathname;
-        if (currentPath !== "/index.html" && currentPath !== "/index") {
-          setWaitingForRestore(false);
-        } else {
-          // Если путь все еще /index.html, проверяем sessionStorage
-          const originalPath = sessionStorage.getItem("originalPath");
-          if (originalPath && originalPath !== "/index.html" && originalPath !== "/index") {
-            window.history.replaceState(null, '', originalPath);
-            sessionStorage.removeItem("originalPath");
-            setWaitingForRestore(false);
-          } else {
-            setWaitingForRestore(false);
-          }
-        }
-      }, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [waitingForRestore]);
   
   console.log('[Public] Component loaded with username:', cleanUsername, 'from useParams:', username, 'from extracted:', extractedUsername, 'lowerUsername:', lowerUsername, 'SYSTEM_ROUTES:', SYSTEM_ROUTES, 'window.location.pathname:', typeof window !== 'undefined' ? window.location.pathname : 'N/A', 'waitingForRestore:', waitingForRestore);
   
@@ -82,8 +91,21 @@ export default function PublicPage() {
   // НЕ делаем редирект на "/" если username пустой или системный маршрут
   // Вместо этого просто показываем ошибку "Профиль не найден"
   // Это предотвращает бесконечные редиректы
+  // Но проверяем extractedUsername, а не username из useParams, так как useParams может быть устаревшим
   if (!cleanUsername || SYSTEM_ROUTES.includes(lowerUsername)) {
-    console.log('[Public] Invalid username or system route, showing error:', cleanUsername);
+    console.log('[Public] Invalid username or system route, showing error:', cleanUsername, 'extractedUsername:', extractedUsername, 'username from useParams:', username, 'window.location.pathname:', typeof window !== 'undefined' ? window.location.pathname : 'N/A');
+    // Если путь правильный (/public/...), но username еще не обновился, ждем немного и перезагружаем компонент
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname;
+      if (currentPath.startsWith("/public/") || currentPath.startsWith("/u/")) {
+        // Путь правильный, но username не извлечен - ждем и перезагружаем
+        return (
+          <div className="page-bg min-h-screen flex items-center justify-center">
+            <div className="muted" style={{ fontSize: 16 }}>Загрузка…</div>
+          </div>
+        );
+      }
+    }
     return (
       <div className="page-bg min-h-screen flex items-center justify-center">
         <div className="ribbon error">Профиль не найден</div>
