@@ -11,38 +11,9 @@ const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", 
 export default function PublicPage() {
   const { username = "" } = useParams();
   const routerLocation = useLocation();
-  const profileRef = React.useRef<HTMLDivElement>(null);
-  
   // ВСЕ хуки должны быть вызваны ДО любых условных возвратов
   const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; blocks?: any[]; error?: string }>({ loading: true });
   const gridRef = useMasonryGrid([state.blocks?.length]);
-  
-  // Динамически изменяем top профиля в зависимости от прокрутки
-  React.useEffect(() => {
-    const updateProfileTop = () => {
-      if (profileRef.current && window.innerWidth >= 969) {
-        const scrollY = window.scrollY;
-        // Если страница прокручена вверх, устанавливаем top больше, чтобы не перекрывать элементы
-        if (scrollY < 100) {
-          profileRef.current.style.top = '140px';
-        } else {
-          // Когда прокручено вниз, используем стандартное значение
-          profileRef.current.style.top = '100px';
-        }
-      }
-    };
-    
-    if (!state.loading) {
-      updateProfileTop();
-      window.addEventListener('scroll', updateProfileTop);
-      window.addEventListener('resize', updateProfileTop);
-    }
-    
-    return () => {
-      window.removeEventListener('scroll', updateProfileTop);
-      window.removeEventListener('resize', updateProfileTop);
-    };
-  }, [state.loading]);
   
   // Принудительное обновление компонента при изменении пути
   const [pathKey, setPathKey] = React.useState(0);
@@ -261,8 +232,8 @@ export default function PublicPage() {
         <div className="two-column-layout" style={{ alignItems: "start" }}>
           {/* Left Column: Profile (fixed) + Placeholder for grid */}
           <div style={{ width: "100%", maxWidth: "100%" }}>
-            {/* Fixed profile */}
-            <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
+            {/* Profile that scrolls with page */}
+            <div className="profile-column" style={{ maxWidth: "100%" }}>
             <div className="reveal reveal-in">
               <div style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "center", textAlign: "center", width: "100%", maxWidth: "100%" }}>
                 {state.avatarUrl && (

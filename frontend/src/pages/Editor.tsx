@@ -214,7 +214,7 @@ export default function Editor() {
 
   return (
     <div 
-      className="page-bg min-h-screen"
+      className="page-bg min-h-screen editor-page"
       style={{
         backgroundImage: profile.backgroundUrl ? `url(${getImageUrl(profile.backgroundUrl)})` : undefined,
         backgroundSize: "cover",
