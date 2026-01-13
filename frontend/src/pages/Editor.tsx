@@ -17,7 +17,7 @@ export default function Editor() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({ username: "", name: "", bio: "", backgroundUrl: "" });
+  const [profileForm, setProfileForm] = useState({ username: "", name: "", bio: "", backgroundUrl: "", phone: "", email: "", telegram: "" });
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<BlockType | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
@@ -53,6 +53,9 @@ export default function Editor() {
         name: p.name || "",
         bio: p.bio || "",
         backgroundUrl: p.backgroundUrl || "",
+        phone: (p as any).phone || "",
+        email: (p as any).email || "",
+        telegram: (p as any).telegram || "",
       });
       setIsAuthorized(true);
     } catch (e: any) {
@@ -105,7 +108,10 @@ export default function Editor() {
         name: profileForm.name || null,
         bio: profileForm.bio || null,
         backgroundUrl: profileForm.backgroundUrl || null,
-      });
+        phone: profileForm.phone || null,
+        email: profileForm.email || null,
+        telegram: profileForm.telegram || null,
+      } as any);
       setProfile(updated);
       setEditingProfile(false);
     } catch (e) {
@@ -210,55 +216,7 @@ export default function Editor() {
           pointerEvents: "none",
         }} />
       )}
-      <div className="container" style={{ paddingTop: 40, paddingBottom: 80, position: "relative", zIndex: 1 }}>
-        {/* Editor Mode Indicator and Copy Link Button */}
-        <div ref={headerRef} style={{ marginBottom: 32, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", position: "relative", zIndex: 100 }}>
-          <div className="card" style={{ padding: "12px 20px", display: "inline-flex", alignItems: "center", gap: 12, background: "var(--primary)", color: "white", position: "relative", zIndex: 101 }}>
-            <span style={{ fontSize: 16 }}>✏️</span>
-            <span style={{ fontSize: 14, fontWeight: 600 }}>Редактор</span>
-          </div>
-          {profile.username && (
-            <button
-              onClick={async () => {
-                const url = `${window.location.origin}/public/${profile.username}`;
-                try {
-                  await navigator.clipboard.writeText(url);
-                  setToast("Ссылка скопирована!");
-                  setTimeout(() => setToast(null), 2000);
-                } catch {
-                  try {
-                    const ta = document.createElement("textarea");
-                    ta.value = url;
-                    ta.style.position = "fixed";
-                    ta.style.opacity = "0";
-                    document.body.appendChild(ta);
-                    ta.focus();
-                    ta.select();
-                    document.execCommand("copy");
-                    document.body.removeChild(ta);
-                    setToast("Ссылка скопирована!");
-                    setTimeout(() => setToast(null), 2000);
-                  } catch {
-                    window.prompt("Скопируйте ссылку:", url);
-                  }
-                }
-              }}
-              className="btn btn-ghost"
-              style={{
-                fontSize: 14,
-                padding: "12px 20px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 8,
-                position: "relative",
-                zIndex: 101,
-              }}
-            >
-              <span>🔗</span>
-              <span>Скопировать ссылку на страницу</span>
-            </button>
-          )}
-        </div>
+      <div className="container" style={{ paddingTop: 40, paddingBottom: 100, position: "relative", zIndex: 1 }}>
 
         {/* Two Column Layout: Profile Left, Blocks Right */}
         <div className="two-column-layout" style={{ alignItems: "start" }}>
@@ -267,9 +225,9 @@ export default function Editor() {
             {/* Fixed profile */}
             <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
             <div className="reveal reveal-in">
-              <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%", alignItems: "flex-start" }}>
                 {/* Avatar */}
-                <div style={{ display: "flex", justifyContent: "center" }}>
+                <div style={{ display: "flex", justifyContent: "flex-start" }}>
                   <div style={{
                     borderRadius: "50%",
                     border: profile.backgroundUrl ? "3px solid rgba(255,255,255,0.9)" : undefined,
@@ -295,7 +253,7 @@ export default function Editor() {
 
                 {/* Profile Info */}
                 {editingProfile ? (
-                  <form onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                  <form onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Имя
@@ -336,6 +294,47 @@ export default function Editor() {
                         rows={4}
                         style={{ fontSize: 14, resize: "vertical", width: "100%" }}
                       />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
+                        Телефон
+                      </label>
+                      <input
+                        className="input"
+                        type="tel"
+                        placeholder="+7 (999) 123-45-67"
+                        value={profileForm.phone || ""}
+                        onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        style={{ fontSize: 14, padding: "8px 12px", width: "100%" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
+                        Email
+                      </label>
+                      <input
+                        className="input"
+                        type="email"
+                        placeholder="example@mail.ru"
+                        value={profileForm.email || ""}
+                        onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                        style={{ fontSize: 14, padding: "8px 12px", width: "100%" }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
+                        Telegram
+                      </label>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
+                        <input
+                          className="input"
+                          placeholder="username"
+                          value={profileForm.telegram || ""}
+                          onChange={(e) => setProfileForm({ ...profileForm, telegram: e.target.value })}
+                          style={{ fontSize: 14, padding: "8px 12px", flex: 1 }}
+                        />
+                      </div>
                     </div>
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
@@ -404,6 +403,9 @@ export default function Editor() {
                           name: profile.name || "",
                           bio: profile.bio || "",
                           backgroundUrl: profile.backgroundUrl || "",
+                          phone: (profile as any).phone || "",
+                          email: (profile as any).email || "",
+                          telegram: (profile as any).telegram || "",
                         });
                         }}
                         className="btn btn-ghost"
@@ -415,7 +417,7 @@ export default function Editor() {
                   </form>
                 ) : (
                   <>
-                    <div style={{ textAlign: "center", width: "100%" }}>
+                    <div style={{ textAlign: "left", width: "100%" }}>
                       <h1 style={{ 
                         fontSize: 32, 
                         fontWeight: 800, 
@@ -449,10 +451,30 @@ export default function Editor() {
                           whiteSpace: "pre-wrap",
                           width: "100%",
                           maxWidth: "100%",
+                          marginBottom: 16,
                           textShadow: profile.backgroundUrl ? "0 1px 4px rgba(255,255,255,0.9)" : undefined
                         }}>
                           {profile.bio}
                         </p>
+                      )}
+                      {((profile as any).phone || (profile as any).email || (profile as any).telegram) && (
+                        <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                          {(profile as any).phone && (
+                            <div style={{ fontSize: 14, color: "var(--text)" }}>
+                              📞 {(profile as any).phone}
+                            </div>
+                          )}
+                          {(profile as any).email && (
+                            <div style={{ fontSize: 14, color: "var(--text)" }}>
+                              ✉️ {(profile as any).email}
+                            </div>
+                          )}
+                          {(profile as any).telegram && (
+                            <div style={{ fontSize: 14, color: "var(--text)" }}>
+                              ✈️ @{(profile as any).telegram}
+                            </div>
+                          )}
+                        </div>
                       )}
                       <button
                         onClick={() => setEditingProfile(true)}
@@ -496,7 +518,8 @@ export default function Editor() {
                   style={{ 
                     gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", 
                     gap: 16,
-                    gridAutoRows: "8px"
+                    gridAutoRows: "8px",
+                    rowGap: 16
                   }}
                 >
                   {sortedBlocks.map((b, index) => (
@@ -523,30 +546,24 @@ export default function Editor() {
         {/* Bottom Navigation Bar - Block Selection */}
         <div style={{
           position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
+          bottom: 20,
+          left: "50%",
+          transform: "translateX(-50%)",
           background: "var(--surface)",
-          borderTop: "1px solid var(--border)",
-          padding: "10px 0",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-md)",
+          padding: "12px 20px",
           zIndex: 1000,
-          boxShadow: "0 -2px 8px rgba(0,0,0,0.05)",
-          width: "100%",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+          maxWidth: "fit-content",
         }}>
           <div style={{
-            maxWidth: "1400px",
-            margin: "0 auto",
-            padding: "0 32px",
-            width: "100%",
-            boxSizing: "border-box",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "12px",
+            flexWrap: "wrap",
           }}>
-            <div style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              gap: "12px",
-              flexWrap: "wrap",
-            }}>
               {[
                 { type: "note" as BlockType, label: "Заметка", icon: "📝" },
                 { type: "link" as BlockType, label: "Ссылка", icon: "🔗" },
@@ -585,7 +602,6 @@ export default function Editor() {
                   <span style={{ fontSize: "11px", fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
                 </button>
               ))}
-            </div>
           </div>
         </div>
       </div>

@@ -1,11 +1,14 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { type User } from "../api";
 
 export default function Navbar({ user, onLogout }: { user: User | null; onLogout: () => void }) {
   const uname = user?.profile?.username || user?.username;
   const [toast, setToast] = React.useState<string | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const isEditor = location.pathname === "/editor";
+  const isPublic = location.pathname.startsWith("/public/") || location.pathname.startsWith("/u/");
 
   const copyPublic = async () => {
     if (!uname) return;
@@ -29,7 +32,7 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
   return (
     <div className="topbar">
       <div className="container" style={{ paddingTop: 18, paddingBottom: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
           <Link 
             to="/" 
             style={{ 
@@ -45,14 +48,70 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
           >
             Bento
           </Link>
+          
           {uname && (
-            <button 
-              className="btn" 
-              onClick={onLogout}
-              style={{ fontSize: 14, padding: "10px 20px" }}
-            >
-              Выйти
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {/* Табы Редактор/Превью */}
+              <div style={{ display: "flex", gap: 4, background: "var(--accent)", borderRadius: "var(--radius-sm)", padding: 4 }}>
+                <button
+                  onClick={() => navigate("/editor")}
+                  style={{
+                    padding: "8px 16px",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    background: isEditor ? "var(--primary)" : "transparent",
+                    color: isEditor ? "white" : "var(--text)",
+                    border: "none",
+                    borderRadius: "var(--radius-sm)",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  Редактор
+                </button>
+                <button
+                  onClick={() => navigate(`/public/${uname}`)}
+                  style={{
+                    padding: "8px 16px",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    background: isPublic ? "var(--primary)" : "transparent",
+                    color: isPublic ? "white" : "var(--text)",
+                    border: "none",
+                    borderRadius: "var(--radius-sm)",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  Превью
+                </button>
+              </div>
+              
+              {/* Кнопка скопировать ссылку */}
+              <button
+                onClick={copyPublic}
+                className="btn btn-ghost"
+                style={{
+                  fontSize: 14,
+                  padding: "8px 16px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <span>🔗</span>
+                <span>Скопировать ссылку</span>
+              </button>
+              
+              {/* Кнопка выхода */}
+              <button 
+                className="btn" 
+                onClick={onLogout}
+                style={{ fontSize: 14, padding: "10px 20px" }}
+              >
+                Выйти
+              </button>
+            </div>
           )}
         </div>
         {toast && (

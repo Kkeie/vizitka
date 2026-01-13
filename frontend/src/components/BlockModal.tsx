@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { type BlockType, getImageUrl } from "../api";
-import { detectSocialType, extractTelegramInfo, extractInstagramUsername } from "../lib/social-preview";
 import ImageUploader from "./ImageUploader";
 
 interface BlockModalProps {
@@ -14,73 +13,25 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
   const [formData, setFormData] = useState<any>({});
   const [searchAddress, setSearchAddress] = useState("");
   const [searching, setSearching] = useState(false);
-  const [linkPreview, setLinkPreview] = useState<{ type?: 'telegram' | 'instagram'; username?: string } | null>(null);
-  const [selectedSocialType, setSelectedSocialType] = useState<'telegram' | 'instagram' | null>(null);
+  const [mapInputType, setMapInputType] = useState<'address' | 'coordinates'>('address');
 
   useEffect(() => {
     if (isOpen) {
       setFormData({});
       setSearchAddress("");
-      setLinkPreview(null);
-      setSelectedSocialType(null);
+      setMapInputType('address');
     }
   }, [isOpen, type]);
 
-  // Определяем тип ссылки при вводе
-  useEffect(() => {
-    if (type === "link" && formData.linkUrl) {
-      const url = formData.linkUrl.trim();
-      
-      // Если это не полный URL, пытаемся определить тип
-      if (!url.startsWith('http')) {
-        const username = url.replace(/^@/, '').trim();
-        // Более гибкая проверка username (минимум 1 символ, максимум 32)
-        // Разрешаем буквы, цифры, подчеркивания и точки (для Instagram)
-        if (username.match(/^[a-zA-Z0-9_.]{1,30}$/)) {
-          // Используем выбранный тип или Telegram по умолчанию
-          const currentType = selectedSocialType || linkPreview?.type || 'telegram';
-          setLinkPreview({ type: currentType, username });
-        } else {
-          setLinkPreview(null);
-        }
-      } else {
-        // Проверяем полный URL
-        const socialType = detectSocialType(url);
-        if (socialType === 'telegram') {
-          const info = extractTelegramInfo(url);
-          if (info) {
-            setLinkPreview({ type: 'telegram', username: info.username });
-          } else {
-            setLinkPreview(null);
-          }
-        } else if (socialType === 'instagram') {
-          const instaUser = extractInstagramUsername(url);
-          if (instaUser) {
-            setLinkPreview({ type: 'instagram', username: instaUser });
-          } else {
-            setLinkPreview(null);
-          }
-        } else {
-          setLinkPreview(null);
-        }
-      }
-    } else {
-      setLinkPreview(null);
-    }
-  }, [formData.linkUrl, type]);
 
   const handleGeocodeAddress = async () => {
     if (!searchAddress.trim()) return;
     
     setSearching(true);
     try {
-      // Пробуем использовать Google Maps Geocoding через iframe поиск
-      // Создаем временный iframe для поиска адреса
-      const geocodeUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchAddress)}`;
-      
-      // Используем Nominatim (OpenStreetMap) как основной метод геокодинга (бесплатный)
+      // Используем Nominatim (OpenStreetMap) для геокодинга (бесплатный)
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&limit=1&addressdetails=1`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&limit=1&addressdetails=1&accept-language=ru`
       );
       
       if (!response.ok) {
@@ -110,8 +61,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         // Показываем найденный адрес
         setSearchAddress(display_name || searchAddress);
       } else {
-        // Если Nominatim не нашел, предлагаем использовать Google Maps напрямую
-        alert(`Адрес не найден через OpenStreetMap.\n\nПопробуйте:\n1. Уточнить адрес\n2. Или откройте Google Maps: ${geocodeUrl}\n3. Скопируйте координаты из Google Maps`);
+        alert(`Адрес не найден. Попробуйте:\n1. Уточнить адрес\n2. Или используйте поиск по координатам`);
       }
     } catch (error) {
       console.error("Ошибка геокодинга:", error);
@@ -136,41 +86,55 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         break;
         
       case "link":
-        if (!formData.linkUrl?.trim()) {
-          alert("Введите URL ссылки или username");
+        // Проверяем, что заполнено хотя бы одно поле
+        const hasLink = formData.linkUrl?.trim();
+        const hasTelegram = formData.telegram?.trim();
+        const hasVk = formData.vk?.trim();
+        const hasInstagram = formData.instagram?.trim();
+        
+        if (!hasLink && !hasTelegram && !hasVk && !hasInstagram) {
+          alert("Заполните ссылку или одно из полей социальных сетей");
           return;
         }
-        let linkUrl = formData.linkUrl.trim();
         
-        // Преобразуем username в полный URL
-        if (!linkUrl.startsWith('http')) {
-          const username = linkUrl.replace(/^@/, '').trim();
-          
-          // Проверяем формат username (Telegram/Instagram)
-          // Разрешаем буквы, цифры, подчеркивания и точки (для Instagram)
-          if (username.match(/^[a-zA-Z0-9_.]{1,30}$/)) {
-            // Используем выбранный тип или тип из превью
-            const socialType = selectedSocialType || linkPreview?.type || 'telegram';
-            if (socialType === 'instagram') {
-              linkUrl = `https://instagram.com/${username}`;
-            } else {
-              linkUrl = `https://t.me/${username}`;
-            }
-          } else {
-            alert("Некорректный формат username. Используйте формат: @username или полный URL");
-            return;
-          }
-        } else {
-          // Если это уже полный URL, проверяем что он валидный
+        // Если есть основная ссылка, используем её
+        if (hasLink) {
+          let linkUrl = formData.linkUrl.trim();
           try {
             new URL(linkUrl);
+            submitData.linkUrl = linkUrl;
           } catch {
             alert("Некорректный формат URL");
             return;
           }
+        } else {
+          // Иначе используем первую заполненную соцсеть
+          if (hasTelegram) {
+            const username = formData.telegram.trim().replace(/^@/, '');
+            if (username.match(/^[a-zA-Z0-9_]{1,32}$/)) {
+              submitData.linkUrl = `https://t.me/${username}`;
+            } else {
+              alert("Некорректный формат Telegram username");
+              return;
+            }
+          } else if (hasVk) {
+            const username = formData.vk.trim();
+            if (username.match(/^[a-zA-Z0-9_.]{1,50}$/)) {
+              submitData.linkUrl = `https://vk.com/${username}`;
+            } else {
+              alert("Некорректный формат VK username");
+              return;
+            }
+          } else if (hasInstagram) {
+            const username = formData.instagram.trim().replace(/^@/, '');
+            if (username.match(/^[a-zA-Z0-9_.]{1,30}$/)) {
+              submitData.linkUrl = `https://instagram.com/${username}`;
+            } else {
+              alert("Некорректный формат Instagram username");
+              return;
+            }
+          }
         }
-        
-        submitData.linkUrl = linkUrl;
         break;
         
       case "photo":
@@ -191,10 +155,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         
       case "video":
         if (!formData.videoUrl?.trim()) {
-          alert("Введите YouTube URL");
+          alert("Введите ссылку на видео");
           return;
         }
-        submitData.videoUrl = formData.videoUrl;
+        submitData.videoUrl = formData.videoUrl.trim();
         break;
         
       case "music":
@@ -318,136 +282,105 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
           {type === "link" && (
             <div className="field">
               <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
-                URL ссылки или username
+                Ссылка
               </label>
               <input
                 className="input"
                 type="text"
-                placeholder="https://example.com или @username (Telegram/Instagram)"
+                placeholder="https://example.com"
                 value={formData.linkUrl || ""}
                 onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
-                style={{ fontSize: 15 }}
+                style={{ fontSize: 15, marginBottom: 20 }}
                 autoFocus
               />
-              <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
-                Поддерживаются: полные URL или username для Telegram (@channelname) и Instagram (@username)
-              </p>
               
-              {/* Превью для username */}
-              {linkPreview && (
-                <div className="card" style={{ marginTop: 12, padding: 16, background: "var(--accent)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    {linkPreview.type === 'telegram' ? (
-                      <>
-                        <div style={{ 
-                          width: 40, 
-                          height: 40, 
-                          borderRadius: "10px", 
-                          background: "linear-gradient(135deg, #0088cc 0%, #229ED9 100%)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 20,
-                          flexShrink: 0
-                        }}>
-                          ✈️
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>
-                            Telegram
-                          </div>
-                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                            @{linkPreview.username}
-                          </div>
-                          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
-                            Будет создана ссылка: t.me/{linkPreview.username}
-                          </div>
-                        </div>
-                      </>
-                    ) : linkPreview.type === 'instagram' ? (
-                      <>
-                        <div style={{ 
-                          width: 40, 
-                          height: 40, 
-                          borderRadius: "10px", 
-                          background: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 20,
-                          flexShrink: 0
-                        }}>
-                          📷
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 2 }}>
-                            Instagram
-                          </div>
-                          <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                            @{linkPreview.username}
-                          </div>
-                          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
-                            Будет создана ссылка: instagram.com/{linkPreview.username}
-                          </div>
-                        </div>
-                      </>
-                    ) : null}
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 20, marginTop: 20 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
+                  Социальные сети
+                </label>
+                
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6, display: "block" }}>
+                    Telegram
+                  </label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
+                    <input
+                      className="input"
+                      type="text"
+                      placeholder="username"
+                      value={formData.telegram || ""}
+                      onChange={(e) => setFormData({ ...formData, telegram: e.target.value })}
+                      style={{ fontSize: 15, flex: 1 }}
+                    />
                   </div>
-                  
-                  {/* Выбор типа для неопределенного username */}
-                  {!formData.linkUrl?.startsWith('http') && linkPreview && (
-                    <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const username = (formData.linkUrl || '').replace(/^@/, '').trim();
-                          setSelectedSocialType('telegram');
-                          setLinkPreview({ type: 'telegram', username });
-                          // Не меняем linkUrl, чтобы пользователь мог видеть username
-                          // URL будет сгенерирован при отправке формы
-                        }}
-                        className="btn"
-                        style={{ 
-                          fontSize: 12, 
-                          padding: "6px 12px", 
-                          flex: 1,
-                          background: (selectedSocialType || linkPreview.type) === 'telegram' ? 'var(--primary)' : 'transparent',
-                          color: (selectedSocialType || linkPreview.type) === 'telegram' ? 'white' : 'var(--text)'
-                        }}
-                      >
-                        Использовать как Telegram
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const username = (formData.linkUrl || '').replace(/^@/, '').trim();
-                          setSelectedSocialType('instagram');
-                          setLinkPreview({ type: 'instagram', username });
-                          // Не меняем linkUrl, чтобы пользователь мог видеть username
-                          // URL будет сгенерирован при отправке формы
-                        }}
-                        className="btn"
-                        style={{ 
-                          fontSize: 12, 
-                          padding: "6px 12px", 
-                          flex: 1,
-                          background: (selectedSocialType || linkPreview.type) === 'instagram' ? 'var(--primary)' : 'transparent',
-                          color: (selectedSocialType || linkPreview.type) === 'instagram' ? 'white' : 'var(--text)'
-                        }}
-                      >
-                        Использовать как Instagram
-                      </button>
-                    </div>
-                  )}
                 </div>
-              )}
+                
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6, display: "block" }}>
+                    ВКонтакте
+                  </label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 16, color: "var(--text)" }}>vk.com/</span>
+                    <input
+                      className="input"
+                      type="text"
+                      placeholder="username"
+                      value={formData.vk || ""}
+                      onChange={(e) => setFormData({ ...formData, vk: e.target.value })}
+                      style={{ fontSize: 15, flex: 1 }}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6, display: "block" }}>
+                    Instagram
+                  </label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
+                    <input
+                      className="input"
+                      type="text"
+                      placeholder="username"
+                      value={formData.instagram || ""}
+                      onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
+                      style={{ fontSize: 15, flex: 1 }}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 12 }}>
+                Заполните ссылку или одно из полей социальных сетей
+              </p>
             </div>
           )}
 
           {type === "photo" && (
             <div className="field">
+              <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
+                Загрузка изображения
+              </label>
+              <div style={{ 
+                border: "2px dashed var(--border)", 
+                borderRadius: "var(--radius-sm)", 
+                padding: 20, 
+                marginBottom: 16,
+                background: "var(--accent)"
+              }}>
+                <ImageUploader
+                  onUploaded={(url) => setFormData({ ...formData, photoUrl: url })}
+                  label="Загрузить фото с компьютера"
+                  showPreview={false}
+                  maxSizeMB={10}
+                />
+              </div>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8, textAlign: "center" }}>
+                или
+              </div>
               <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
-                URL изображения или загрузка с устройства
+                URL изображения
               </label>
               <input
                 className="input"
@@ -455,55 +388,28 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 placeholder="https://example.com/image.jpg или /uploads/image.png"
                 value={formData.photoUrl || ""}
                 onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
-                style={{ fontSize: 15, marginBottom: 12 }}
+                style={{ fontSize: 15 }}
                 autoFocus
               />
-              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8, textAlign: "center" }}>
-                или
-              </div>
-              <ImageUploader
-                onUploaded={(url) => setFormData({ ...formData, photoUrl: url })}
-                label="Загрузить фото с устройства"
-                showPreview={true}
-                maxSizeMB={10}
-              />
-              {formData.photoUrl && (
-                <div style={{ marginTop: 12 }}>
-                  <img
-                    src={getImageUrl(formData.photoUrl)}
-                    alt="Превью"
-                    style={{
-                      width: "100%",
-                      maxHeight: 200,
-                      objectFit: "cover",
-                      borderRadius: "var(--radius-sm)",
-                      border: "1px solid var(--border)",
-                    }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                </div>
-              )}
             </div>
           )}
 
           {type === "video" && (
             <div className="field">
               <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
-                YouTube URL
+                Ссылка на видео
               </label>
               <input
                 className="input"
                 type="url"
-                placeholder="https://www.youtube.com/watch?v=..."
+                placeholder="https://www.youtube.com/watch?v=... или https://vk.com/video..."
                 value={formData.videoUrl || ""}
                 onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
                 style={{ fontSize: 15 }}
                 autoFocus
               />
               <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
-                Поддерживаются ссылки YouTube, YouTube Shorts, youtu.be
+                Поддерживаются ссылки YouTube, YouTube Shorts, youtu.be, VK Video
               </p>
             </div>
           )}
@@ -530,75 +436,159 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
 
           {type === "map" && (
             <div className="field">
-              <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
-                Поиск по адресу
-              </label>
-              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                <input
-                  className="input"
-                  type="text"
-                  placeholder="Введите адрес (например: Москва, Красная площадь)"
-                  value={searchAddress}
-                  onChange={(e) => setSearchAddress(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleGeocodeAddress();
-                    }
-                  }}
-                  style={{ fontSize: 15, flex: 1 }}
-                />
+              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
                 <button
                   type="button"
-                  onClick={handleGeocodeAddress}
-                  disabled={searching || !searchAddress.trim()}
-                  className="btn btn-primary"
-                  style={{ fontSize: 14, whiteSpace: "nowrap" }}
+                  onClick={() => setMapInputType('address')}
+                  style={{
+                    flex: 1,
+                    padding: "10px 16px",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    background: mapInputType === 'address' ? "var(--primary)" : "var(--accent)",
+                    color: mapInputType === 'address' ? "white" : "var(--text)",
+                    border: "none",
+                    borderRadius: "var(--radius-sm)",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
                 >
-                  {searching ? "Поиск..." : "Найти"}
+                  По адресу
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMapInputType('coordinates')}
+                  style={{
+                    flex: 1,
+                    padding: "10px 16px",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    background: mapInputType === 'coordinates' ? "var(--primary)" : "var(--accent)",
+                    color: mapInputType === 'coordinates' ? "white" : "var(--text)",
+                    border: "none",
+                    borderRadius: "var(--radius-sm)",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  По координатам
                 </button>
               </div>
-              
-              {/* Google Maps поиск через iframe (использует бесплатный вариант без API ключа) */}
-              {searchAddress && (
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
-                    Превью на карте:
-                  </div>
-                  <div style={{ borderRadius: "var(--radius-sm)", overflow: "hidden", border: "1px solid var(--border)" }}>
-                    <iframe
-                      width="100%"
-                      height="300"
-                      style={{ border: 0 }}
-                      loading="lazy"
-                      allowFullScreen
-                      src={`https://www.google.com/maps?q=${encodeURIComponent(searchAddress)}&output=embed`}
-                      title="Поиск адреса на Google Maps"
-                    />
-                  </div>
-                  <div style={{ marginTop: 8, textAlign: "right" }}>
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(searchAddress)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        fontSize: 12,
-                        color: "var(--primary)",
-                        textDecoration: "none",
+
+              {mapInputType === 'address' && (
+                <>
+                  <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
+                    Поиск по адресу
+                  </label>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    <input
+                      className="input"
+                      type="text"
+                      placeholder="Введите адрес (например: Москва, Красная площадь)"
+                      value={searchAddress}
+                      onChange={(e) => setSearchAddress(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleGeocodeAddress();
+                        }
                       }}
+                      style={{ fontSize: 15, flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleGeocodeAddress}
+                      disabled={searching || !searchAddress.trim()}
+                      className="btn btn-primary"
+                      style={{ fontSize: 14, whiteSpace: "nowrap" }}
                     >
-                      Открыть в Google Maps →
-                    </a>
+                      {searching ? "Поиск..." : "Найти"}
+                    </button>
                   </div>
-                </div>
+                  
+                  {formData.mapLat && formData.mapLng && (
+                    <div style={{ marginTop: 16 }}>
+                      <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
+                        Найденные координаты:
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
+                            Широта
+                          </label>
+                          <input
+                            className="input"
+                            type="number"
+                            step="any"
+                            value={formData.mapLat}
+                            onChange={(e) => setFormData({ ...formData, mapLat: parseFloat(e.target.value) || 0 })}
+                            style={{ fontSize: 14 }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
+                            Долгота
+                          </label>
+                          <input
+                            className="input"
+                            type="number"
+                            step="any"
+                            value={formData.mapLng}
+                            onChange={(e) => setFormData({ ...formData, mapLng: parseFloat(e.target.value) || 0 })}
+                            style={{ fontSize: 14 }}
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Превью карты через 2ГИС или Яндекс */}
+                      <div style={{ marginTop: 16, borderRadius: "var(--radius-sm)", overflow: "hidden", border: "1px solid var(--border)" }}>
+                        <iframe
+                          width="100%"
+                          height="300"
+                          style={{ border: 0 }}
+                          loading="lazy"
+                          allowFullScreen
+                          src={`https://yandex.ru/map-widget/v1/?ll=${formData.mapLng}%2C${formData.mapLat}&pt=${formData.mapLng}%2C${formData.mapLat}&z=14`}
+                          title="Превью на карте"
+                        />
+                      </div>
+                      <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <a
+                          href={`https://yandex.ru/maps/?pt=${formData.mapLng},${formData.mapLat}&z=14`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            fontSize: 12,
+                            color: "var(--primary)",
+                            textDecoration: "none",
+                          }}
+                        >
+                          Открыть в Яндекс.Картах →
+                        </a>
+                        <a
+                          href={`https://2gis.ru/search/${formData.mapLat},${formData.mapLng}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            fontSize: 12,
+                            color: "var(--primary)",
+                            textDecoration: "none",
+                          }}
+                        >
+                          Открыть в 2ГИС →
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
-              {formData.mapLat && formData.mapLng && (
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
-                    Найденные координаты:
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {mapInputType === 'coordinates' && (
+                <>
+                  <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
+                    Введите координаты
+                  </label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
                         Широта
@@ -607,8 +597,9 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         className="input"
                         type="number"
                         step="any"
-                        value={formData.mapLat}
-                        onChange={(e) => setFormData({ ...formData, mapLat: parseFloat(e.target.value) || 0 })}
+                        placeholder="55.751244"
+                        value={formData.mapLat || ""}
+                        onChange={(e) => setFormData({ ...formData, mapLat: e.target.value ? parseFloat(e.target.value) : undefined })}
                         style={{ fontSize: 14 }}
                       />
                     </div>
@@ -620,76 +611,58 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         className="input"
                         type="number"
                         step="any"
-                        value={formData.mapLng}
-                        onChange={(e) => setFormData({ ...formData, mapLng: parseFloat(e.target.value) || 0 })}
+                        placeholder="37.618423"
+                        value={formData.mapLng || ""}
+                        onChange={(e) => setFormData({ ...formData, mapLng: e.target.value ? parseFloat(e.target.value) : undefined })}
                         style={{ fontSize: 14 }}
                       />
                     </div>
                   </div>
                   
-                  {/* Превью карты через OpenStreetMap */}
-                  <div style={{ marginTop: 16, borderRadius: "var(--radius-sm)", overflow: "hidden", border: "1px solid var(--border)" }}>
-                    <iframe
-                      width="100%"
-                      height="300"
-                      style={{ border: 0 }}
-                      loading="lazy"
-                      allowFullScreen
-                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${(formData.mapLng - 0.01)}%2C${(formData.mapLat - 0.01)}%2C${(formData.mapLng + 0.01)}%2C${(formData.mapLat + 0.01)}&layer=mapnik&marker=${formData.mapLat}%2C${formData.mapLng}`}
-                    />
-                  </div>
-                  <div style={{ marginTop: 8, textAlign: "right" }}>
-                    <a
-                      href={`https://www.openstreetmap.org/?mlat=${formData.mapLat}&mlon=${formData.mapLng}#map=15/${formData.mapLat}/${formData.mapLng}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        fontSize: 12,
-                        color: "var(--primary)",
-                        textDecoration: "none",
-                      }}
-                    >
-                      Открыть на карте →
-                    </a>
-                  </div>
-                </div>
+                  {formData.mapLat && formData.mapLng && (
+                    <>
+                      {/* Превью карты через 2ГИС или Яндекс */}
+                      <div style={{ marginTop: 16, borderRadius: "var(--radius-sm)", overflow: "hidden", border: "1px solid var(--border)" }}>
+                        <iframe
+                          width="100%"
+                          height="300"
+                          style={{ border: 0 }}
+                          loading="lazy"
+                          allowFullScreen
+                          src={`https://yandex.ru/map-widget/v1/?ll=${formData.mapLng}%2C${formData.mapLat}&pt=${formData.mapLng}%2C${formData.mapLat}&z=14`}
+                          title="Превью на карте"
+                        />
+                      </div>
+                      <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <a
+                          href={`https://yandex.ru/maps/?pt=${formData.mapLng},${formData.mapLat}&z=14`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            fontSize: 12,
+                            color: "var(--primary)",
+                            textDecoration: "none",
+                          }}
+                        >
+                          Открыть в Яндекс.Картах →
+                        </a>
+                        <a
+                          href={`https://2gis.ru/search/${formData.mapLat},${formData.mapLng}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{
+                            fontSize: 12,
+                            color: "var(--primary)",
+                            textDecoration: "none",
+                          }}
+                        >
+                          Открыть в 2ГИС →
+                        </a>
+                      </div>
+                    </>
+                  )}
+                </>
               )}
-
-              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 20, marginTop: 20 }}>
-                <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
-                  Или введите координаты вручную
-                </label>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
-                      Широта
-                    </label>
-                    <input
-                      className="input"
-                      type="number"
-                      step="any"
-                      placeholder="55.751244"
-                      value={formData.mapLat || ""}
-                      onChange={(e) => setFormData({ ...formData, mapLat: e.target.value ? parseFloat(e.target.value) : undefined })}
-                      style={{ fontSize: 14 }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
-                      Долгота
-                    </label>
-                    <input
-                      className="input"
-                      type="number"
-                      step="any"
-                      placeholder="37.618423"
-                      value={formData.mapLng || ""}
-                      onChange={(e) => setFormData({ ...formData, mapLng: e.target.value ? parseFloat(e.target.value) : undefined })}
-                      style={{ fontSize: 14 }}
-                    />
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 

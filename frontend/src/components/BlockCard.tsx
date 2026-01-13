@@ -1,6 +1,6 @@
 import React from "react";
 import { useReveal } from "../hooks/useReveal";
-import { extractYouTubeId, toYouTubeEmbed, classifyMusic, osmEmbedUrl, osmLink } from "../lib/embed";
+import { extractYouTubeId, toYouTubeEmbed, extractVKVideoId, toVKVideoEmbed, classifyMusic, osmEmbedUrl, osmLink } from "../lib/embed";
 import { detectSocialType, extractTelegramInfo, extractInstagramUsername } from "../lib/social-preview";
 import { getLinkMetadata, getImageUrl } from "../api";
 
@@ -79,7 +79,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
       ref={rootRef}
       className="card"
       style={{
-        padding: 20,
+        padding: 16,
         position: "relative",
         transition: "all 0.2s ease",
         display: "flex",
@@ -330,8 +330,13 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
 
         {b.type === "video" && b.videoUrl && (() => {
           const vid = extractYouTubeId(b.videoUrl);
-          const embedSrc = toYouTubeEmbed(b.videoUrl) + (isVideoPlaying ? "?autoplay=1&rel=0&modestbranding=1" : "");
-          if (!isVideoPlaying) {
+          const vkVideo = extractVKVideoId(b.videoUrl);
+          const vkEmbedSrc = vkVideo ? toVKVideoEmbed(b.videoUrl) : null;
+          const embedSrc = vid 
+            ? toYouTubeEmbed(b.videoUrl) + (isVideoPlaying ? "?autoplay=1&rel=0&modestbranding=1" : "")
+            : vkEmbedSrc;
+          
+          if (!isVideoPlaying && vid) {
             return (
               <div
                 onClick={() => setIsVideoPlaying(true)}
@@ -344,62 +349,63 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                   marginTop: -8,
                 }}
               >
-                {vid ? (
-                  <>
-                    <img
-                      src={`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`}
-                      alt="Превью видео"
-                      className="photo"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: "50%",
-                        left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        width: 72,
-                        height: 72,
-                        borderRadius: "50%",
-                        background: "rgba(0, 0, 0, 0.75)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 28,
-                        color: "#fff",
-                        transition: "all 0.2s ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "rgba(0, 0, 0, 0.9)";
-                        e.currentTarget.style.transform = "translate(-50%, -50%) scale(1.1)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "rgba(0, 0, 0, 0.75)";
-                        e.currentTarget.style.transform = "translate(-50%, -50%) scale(1)";
-                      }}
-                    >
-                      ▶
-                    </div>
-                  </>
-                ) : (
-                  <div className="card" style={{ padding: 48, textAlign: "center", color: "var(--muted)" }}>
-                    Видео
-                  </div>
-                )}
+                <img
+                  src={`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`}
+                  alt="Превью видео"
+                  className="photo"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: 72,
+                    height: 72,
+                    borderRadius: "50%",
+                    background: "rgba(0, 0, 0, 0.75)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 28,
+                    color: "#fff",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.9)";
+                    e.currentTarget.style.transform = "translate(-50%, -50%) scale(1.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "rgba(0, 0, 0, 0.75)";
+                    e.currentTarget.style.transform = "translate(-50%, -50%) scale(1)";
+                  }}
+                >
+                  ▶
+                </div>
               </div>
             );
           }
+          
+          if (embedSrc) {
+            return (
+              <iframe
+                className="embed"
+                src={embedSrc}
+                title="Видео"
+                loading="lazy"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ borderRadius: "var(--radius-sm)", marginTop: -8 }}
+              />
+            );
+          }
+          
           return (
-            <iframe
-              className="embed"
-              src={embedSrc}
-              title="Видео"
-              loading="lazy"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              style={{ borderRadius: "var(--radius-sm)", marginTop: -8 }}
-            />
+            <div className="card" style={{ padding: 48, textAlign: "center", color: "var(--muted)" }}>
+              Видео
+            </div>
           );
         })()}
 
@@ -449,14 +455,14 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
           <div>
             <iframe
               className="embed"
-              src={osmEmbedUrl(b.mapLat!, b.mapLng!, 14)}
+              src={`https://yandex.ru/map-widget/v1/?ll=${b.mapLng}%2C${b.mapLat}&pt=${b.mapLng}%2C${b.mapLat}&z=14`}
               loading="lazy"
               title="Карта"
               style={{ borderRadius: "var(--radius-sm)", marginTop: -8 }}
             />
-            <div style={{ textAlign: "right", marginTop: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, gap: 8 }}>
               <a
-                href={osmLink(b.mapLat!, b.mapLng!, 14)}
+                href={`https://yandex.ru/maps/?pt=${b.mapLng},${b.mapLat}&z=14`}
                 target="_blank"
                 rel="noreferrer"
                 style={{
@@ -469,7 +475,24 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                   gap: 4,
                 }}
               >
-                Открыть на карте
+                Яндекс.Карты
+                <span>→</span>
+              </a>
+              <a
+                href={`https://2gis.ru/search/${b.mapLat},${b.mapLng}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  color: "var(--primary)",
+                  textDecoration: "none",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                2ГИС
                 <span>→</span>
               </a>
             </div>

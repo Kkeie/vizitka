@@ -235,7 +235,7 @@ export default function PublicPage() {
             {/* Profile that scrolls with page */}
             <div className="profile-column" style={{ maxWidth: "100%" }}>
             <div className="reveal reveal-in">
-              <div style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "center", textAlign: "center", width: "100%", maxWidth: "100%" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "flex-start", textAlign: "left", width: "100%", maxWidth: "100%" }}>
                 {state.avatarUrl && (
                   <div style={{ 
                     width: 120, 
@@ -270,6 +270,7 @@ export default function PublicPage() {
                     color: "var(--text)", 
                     marginBottom: 8, 
                     wordBreak: "break-word",
+                    textAlign: "left",
                     textShadow: state.backgroundUrl ? "0 2px 8px rgba(255,255,255,0.9), 0 0 16px rgba(255,255,255,0.5)" : undefined
                   }}>
                     {state.name}

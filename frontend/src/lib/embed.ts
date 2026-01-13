@@ -36,6 +36,36 @@ export function toYouTubeEmbed(url: string): string {
   return url;
 }
 
+export function extractVKVideoId(url: string): { ownerId: string; videoId: string } | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("vk.com") || u.hostname.includes("vkontakte.ru")) {
+      // Формат: https://vk.com/video-123456789_123456789 или https://vk.com/video123456789_123456789
+      const match = u.pathname.match(/\/video(-?\d+)_(\d+)/);
+      if (match) {
+        return { ownerId: match[1], videoId: match[2] };
+      }
+      // Формат: https://vk.com/video?z=video-123456789_123456789
+      const zParam = u.searchParams.get("z");
+      if (zParam && zParam.startsWith("video")) {
+        const match = zParam.match(/video(-?\d+)_(\d+)/);
+        if (match) {
+          return { ownerId: match[1], videoId: match[2] };
+        }
+      }
+    }
+  } catch {}
+  return null;
+}
+
+export function toVKVideoEmbed(url: string): string | null {
+  const vkVideo = extractVKVideoId(url);
+  if (vkVideo) {
+    return `https://vk.com/video_ext.php?oid=${vkVideo.ownerId}&id=${vkVideo.videoId}&hash=`;
+  }
+  return null;
+}
+
 export type MusicKind =
   | { kind: "audio"; src: string }
   | { kind: "spotify"; src: string }
