@@ -93,6 +93,31 @@ export function initDatabase() {
     }
   }
 
+  // Добавляем поля контактов если их нет (миграция)
+  try {
+    db.exec(`ALTER TABLE Profile ADD COLUMN phone TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      console.warn('[DB] Could not add phone column:', e.message);
+    }
+  }
+
+  try {
+    db.exec(`ALTER TABLE Profile ADD COLUMN email TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      console.warn('[DB] Could not add email column:', e.message);
+    }
+  }
+
+  try {
+    db.exec(`ALTER TABLE Profile ADD COLUMN telegram TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      console.warn('[DB] Could not add telegram column:', e.message);
+    }
+  }
+
   // Таблица блоков
   db.exec(`
     CREATE TABLE IF NOT EXISTS Block (
@@ -112,6 +137,23 @@ export function initDatabase() {
       FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
     )
   `);
+
+  // Добавляем поля для блока соцсетей если их нет (миграция)
+  try {
+    db.exec(`ALTER TABLE Block ADD COLUMN socialType TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      console.warn('[DB] Could not add socialType column:', e.message);
+    }
+  }
+
+  try {
+    db.exec(`ALTER TABLE Block ADD COLUMN socialUrl TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      console.warn('[DB] Could not add socialUrl column:', e.message);
+    }
+  }
 
   // Индексы для производительности
   db.exec(`
@@ -155,6 +197,9 @@ export interface Profile {
   bio: string | null;
   avatarUrl: string | null;
   backgroundUrl: string | null;
+  phone: string | null;
+  email: string | null;
+  telegram: string | null;
   userId: number;
 }
 
@@ -172,6 +217,8 @@ export interface Block {
   musicEmbed: string | null;
   mapLat: number | null;
   mapLng: number | null;
+  socialType: string | null;
+  socialUrl: string | null;
 }
 
 // Закрываем соединение при выходе
