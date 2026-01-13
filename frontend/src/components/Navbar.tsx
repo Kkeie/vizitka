@@ -32,7 +32,8 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
   return (
     <div className="topbar">
       <div className="container" style={{ paddingTop: 18, paddingBottom: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, position: "relative" }}>
+          {/* Логотип слева */}
           <Link 
             to="/" 
             style={{ 
@@ -49,8 +50,16 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
             Bento
           </Link>
           
+          {/* Табы и кнопка по центру */}
           {uname && (
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ 
+              position: "absolute", 
+              left: "50%", 
+              transform: "translateX(-50%)",
+              display: "flex", 
+              alignItems: "center", 
+              gap: 12 
+            }}>
               {/* Табы Редактор/Превью */}
               <div style={{ display: "flex", gap: 4, background: "var(--accent)", borderRadius: "var(--radius-sm)", padding: 4 }}>
                 <button
@@ -102,8 +111,19 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
                 <span>🔗</span>
                 <span>Скопировать ссылку</span>
               </button>
-              
-              {/* Кнопка выхода */}
+            </div>
+          )}
+          
+          {/* Username и кнопка выхода справа */}
+          {uname && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+              <span style={{ 
+                fontSize: 14, 
+                color: "var(--muted)",
+                fontWeight: 500
+              }}>
+                @{uname}
+              </span>
               <button 
                 className="btn" 
                 onClick={onLogout}
