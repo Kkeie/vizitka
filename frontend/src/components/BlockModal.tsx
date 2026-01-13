@@ -456,21 +456,43 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 showPreview={false}
                 maxSizeMB={10}
               />
-              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 16, marginBottom: 8, textAlign: "center" }}>
-                или
-              </div>
-              <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginTop: 16, marginBottom: 8, display: "block" }}>
-                URL изображения
-              </label>
-              <input
-                className="input"
-                type="text"
-                placeholder="https://example.com/image.jpg или /uploads/image.png"
-                value={formData.photoUrl || ""}
-                onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
-                style={{ fontSize: 15 }}
-                autoFocus
-              />
+              
+              {formData.photoUrl && formData.photoUrl.startsWith('/uploads/') && (
+                <div style={{ 
+                  marginTop: 12, 
+                  padding: "12px", 
+                  background: "var(--accent)", 
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: 13,
+                  color: "var(--text)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8
+                }}>
+                  <span>✅</span>
+                  <span>Фото успешно загружено</span>
+                </div>
+              )}
+              
+              {(!formData.photoUrl || !formData.photoUrl.startsWith('/uploads/')) && (
+                <>
+                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 16, marginBottom: 8, textAlign: "center" }}>
+                    или
+                  </div>
+                  <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginTop: 16, marginBottom: 8, display: "block" }}>
+                    URL изображения
+                  </label>
+                  <input
+                    className="input"
+                    type="text"
+                    placeholder="https://example.com/image.jpg или /uploads/image.png"
+                    value={formData.photoUrl || ""}
+                    onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
+                    style={{ fontSize: 15 }}
+                    autoFocus
+                  />
+                </>
+              )}
             </div>
           )}
 
