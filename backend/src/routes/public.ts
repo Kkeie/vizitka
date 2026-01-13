@@ -81,6 +81,9 @@ router.get("/:username", async (req, res) => {
       bio: profile.bio,
       avatarUrl: profile.avatarUrl,
       backgroundUrl: profile.backgroundUrl,
+      phone: profile.phone,
+      email: profile.email,
+      telegram: profile.telegram,
       blocks: blocks.map((b) => ({
         id: b.id,
         type: b.type,
@@ -92,6 +95,8 @@ router.get("/:username", async (req, res) => {
         musicEmbed: b.musicEmbed,
         mapLat: b.mapLat,
         mapLng: b.mapLng,
+        socialType: b.socialType,
+        socialUrl: b.socialUrl,
       })),
     });
   } catch (e) {

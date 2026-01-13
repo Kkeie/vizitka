@@ -5,6 +5,9 @@ export type Profile = {
   bio: string | null;
   avatarUrl?: string | null;
   backgroundUrl?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  telegram?: string | null;
   userId: number;
 };
 export type User = {
@@ -14,7 +17,7 @@ export type User = {
   profile: Profile | null;
 };
 
-export type BlockType = "note" | "link" | "photo" | "video" | "music" | "map";
+export type BlockType = "note" | "link" | "photo" | "video" | "music" | "map" | "social";
 export type Block = {
   id: number;
   type: BlockType;
@@ -26,6 +29,8 @@ export type Block = {
   musicEmbed?: string | null;
   mapLat?: number | null;
   mapLng?: number | null;
+  socialType?: "telegram" | "vk" | "instagram" | null;
+  socialUrl?: string | null;
 };
 
 // API base URL: использует переменную окружения для production или относительный путь для dev
@@ -182,7 +187,7 @@ export async function getProfile(): Promise<Profile> {
   }
   return safeJsonParse<Profile>(r);
 }
-export async function updateProfile(p: Partial<Pick<Profile, "username" | "name" | "bio" | "avatarUrl" | "backgroundUrl">>): Promise<Profile> {
+export async function updateProfile(p: Partial<Pick<Profile, "username" | "name" | "bio" | "avatarUrl" | "backgroundUrl" | "phone" | "email" | "telegram">>): Promise<Profile> {
   const r = await fetch(`${API}/profile`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -319,13 +324,13 @@ export async function getLinkMetadata(url: string): Promise<{ title?: string; de
 }
 
 // Public
-export async function getPublic(username: string): Promise<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; blocks: Block[] }> {
+export async function getPublic(username: string): Promise<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; phone: string | null; email: string | null; telegram: string | null; blocks: Block[] }> {
   const r = await fetch(`${API}/public/${encodeURIComponent(username)}`);
   if (!r.ok) {
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     throw new Error(errorData.error || errorData.message || "not_found");
   }
-  return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; blocks: Block[] }>(r);
+  return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; phone: string | null; email: string | null; telegram: string | null; blocks: Block[] }>(r);
 }
 export function publicUrl(username: string) {
   return `${window.location.origin}/public/${encodeURIComponent(username)}`;

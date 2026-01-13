@@ -86,55 +86,69 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         break;
         
       case "link":
-        // Проверяем, что заполнено хотя бы одно поле
-        const hasLink = formData.linkUrl?.trim();
-        const hasTelegram = formData.telegram?.trim();
-        const hasVk = formData.vk?.trim();
-        const hasInstagram = formData.instagram?.trim();
+        if (!formData.linkUrl?.trim()) {
+          alert("Введите URL ссылки");
+          return;
+        }
+        let linkUrl = formData.linkUrl.trim();
+        try {
+          new URL(linkUrl);
+          submitData.linkUrl = linkUrl;
+        } catch {
+          alert("Некорректный формат URL");
+          return;
+        }
+        break;
         
-        if (!hasLink && !hasTelegram && !hasVk && !hasInstagram) {
-          alert("Заполните ссылку или одно из полей социальных сетей");
+      case "social":
+        if (!formData.socialType) {
+          alert("Выберите социальную сеть");
+          return;
+        }
+        if (!formData.socialUrl?.trim()) {
+          alert("Введите username или ссылку");
           return;
         }
         
-        // Если есть основная ссылка, используем её
-        if (hasLink) {
-          let linkUrl = formData.linkUrl.trim();
+        let socialUrl = formData.socialUrl.trim();
+        
+        // Если это уже полный URL, используем его
+        if (socialUrl.startsWith('http://') || socialUrl.startsWith('https://')) {
           try {
-            new URL(linkUrl);
-            submitData.linkUrl = linkUrl;
+            new URL(socialUrl);
+            submitData.socialUrl = socialUrl;
           } catch {
             alert("Некорректный формат URL");
             return;
           }
         } else {
-          // Иначе используем первую заполненную соцсеть
-          if (hasTelegram) {
-            const username = formData.telegram.trim().replace(/^@/, '');
+          // Иначе формируем URL из username
+          const username = socialUrl.replace(/^@/, '').trim();
+          if (formData.socialType === 'telegram') {
             if (username.match(/^[a-zA-Z0-9_]{1,32}$/)) {
-              submitData.linkUrl = `https://t.me/${username}`;
+              submitData.socialUrl = `https://t.me/${username}`;
             } else {
               alert("Некорректный формат Telegram username");
               return;
             }
-          } else if (hasVk) {
-            const username = formData.vk.trim();
+          } else if (formData.socialType === 'vk') {
             if (username.match(/^[a-zA-Z0-9_.]{1,50}$/)) {
-              submitData.linkUrl = `https://vk.com/${username}`;
+              submitData.socialUrl = `https://vk.com/${username}`;
             } else {
               alert("Некорректный формат VK username");
               return;
             }
-          } else if (hasInstagram) {
-            const username = formData.instagram.trim().replace(/^@/, '');
+          } else if (formData.socialType === 'instagram') {
             if (username.match(/^[a-zA-Z0-9_.]{1,30}$/)) {
-              submitData.linkUrl = `https://instagram.com/${username}`;
+              submitData.socialUrl = `https://instagram.com/${username}`;
             } else {
               alert("Некорректный формат Instagram username");
               return;
             }
           }
         }
+        
+        submitData.socialType = formData.socialType;
         break;
         
       case "photo":
@@ -193,6 +207,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
     video: "Видео",
     music: "Музыка",
     map: "Карта",
+    social: "Соцсеть",
   };
 
   return (
@@ -290,70 +305,143 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 placeholder="https://example.com"
                 value={formData.linkUrl || ""}
                 onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
-                style={{ fontSize: 15, marginBottom: 20 }}
+                style={{ fontSize: 15 }}
                 autoFocus
               />
-              
-              <div style={{ borderTop: "1px solid var(--border)", paddingTop: 20, marginTop: 20 }}>
-                <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
-                  Социальные сети
-                </label>
-                
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6, display: "block" }}>
-                    Telegram
-                  </label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
-                    <input
-                      className="input"
-                      type="text"
-                      placeholder="username"
-                      value={formData.telegram || ""}
-                      onChange={(e) => setFormData({ ...formData, telegram: e.target.value })}
-                      style={{ fontSize: 15, flex: 1 }}
-                    />
-                  </div>
-                </div>
-                
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6, display: "block" }}>
-                    ВКонтакте
-                  </label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 16, color: "var(--text)" }}>vk.com/</span>
-                    <input
-                      className="input"
-                      type="text"
-                      placeholder="username"
-                      value={formData.vk || ""}
-                      onChange={(e) => setFormData({ ...formData, vk: e.target.value })}
-                      style={{ fontSize: 15, flex: 1 }}
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6, display: "block" }}>
-                    Instagram
-                  </label>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
-                    <input
-                      className="input"
-                      type="text"
-                      placeholder="username"
-                      value={formData.instagram || ""}
-                      onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
-                      style={{ fontSize: 15, flex: 1 }}
-                    />
-                  </div>
-                </div>
+              <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
+                Введите полный URL ссылки
+              </p>
+            </div>
+          )}
+
+          {type === "social" && (
+            <div className="field">
+              <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
+                Выберите социальную сеть
+              </label>
+              <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, socialType: 'telegram' })}
+                  style={{
+                    flex: 1,
+                    padding: "12px 16px",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    background: formData.socialType === 'telegram' ? "var(--primary)" : "var(--accent)",
+                    color: formData.socialType === 'telegram' ? "white" : "var(--text)",
+                    border: "none",
+                    borderRadius: "var(--radius-sm)",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span>✈️</span>
+                  <span>Telegram</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, socialType: 'vk' })}
+                  style={{
+                    flex: 1,
+                    padding: "12px 16px",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    background: formData.socialType === 'vk' ? "var(--primary)" : "var(--accent)",
+                    color: formData.socialType === 'vk' ? "white" : "var(--text)",
+                    border: "none",
+                    borderRadius: "var(--radius-sm)",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span>💙</span>
+                  <span>VK</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, socialType: 'instagram' })}
+                  style={{
+                    flex: 1,
+                    padding: "12px 16px",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    background: formData.socialType === 'instagram' ? "var(--primary)" : "var(--accent)",
+                    color: formData.socialType === 'instagram' ? "white" : "var(--text)",
+                    border: "none",
+                    borderRadius: "var(--radius-sm)",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span>📷</span>
+                  <span>Instagram</span>
+                </button>
               </div>
               
-              <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 12 }}>
-                Заполните ссылку или одно из полей социальных сетей
-              </p>
+              {formData.socialType && (
+                <>
+                  <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
+                    {formData.socialType === 'telegram' && 'Telegram username или ссылка'}
+                    {formData.socialType === 'vk' && 'VK username или ссылка'}
+                    {formData.socialType === 'instagram' && 'Instagram username или ссылка'}
+                  </label>
+                  {formData.socialType === 'telegram' && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
+                      <input
+                        className="input"
+                        type="text"
+                        placeholder="username или https://t.me/username"
+                        value={formData.socialUrl || ""}
+                        onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
+                        style={{ fontSize: 15, flex: 1 }}
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                  {formData.socialType === 'vk' && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 16, color: "var(--text)" }}>vk.com/</span>
+                      <input
+                        className="input"
+                        type="text"
+                        placeholder="username или https://vk.com/username"
+                        value={formData.socialUrl || ""}
+                        onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
+                        style={{ fontSize: 15, flex: 1 }}
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                  {formData.socialType === 'instagram' && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
+                      <input
+                        className="input"
+                        type="text"
+                        placeholder="username или https://instagram.com/username"
+                        value={formData.socialUrl || ""}
+                        onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
+                        style={{ fontSize: 15, flex: 1 }}
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
 
@@ -362,24 +450,16 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
               <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
                 Загрузка изображения
               </label>
-              <div style={{ 
-                border: "2px dashed var(--border)", 
-                borderRadius: "var(--radius-sm)", 
-                padding: 20, 
-                marginBottom: 16,
-                background: "var(--accent)"
-              }}>
-                <ImageUploader
-                  onUploaded={(url) => setFormData({ ...formData, photoUrl: url })}
-                  label="Загрузить фото с компьютера"
-                  showPreview={false}
-                  maxSizeMB={10}
-                />
-              </div>
-              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8, textAlign: "center" }}>
+              <ImageUploader
+                onUploaded={(url) => setFormData({ ...formData, photoUrl: url })}
+                label="Загрузить фото с компьютера"
+                showPreview={false}
+                maxSizeMB={10}
+              />
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 16, marginBottom: 8, textAlign: "center" }}>
                 или
               </div>
-              <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
+              <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginTop: 16, marginBottom: 8, display: "block" }}>
                 URL изображения
               </label>
               <input

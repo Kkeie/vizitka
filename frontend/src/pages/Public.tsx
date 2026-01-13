@@ -12,7 +12,7 @@ export default function PublicPage() {
   const { username = "" } = useParams();
   const routerLocation = useLocation();
   // ВСЕ хуки должны быть вызваны ДО любых условных возвратов
-  const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; blocks?: any[]; error?: string }>({ loading: true });
+  const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; phone?: string | null; email?: string | null; telegram?: string | null; blocks?: any[]; error?: string }>({ loading: true });
   const gridRef = useMasonryGrid([state.blocks?.length]);
   
   // Принудительное обновление компонента при изменении пути
@@ -165,7 +165,7 @@ export default function PublicPage() {
         console.log('[Public] Fetching profile for username:', cleanUsername);
         const data = await getPublic(cleanUsername);
         console.log('[Public] Profile data received:', { name: data.name, blocksCount: data.blocks?.length });
-        setState({ loading: false, name: data.name, bio: data.bio, avatarUrl: data.avatarUrl, backgroundUrl: data.backgroundUrl, blocks: data.blocks });
+        setState({ loading: false, name: data.name, bio: data.bio, avatarUrl: data.avatarUrl, backgroundUrl: data.backgroundUrl, phone: data.phone, email: data.email, telegram: data.telegram, blocks: data.blocks });
       } catch (error: any) {
         console.error('[Public] Error fetching profile:', error);
         console.error('[Public] Error details:', { 
@@ -292,6 +292,25 @@ export default function PublicPage() {
                     }}>
                       {state.bio}
                     </p>
+                  )}
+                  {(state.phone || state.email || state.telegram) && (
+                    <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                      {state.phone && (
+                        <div style={{ fontSize: 14, color: "var(--text)" }}>
+                          📞 {state.phone}
+                        </div>
+                      )}
+                      {state.email && (
+                        <div style={{ fontSize: 14, color: "var(--text)" }}>
+                          ✉️ {state.email}
+                        </div>
+                      )}
+                      {state.telegram && (
+                        <div style={{ fontSize: 14, color: "var(--text)" }}>
+                          ✈️ @{state.telegram}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

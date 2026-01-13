@@ -17,6 +17,8 @@ function mapDbToLegacy(b: any) {
     musicEmbed: b.musicEmbed,
     mapLat: b.mapLat,
     mapLng: b.mapLng,
+    socialType: b.socialType,
+    socialUrl: b.socialUrl,
   };
 }
 
@@ -81,7 +83,13 @@ function mapUnifiedToDb(type: string, patch: { url?: string | null; content?: st
       }
       if (patch.mapLat !== undefined) data.mapLat = patch.mapLat == null ? null : Number(patch.mapLat);
       if (patch.mapLng !== undefined) data.mapLng = patch.mapLng == null ? null : Number(patch.mapLng);
-      data.linkUrl = null; data.photoUrl = null; data.videoUrl = null; data.musicEmbed = null;
+      data.linkUrl = null; data.photoUrl = null; data.videoUrl = null; data.musicEmbed = null; data.socialType = null; data.socialUrl = null;
+      break;
+
+    case "social":
+      if (patch.socialType !== undefined) data.socialType = patch.socialType ?? null;
+      if (patch.socialUrl !== undefined) data.socialUrl = patch.socialUrl ?? null;
+      data.linkUrl = null; data.photoUrl = null; data.videoUrl = null; data.musicEmbed = null; data.mapLat = null; data.mapLng = null; data.note = null;
       break;
   }
 
@@ -121,8 +129,8 @@ router.post("/", requireAuth, async (req: AuthedRequest, res) => {
   const dbData = mapUnifiedToDb(type, req.body);
   
   const insert = db.prepare(`
-    INSERT INTO Block (userId, type, sort, note, linkUrl, photoUrl, videoUrl, musicEmbed, mapLat, mapLng)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO Block (userId, type, sort, note, linkUrl, photoUrl, videoUrl, musicEmbed, mapLat, mapLng, socialType, socialUrl)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
   try {
@@ -136,7 +144,9 @@ router.post("/", requireAuth, async (req: AuthedRequest, res) => {
       dbData.videoUrl ?? null,
       dbData.musicEmbed ?? null,
       dbData.mapLat ?? null,
-      dbData.mapLng ?? null
+      dbData.mapLng ?? null,
+      dbData.socialType ?? null,
+      dbData.socialUrl ?? null
     );
 
     const created = db.prepare("SELECT * FROM Block WHERE id = ?").get(result.lastInsertRowid) as any;
@@ -198,6 +208,14 @@ router.patch("/:id", requireAuth, async (req: AuthedRequest, res) => {
   if (dbData.mapLng !== undefined) {
     updates.push("mapLng = ?");
     values.push(dbData.mapLng);
+  }
+  if (dbData.socialType !== undefined) {
+    updates.push("socialType = ?");
+    values.push(dbData.socialType);
+  }
+  if (dbData.socialUrl !== undefined) {
+    updates.push("socialUrl = ?");
+    values.push(dbData.socialUrl);
   }
   
   if (updates.length > 0) {

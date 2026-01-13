@@ -48,7 +48,7 @@ router.get("/", async (req: AuthedRequest, res) => {
 // PATCH /api/profile
 router.patch("/", async (req: AuthedRequest, res) => {
   const userId = req.user!.id;
-  const { username, name, bio, avatarUrl, backgroundUrl } = req.body || {};
+  const { username, name, bio, avatarUrl, backgroundUrl, phone, email, telegram } = req.body || {};
   
   // Проверяем, что пользователь существует
   const user = db.prepare("SELECT id FROM User WHERE id = ?").get(userId) as any;
@@ -86,6 +86,18 @@ router.patch("/", async (req: AuthedRequest, res) => {
   if (backgroundUrl !== undefined) {
     updates.push("backgroundUrl = ?");
     values.push(backgroundUrl);
+  }
+  if (phone !== undefined) {
+    updates.push("phone = ?");
+    values.push(phone);
+  }
+  if (email !== undefined) {
+    updates.push("email = ?");
+    values.push(email);
+  }
+  if (telegram !== undefined) {
+    updates.push("telegram = ?");
+    values.push(telegram);
   }
   
   if (updates.length > 0) {

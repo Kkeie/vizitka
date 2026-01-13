@@ -19,31 +19,28 @@ export default function ImageUploader({
   maxSizeMB = 10,
 }: ImageUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const openDialog = useCallback(() => {
     if (loading) return;
     inputRef.current?.click();
   }, [loading]);
 
-  const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processFile = useCallback(async (file: File) => {
     // Проверка размера файла
     const fileSizeMB = file.size / (1024 * 1024);
     if (fileSizeMB > maxSizeMB) {
       setError(`Файл слишком большой. Максимальный размер: ${maxSizeMB}MB`);
-      e.target.value = "";
       return;
     }
 
     // Проверка типа файла
     if (!file.type.match(/^image\//)) {
       setError("Выберите изображение");
-      e.target.value = "";
       return;
     }
 
@@ -62,8 +59,8 @@ export default function ImageUploader({
       setLoading(true);
       const { url } = await uploadImage(file);
       onUploaded(url);
-      if (!showPreview) {
-        e.target.value = "";
+      if (!showPreview && inputRef.current) {
+        inputRef.current.value = "";
       }
     } catch (err: any) {
       console.error(err);
@@ -73,6 +70,34 @@ export default function ImageUploader({
       setLoading(false);
     }
   }, [onUploaded, showPreview, maxSizeMB]);
+
+  const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processFile(file);
+  }, [processFile]);
+
+  const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    
+    await processFile(file);
+  }, [processFile]);
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
 
   const clearPreview = useCallback(() => {
     setPreview(null);
@@ -141,30 +166,38 @@ export default function ImageUploader({
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={openDialog}
-        disabled={loading}
-        className="btn btn-ghost"
+      <div
+        ref={dropZoneRef}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
         style={{
-          fontSize: 14,
-          padding: "10px 16px",
-          width: "100%",
-          ...buttonStyle,
+          border: `2px dashed ${isDragging ? "var(--primary)" : "var(--border)"}`,
+          borderRadius: "var(--radius-sm)",
+          padding: 20,
+          background: isDragging ? "var(--accent)" : "transparent",
+          transition: "all 0.2s ease",
+          cursor: "pointer",
+          textAlign: "center",
         }}
+        onClick={openDialog}
       >
         {loading ? (
-          <>
-            <span>⏳</span>
-            <span>Загрузка...</span>
-          </>
+          <div style={{ fontSize: 14, color: "var(--text)" }}>
+            <span>⏳</span> Загрузка...
+          </div>
         ) : (
-          <>
-            <span>📷</span>
-            <span>{label}</span>
-          </>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 32 }}>📷</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
+              {isDragging ? "Отпустите для загрузки" : label}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>
+              Перетащите изображение сюда или нажмите для выбора
+            </div>
+          </div>
         )}
-      </button>
+      </div>
 
       {error && (
         <div style={{ 

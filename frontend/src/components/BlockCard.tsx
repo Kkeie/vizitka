@@ -7,7 +7,7 @@ import { getLinkMetadata, getImageUrl } from "../api";
 // Твой тип блока: поля названы как мы ранее использовали в API
 export type Block = {
   id: number;
-  type: "note" | "link" | "photo" | "video" | "music" | "map";
+  type: "note" | "link" | "photo" | "video" | "music" | "map" | "social";
   note?: string | null;
   linkUrl?: string | null;
   photoUrl?: string | null;
@@ -15,6 +15,8 @@ export type Block = {
   musicEmbed?: string | null;
   mapLat?: number | null;
   mapLng?: number | null;
+  socialType?: "telegram" | "vk" | "instagram" | null;
+  socialUrl?: string | null;
 };
 
 export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => void; }) {
@@ -63,6 +65,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
     video: "Видео",
     music: "Музыка",
     map: "Карта",
+    social: "Соцсеть",
   };
 
   const typeColors: Record<string, string> = {
@@ -72,6 +75,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
     video: "#ef4444",
     music: "#10b981",
     map: "#06b6d4",
+    social: "#f59e0b",
   };
 
   return (
@@ -496,6 +500,78 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                 <span>→</span>
               </a>
             </div>
+          </div>
+        )}
+
+        {b.type === "social" && b.socialType && b.socialUrl && (
+          <div>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+              {b.socialType === 'telegram' && (
+                <div style={{ 
+                  width: 48, 
+                  height: 48, 
+                  borderRadius: "12px", 
+                  background: "linear-gradient(135deg, #0088cc 0%, #229ED9 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 24,
+                  flexShrink: 0
+                }}>
+                  ✈️
+                </div>
+              )}
+              {b.socialType === 'vk' && (
+                <div style={{ 
+                  width: 48, 
+                  height: 48, 
+                  borderRadius: "12px", 
+                  background: "linear-gradient(135deg, #0077FF 0%, #4680C2 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 24,
+                  flexShrink: 0
+                }}>
+                  💙
+                </div>
+              )}
+              {b.socialType === 'instagram' && (
+                <div style={{ 
+                  width: 48, 
+                  height: 48, 
+                  borderRadius: "12px", 
+                  background: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 24,
+                  flexShrink: 0
+                }}>
+                  📷
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text)", marginBottom: 4, wordBreak: "break-word" }}>
+                  {b.socialType === 'telegram' && 'Telegram'}
+                  {b.socialType === 'vk' && 'ВКонтакте'}
+                  {b.socialType === 'instagram' && 'Instagram'}
+                </div>
+                <div style={{ fontSize: 14, color: "var(--muted)", wordBreak: "break-word" }}>
+                  {b.socialUrl.replace(/^https?:\/\//, '').replace(/^www\./, '')}
+                </div>
+              </div>
+            </div>
+            <a
+              href={b.socialUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-primary"
+              style={{ fontSize: 14, padding: "10px 20px", display: "inline-flex", alignItems: "center", gap: 6, width: "100%" }}
+            >
+              Открыть
+              <span>↗</span>
+            </a>
           </div>
         )}
       </div>

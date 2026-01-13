@@ -17,7 +17,7 @@ export default function Editor() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({ username: "", name: "", bio: "", backgroundUrl: "", phone: "", email: "", telegram: "" });
+  const [profileForm, setProfileForm] = useState({ username: "", name: "", bio: "", phone: "", email: "", telegram: "" });
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<BlockType | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
@@ -52,7 +52,6 @@ export default function Editor() {
         username: p.username || "",
         name: p.name || "",
         bio: p.bio || "",
-        backgroundUrl: p.backgroundUrl || "",
         phone: (p as any).phone || "",
         email: (p as any).email || "",
         telegram: (p as any).telegram || "",
@@ -107,7 +106,6 @@ export default function Editor() {
         username: profileForm.username,
         name: profileForm.name || null,
         bio: profileForm.bio || null,
-        backgroundUrl: profileForm.backgroundUrl || null,
         phone: profileForm.phone || null,
         email: profileForm.email || null,
         telegram: profileForm.telegram || null,
@@ -187,11 +185,6 @@ export default function Editor() {
     <div 
       className="page-bg min-h-screen"
       style={{
-        backgroundImage: profile.backgroundUrl ? `url(${getImageUrl(profile.backgroundUrl)})` : undefined,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        backgroundAttachment: "fixed",
         position: "relative",
         minHeight: "100vh",
         width: "100%",
@@ -202,20 +195,6 @@ export default function Editor() {
         padding: 0,
       }}
     >
-      {/* Overlay для читаемости текста */}
-      {profile.backgroundUrl && (
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(250, 250, 250, 0.55)",
-          backdropFilter: "blur(2px)",
-          zIndex: 0,
-          pointerEvents: "none",
-        }} />
-      )}
       <div className="container" style={{ paddingTop: 40, paddingBottom: 100, position: "relative", zIndex: 1 }}>
 
         {/* Two Column Layout: Profile Left, Blocks Right */}
@@ -228,13 +207,7 @@ export default function Editor() {
               <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%", alignItems: "flex-start" }}>
                 {/* Avatar */}
                 <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                  <div style={{
-                    borderRadius: "50%",
-                    border: profile.backgroundUrl ? "3px solid rgba(255,255,255,0.9)" : undefined,
-                    boxShadow: profile.backgroundUrl ? "0 4px 16px rgba(0,0,0,0.2), 0 0 32px rgba(255,255,255,0.5)" : undefined,
-                    padding: profile.backgroundUrl ? "3px" : undefined,
-                    background: profile.backgroundUrl ? "rgba(255,255,255,0.9)" : undefined
-                  }}>
+                    <div>
                     <Avatar
                       src={profile.avatarUrl}
                       size={120}
@@ -336,60 +309,6 @@ export default function Editor() {
                         />
                       </div>
                     </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
-                        Фоновое изображение (URL)
-                      </label>
-                      <input
-                        className="input"
-                        type="text"
-                        placeholder="https://example.com/image.jpg или /uploads/image.png"
-                        value={profileForm.backgroundUrl}
-                        onChange={(e) => setProfileForm({ ...profileForm, backgroundUrl: e.target.value })}
-                        style={{ fontSize: 14, padding: "8px 12px", width: "100%" }}
-                      />
-                      <p style={{ fontSize: 11, color: "var(--text)", marginTop: 4 }}>
-                        Или загрузите изображение с устройства
-                      </p>
-                      <div style={{ marginTop: 8 }}>
-                        <ImageUploader
-                          onUploaded={(url) => setProfileForm({ ...profileForm, backgroundUrl: url })}
-                          label="Загрузить фоновое изображение"
-                          showPreview={true}
-                          maxSizeMB={10}
-                          buttonStyle={{ fontSize: 12, padding: "6px 12px" }}
-                        />
-                      </div>
-                      {profileForm.backgroundUrl && (
-                        <div style={{ marginTop: 8 }}>
-                          <img
-                            src={getImageUrl(profileForm.backgroundUrl)}
-                            alt="Превью фона"
-                            style={{
-                              width: "100%",
-                              maxHeight: 120,
-                              objectFit: "cover",
-                              borderRadius: "var(--radius-sm)",
-                              border: "1px solid var(--border)",
-                            }}
-                            onError={(e) => {
-                              console.error("Failed to load background image:", profileForm.backgroundUrl);
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      )}
-                      {profileForm.backgroundUrl && (
-                        <button
-                          type="button"
-                          onClick={() => setProfileForm({ ...profileForm, backgroundUrl: "" })}
-                          className="btn btn-ghost"
-                          style={{ fontSize: 12, padding: "6px 12px", width: "100%", marginTop: 4, color: "#dc2626" }}
-                        >
-                          Удалить фон
-                        </button>
-                      )}
-                    </div>
                     <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
                       <button type="submit" disabled={savingProfile} className="btn btn-primary" style={{ fontSize: 14, width: "100%" }}>
                         {savingProfile ? "Сохранение..." : "Сохранить"}
@@ -402,7 +321,6 @@ export default function Editor() {
                           username: profile.username || "",
                           name: profile.name || "",
                           bio: profile.bio || "",
-                          backgroundUrl: profile.backgroundUrl || "",
                           phone: (profile as any).phone || "",
                           email: (profile as any).email || "",
                           telegram: (profile as any).telegram || "",
@@ -425,8 +343,7 @@ export default function Editor() {
                         lineHeight: 1.2, 
                         color: "var(--text)", 
                         marginBottom: 8, 
-                        wordBreak: "break-word",
-                        textShadow: profile.backgroundUrl ? "0 2px 8px rgba(255,255,255,0.9), 0 0 16px rgba(255,255,255,0.5)" : undefined
+                        wordBreak: "break-word"
                       }}>
                         {profile.name || profile.username}
                       </h1>
@@ -434,8 +351,7 @@ export default function Editor() {
                         fontSize: 16, 
                         color: "var(--text)", 
                         marginBottom: 16, 
-                        fontWeight: 500,
-                        textShadow: profile.backgroundUrl ? "0 1px 4px rgba(255,255,255,0.9)" : undefined
+                        fontWeight: 500
                       }}>
                         @{profile.username}
                       </p>
@@ -451,8 +367,7 @@ export default function Editor() {
                           whiteSpace: "pre-wrap",
                           width: "100%",
                           maxWidth: "100%",
-                          marginBottom: 16,
-                          textShadow: profile.backgroundUrl ? "0 1px 4px rgba(255,255,255,0.9)" : undefined
+                          marginBottom: 16
                         }}>
                           {profile.bio}
                         </p>
@@ -567,6 +482,7 @@ export default function Editor() {
               {[
                 { type: "note" as BlockType, label: "Заметка", icon: "📝" },
                 { type: "link" as BlockType, label: "Ссылка", icon: "🔗" },
+                { type: "social" as BlockType, label: "Соцсеть", icon: "💬" },
                 { type: "photo" as BlockType, label: "Фото", icon: "🖼️" },
                 { type: "video" as BlockType, label: "Видео", icon: "🎥" },
                 { type: "music" as BlockType, label: "Музыка", icon: "🎵" },
