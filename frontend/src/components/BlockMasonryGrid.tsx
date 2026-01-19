@@ -39,16 +39,29 @@ function imagesLoadedPromise(container: HTMLElement): Promise<void> {
 
 function resizeAllGridItems(grid: HTMLElement) {
   const rowHeight = parseFloat(getComputedStyle(grid).getPropertyValue('grid-auto-rows')) || 8;
-  const rowGap = parseFloat(getComputedStyle(grid).getPropertyValue('gap')) || 
-                 parseFloat(getComputedStyle(grid).getPropertyValue('grid-row-gap')) || 
-                 16;
+  // Получаем rowGap из CSS, проверяя разные варианты свойств
+  let rowGap = parseFloat(getComputedStyle(grid).getPropertyValue('row-gap'));
+  if (!rowGap || isNaN(rowGap)) {
+    rowGap = parseFloat(getComputedStyle(grid).getPropertyValue('grid-row-gap'));
+  }
+  if (!rowGap || isNaN(rowGap)) {
+    const gapValue = getComputedStyle(grid).getPropertyValue('gap');
+    if (gapValue) {
+      const gapParts = gapValue.trim().split(/\s+/);
+      rowGap = parseFloat(gapParts[gapParts.length > 1 ? 1 : 0]) || 16;
+    } else {
+      rowGap = 16;
+    }
+  }
 
   const items = Array.from(grid.children) as HTMLElement[];
   for (const item of items) {
     // Try to find .card__content, or use the item itself
     const content = item.querySelector<HTMLElement>('.card__content') || item;
     const contentHeight = content.getBoundingClientRect().height;
-    const rowSpan = Math.ceil((contentHeight + rowGap) / (rowHeight + rowGap));
+    // Правильная формула: высота контента делится на (высота строки + промежуток между строками)
+    // rowGap уже учитывается автоматически в CSS Grid между элементами
+    const rowSpan = Math.ceil(contentHeight / (rowHeight + rowGap));
     item.style.gridRowEnd = `span ${rowSpan}`;
   }
 }

@@ -61,7 +61,10 @@ export function extractVKVideoId(url: string): { ownerId: string; videoId: strin
 export function toVKVideoEmbed(url: string): string | null {
   const vkVideo = extractVKVideoId(url);
   if (vkVideo) {
-    return `https://vk.com/video_ext.php?oid=${vkVideo.ownerId}&id=${vkVideo.videoId}&hash=`;
+    // VK видео встраивается через video_ext.php
+    // Формат: https://vk.com/video_ext.php?oid={ownerId}&id={videoId}
+    // Для публичных видео можно использовать без hash
+    return `https://vk.com/video_ext.php?oid=${vkVideo.ownerId}&id=${vkVideo.videoId}`;
   }
   return null;
 }

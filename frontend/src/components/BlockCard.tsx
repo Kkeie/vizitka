@@ -313,10 +313,8 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
           const vid = extractYouTubeId(b.videoUrl);
           const vkVideo = extractVKVideoId(b.videoUrl);
           const vkEmbedSrc = vkVideo ? toVKVideoEmbed(b.videoUrl) : null;
-          const embedSrc = vid 
-            ? toYouTubeEmbed(b.videoUrl) + (isVideoPlaying ? "?autoplay=1&rel=0&modestbranding=1" : "")
-            : vkEmbedSrc;
           
+          // Для YouTube показываем превью с кнопкой воспроизведения
           if (!isVideoPlaying && vid) {
             return (
               <div
@@ -368,14 +366,30 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
             );
           }
           
-          if (embedSrc) {
+          // Для YouTube после клика показываем iframe
+          if (isVideoPlaying && vid) {
             return (
               <iframe
                 className="embed"
-                src={embedSrc}
+                src={toYouTubeEmbed(b.videoUrl) + "?autoplay=1&rel=0&modestbranding=1"}
                 title="Видео"
                 loading="lazy"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ borderRadius: "var(--radius-sm)" }}
+              />
+            );
+          }
+          
+          // Для VK видео показываем iframe сразу
+          if (vkEmbedSrc) {
+            return (
+              <iframe
+                className="embed"
+                src={vkEmbedSrc}
+                title="VK Видео"
+                loading="lazy"
+                allow="autoplay; encrypted-media"
                 allowFullScreen
                 style={{ borderRadius: "var(--radius-sm)" }}
               />
