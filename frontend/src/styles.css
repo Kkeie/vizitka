@@ -321,23 +321,25 @@ a:hover{color:var(--primary-hover)}
   box-sizing: border-box;
 }
 .blocks-grid{
-  display: grid;
-  gap: 16px;
-  align-items: start;
-  justify-content: start;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  grid-template-columns: repeat(3, minmax(240px, 320px));
+  column-count: 3;
+  column-gap: 16px;
+}
+.blocks-grid > div{
+  break-inside: avoid;
+  margin: 0 0 16px;
+  width: 100%;
 }
 @media (max-width: 1200px) {
   .blocks-grid{
-    grid-template-columns: repeat(2, minmax(240px, 320px));
+    column-count: 2;
   }
 }
 @media (max-width: 768px) {
   .blocks-grid{
-    grid-template-columns: repeat(1, minmax(240px, 320px));
+    column-count: 1;
   }
 }
 .card {
