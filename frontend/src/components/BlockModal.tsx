@@ -772,7 +772,17 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
           )}
 
           <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 32, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
-            <button type="button" onClick={onClose} className="btn btn-ghost" style={{ fontSize: 14, padding: "12px 20px" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-ghost"
+              style={{
+                fontSize: 14,
+                padding: "12px 20px",
+                background: "var(--accent)",
+                border: "1px solid var(--border)",
+              }}
+            >
               Отмена
             </button>
             <button type="submit" className="btn btn-primary" style={{ fontSize: 14, padding: "12px 24px" }}>

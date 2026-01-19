@@ -25,36 +25,34 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
   const [loadingMetadata, setLoadingMetadata] = React.useState(false);
   const rootRef = useReveal<HTMLDivElement>();
 
-  // Загружаем метаданные для ссылок на соцсети
+  // Загружаем метаданные для любых ссылок
   React.useEffect(() => {
     if (b.type === "link" && b.linkUrl) {
       const socialType = detectSocialType(b.linkUrl);
-      if (socialType === 'telegram' || socialType === 'instagram') {
-        setLoadingMetadata(true);
-        setLinkMetadata(null); // Сбрасываем предыдущие метаданные
-        
-        // Для Instagram убеждаемся, что URL правильный
-        let urlToFetch = b.linkUrl;
-        if (socialType === 'instagram') {
-          // Убеждаемся, что URL имеет правильный формат
-          if (!urlToFetch.includes('instagram.com')) {
-            const username = extractInstagramUsername(b.linkUrl) || b.linkUrl.replace(/^@/, '').replace(/^https?:\/\//, '');
-            urlToFetch = `https://www.instagram.com/${username}/`;
-          }
+      setLoadingMetadata(true);
+      setLinkMetadata(null); // Сбрасываем предыдущие метаданные
+
+      // Для Instagram убеждаемся, что URL правильный
+      let urlToFetch = b.linkUrl;
+      if (socialType === 'instagram') {
+        if (!urlToFetch.includes('instagram.com')) {
+          const username = extractInstagramUsername(b.linkUrl) || b.linkUrl.replace(/^@/, '').replace(/^https?:\/\//, '');
+          urlToFetch = `https://www.instagram.com/${username}/`;
         }
-        
-        getLinkMetadata(urlToFetch)
-          .then((data) => {
-            setLinkMetadata(data);
-          })
-          .catch((err) => {
-            console.log("Failed to fetch metadata:", err);
-            // Игнорируем ошибки, просто не показываем метаданные
-          })
-          .finally(() => {
-            setLoadingMetadata(false);
-          });
       }
+
+      getLinkMetadata(urlToFetch)
+        .then((data) => {
+          setLinkMetadata(data);
+        })
+        .catch((err) => {
+          console.log("Failed to fetch metadata:", err);
+        })
+        .finally(() => {
+          setLoadingMetadata(false);
+        });
+    } else {
+      setLinkMetadata(null);
     }
   }, [b.type, b.linkUrl]);
 
