@@ -24,16 +24,18 @@ export default function BlockCard({
   onDelete,
   dragHandleProps,
   dragHandleRef,
+  isDragPreview,
 }: {
   b: Block;
   onDelete?: () => void;
   dragHandleProps?: React.ButtonHTMLAttributes<HTMLButtonElement>;
   dragHandleRef?: React.Ref<HTMLButtonElement>;
+  isDragPreview?: boolean;
 }) {
   const [isVideoPlaying, setIsVideoPlaying] = React.useState(false);
   const [linkMetadata, setLinkMetadata] = React.useState<{ title?: string; description?: string; image?: string } | null>(null);
   const [loadingMetadata, setLoadingMetadata] = React.useState(false);
-  const rootRef = useReveal<HTMLDivElement>();
+  const rootRef = useReveal<HTMLDivElement>({ disabled: Boolean(isDragPreview) });
 
   // Загружаем метаданные для любых ссылок
   React.useEffect(() => {
@@ -93,7 +95,7 @@ export default function BlockCard({
       style={{
         padding: "16px",
         position: "relative",
-        transition: "all 0.2s ease",
+        transition: isDragPreview ? "none" : "all 0.2s ease",
         display: "flex",
         flexDirection: "column",
         minHeight: "fit-content",

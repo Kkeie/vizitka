@@ -27,6 +27,7 @@ export default function Editor() {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<number | null>(null);
+  const [activeRect, setActiveRect] = useState<{ width: number; height: number } | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
 
   const sensors = useSensors(
@@ -41,8 +42,10 @@ export default function Editor() {
 
   useEffect(() => {
     // Проверяем наличие токена перед загрузкой данных
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     if (!token) {
+      // Убираем старый токен, если остался в localStorage
+      localStorage.removeItem("token");
       setIsAuthorized(false);
       setLoading(false);
       return;
@@ -72,12 +75,13 @@ export default function Editor() {
       
       // Если ошибка авторизации, перенаправляем на страницу входа
       if (errorMessage === "unauthorized" || errorMessage === "user_not_found") {
-        const token = localStorage.getItem("token");
+        const token = sessionStorage.getItem("token");
         if (!token) {
           setIsAuthorized(false);
           return;
         }
         // Токен недействителен
+        sessionStorage.removeItem("token");
         localStorage.removeItem("token");
         setIsAuthorized(false);
         return;
@@ -168,13 +172,20 @@ export default function Editor() {
     return activeId ? sortedBlocks.find((b) => b.id === activeId) ?? null : null;
   }, [activeId, sortedBlocks]);
 
-  const handleDragStart = React.useCallback(({ active }: { active: { id: number | string } }) => {
+  const handleDragStart = React.useCallback(({ active }: { active: { id: number | string; rect: { current: { initial?: { width: number; height: number } } } } }) => {
     const id = typeof active.id === "number" ? active.id : Number(active.id);
     setActiveId(Number.isFinite(id) ? id : null);
+    const initial = active.rect?.current?.initial;
+    if (initial?.width && initial?.height) {
+      setActiveRect({ width: initial.width, height: initial.height });
+    } else {
+      setActiveRect(null);
+    }
   }, []);
 
   const handleDragEnd = React.useCallback(async ({ active, over }: { active: { id: number | string }; over: { id: number | string } | null }) => {
     setActiveId(null);
+    setActiveRect(null);
     if (!over || active.id === over.id) return;
     const oldIndex = sortedBlocks.findIndex((b) => b.id === active.id);
     const newIndex = sortedBlocks.findIndex((b) => b.id === over.id);
@@ -191,6 +202,7 @@ export default function Editor() {
 
   const handleDragCancel = React.useCallback(() => {
     setActiveId(null);
+    setActiveRect(null);
   }, []);
 
   function SortableBlock({ block, index }: { block: Block; index: number }) {
@@ -225,12 +237,21 @@ export default function Editor() {
 
   function DragOverlayCard({ block }: { block: Block | null }) {
     const { active } = useDndContext();
-    const width = active?.rect.current?.initial?.width;
-    const height = active?.rect.current?.initial?.height;
+    const width = activeRect?.width ?? active?.rect.current?.initial?.width;
+    const height = activeRect?.height ?? active?.rect.current?.initial?.height;
     if (!block) return null;
     return (
-      <div style={{ width, height }}>
-        <BlockCard b={block} />
+      <div
+        style={{
+          width,
+          height,
+          maxWidth: width,
+          maxHeight: height,
+          pointerEvents: "none",
+          transformOrigin: "0 0",
+        }}
+      >
+        <BlockCard b={block} isDragPreview />
       </div>
     );
   }
@@ -526,9 +547,8 @@ export default function Editor() {
           {/* Right Column: Blocks */}
           <div style={{ minWidth: 0, width: "100%" }}>
             {/* Blocks Grid */}
-            <div className="reveal reveal-in">
-              {(sortedBlocks || []).length === 0 ? (
-                <div className="card" style={{ padding: 60, textAlign: "center" }}>
+            {(sortedBlocks || []).length === 0 ? (
+              <div className="card reveal reveal-in" style={{ padding: 60, textAlign: "center" }}>
                   <div style={{ fontSize: 64, marginBottom: 20 }}>📦</div>
                   <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>
                     Пока нет блоков
@@ -537,27 +557,26 @@ export default function Editor() {
                     Добавьте блоки через меню внизу страницы, чтобы начать создавать свою страницу
                   </p>
                 </div>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  onDragCancel={handleDragCancel}
-                >
-                  <SortableContext items={sortedBlocks.map((b) => b.id)} strategy={rectSortingStrategy}>
-                    <div className="blocks-grid" ref={gridRef}>
-                      {sortedBlocks.map((b, index) => (
-                        <SortableBlock key={b.id} block={b} index={index} />
-                      ))}
-                    </div>
-                  </SortableContext>
-                  <DragOverlay adjustScale={false}>
-                    <DragOverlayCard block={activeBlock} />
-                  </DragOverlay>
-                </DndContext>
-              )}
-            </div>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragCancel={handleDragCancel}
+              >
+                <SortableContext items={sortedBlocks.map((b) => b.id)} strategy={rectSortingStrategy}>
+                  <div className="blocks-grid" ref={gridRef}>
+                    {sortedBlocks.map((b, index) => (
+                      <SortableBlock key={b.id} block={b} index={index} />
+                    ))}
+                  </div>
+                </SortableContext>
+                <DragOverlay adjustScale={false}>
+                  <DragOverlayCard block={activeBlock} />
+                </DragOverlay>
+              </DndContext>
+            )}
           </div>
         </div>
 

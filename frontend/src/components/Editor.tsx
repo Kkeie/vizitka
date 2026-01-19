@@ -10,7 +10,15 @@ type CreatePayload =
   | { type: "map"; mapLat: number; mapLng: number };
 
 function getToken() {
-  return localStorage.getItem("token") || "";
+  const t = sessionStorage.getItem("token");
+  if (t) return t;
+  const legacy = localStorage.getItem("token");
+  if (legacy) {
+    sessionStorage.setItem("token", legacy);
+    localStorage.removeItem("token");
+    return legacy;
+  }
+  return "";
 }
 
 function authHeaders(): HeadersInit {

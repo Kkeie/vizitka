@@ -90,10 +90,25 @@ if (import.meta.env.PROD && API.startsWith('/') && !API.startsWith('http')) {
   console.error('[API] Please set VITE_BACKEND_API_URL=https://your-backend.onrender.com/api in Render environment variables');
 }
 
-let token: string | null = localStorage.getItem("token");
+// Use sessionStorage to avoid shared/lingering logins between users on the same device
+let token: string | null = sessionStorage.getItem("token");
+if (!token) {
+  const legacyToken = localStorage.getItem("token");
+  if (legacyToken) {
+    token = legacyToken;
+    sessionStorage.setItem("token", legacyToken);
+    localStorage.removeItem("token");
+  }
+}
 export function setToken(t: string | null) {
   token = t;
-  if (t) localStorage.setItem("token", t); else localStorage.removeItem("token");
+  if (t) {
+    sessionStorage.setItem("token", t);
+    localStorage.removeItem("token");
+  } else {
+    sessionStorage.removeItem("token");
+    localStorage.removeItem("token");
+  }
 }
 export function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
