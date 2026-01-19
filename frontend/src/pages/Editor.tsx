@@ -460,12 +460,11 @@ export default function Editor() {
               ) : (
                 <div 
                   style={{ 
-                    display: "grid !important",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr)) !important", 
-                    gap: "16px !important",
-                    alignItems: "start !important",
-                    width: "100%",
-                    gridAutoRows: "auto !important"
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(240px, max-content))", 
+                    gap: "16px",
+                    alignItems: "start",
+                    width: "100%"
                   }}
                 >
                   {sortedBlocks.map((b, index) => (
