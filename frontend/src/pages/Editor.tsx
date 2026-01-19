@@ -6,6 +6,7 @@ import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
 import ImageUploader from "../components/ImageUploader";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
+import { formatPhoneNumber } from "../utils/phone";
 
 export default function Editor() {
   const location = useLocation();
@@ -243,15 +244,31 @@ export default function Editor() {
                       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Username
                       </label>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                        <span style={{ 
+                          fontSize: 16, 
+                          color: "var(--text)", 
+                          padding: "8px 0 8px 12px",
+                          background: "var(--accent)",
+                          border: "1px solid var(--border)",
+                          borderRight: "none",
+                          borderRadius: "var(--radius-sm) 0 0 var(--radius-sm)",
+                          display: "inline-flex",
+                          alignItems: "center"
+                        }}>@</span>
                         <input
                           className="input"
                           placeholder="username"
                           value={profileForm.username}
                           onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })}
                           required
-                          style={{ fontSize: 16, padding: "8px 12px", flex: 1 }}
+                          style={{ 
+                            fontSize: 16, 
+                            padding: "8px 12px", 
+                            flex: 1,
+                            borderLeft: "none",
+                            borderRadius: "0 var(--radius-sm) var(--radius-sm) 0"
+                          }}
                         />
                       </div>
                     </div>
@@ -277,7 +294,10 @@ export default function Editor() {
                         type="tel"
                         placeholder="+7 (999) 123-45-67"
                         value={profileForm.phone || ""}
-                        onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        onChange={(e) => {
+                          const formatted = formatPhoneNumber(e.target.value);
+                          setProfileForm({ ...profileForm, phone: formatted });
+                        }}
                         style={{ fontSize: 14, padding: "8px 12px", width: "100%" }}
                       />
                     </div>
@@ -298,14 +318,30 @@ export default function Editor() {
                       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Telegram
                       </label>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                        <span style={{ 
+                          fontSize: 14, 
+                          color: "var(--text)", 
+                          padding: "8px 0 8px 12px",
+                          background: "var(--accent)",
+                          border: "1px solid var(--border)",
+                          borderRight: "none",
+                          borderRadius: "var(--radius-sm) 0 0 var(--radius-sm)",
+                          display: "inline-flex",
+                          alignItems: "center"
+                        }}>@</span>
                         <input
                           className="input"
                           placeholder="username"
                           value={profileForm.telegram || ""}
                           onChange={(e) => setProfileForm({ ...profileForm, telegram: e.target.value })}
-                          style={{ fontSize: 14, padding: "8px 12px", flex: 1 }}
+                          style={{ 
+                            fontSize: 14, 
+                            padding: "8px 12px", 
+                            flex: 1,
+                            borderLeft: "none",
+                            borderRadius: "0 var(--radius-sm) var(--radius-sm) 0"
+                          }}
                         />
                       </div>
                     </div>
@@ -386,7 +422,7 @@ export default function Editor() {
                           )}
                           {(profile as any).telegram && (
                             <div style={{ fontSize: 14, color: "var(--text)" }}>
-                              ✈️ @{(profile as any).telegram}
+                              ✈️ {(profile as any).telegram}
                             </div>
                           )}
                         </div>
@@ -394,7 +430,14 @@ export default function Editor() {
                       <button
                         onClick={() => setEditingProfile(true)}
                         className="btn btn-ghost"
-                        style={{ fontSize: 13, padding: "8px 16px", marginTop: 16, width: "100%" }}
+                        style={{ 
+                          fontSize: 13, 
+                          padding: "8px 16px", 
+                          marginTop: 16, 
+                          width: "auto",
+                          background: "var(--accent)",
+                          border: "1px solid var(--border)"
+                        }}
                       >
                         ✏️ Редактировать
                       </button>
@@ -405,7 +448,7 @@ export default function Editor() {
             </div>
             </div>
             {/* Placeholder для сохранения места в grid на больших экранах */}
-            <div className="profile-placeholder" style={{ width: "100%", minHeight: "400px" }}></div>
+            <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }}></div>
           </div>
 
           {/* Right Column: Blocks */}
@@ -470,13 +513,14 @@ export default function Editor() {
           padding: "12px 20px",
           zIndex: 1000,
           boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-          maxWidth: "fit-content",
+          maxWidth: "calc(100% - 40px)",
+          width: "fit-content",
         }}>
           <div style={{
             display: "flex",
             justifyContent: "center",
             alignItems: "center",
-            gap: "12px",
+            gap: "8px",
             flexWrap: "wrap",
           }}>
               {[

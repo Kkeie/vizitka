@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from "react";
-import { uploadImage } from "../api";
+import { uploadImage, getImageUrl } from "../api";
 
 export type ImageUploaderProps = {
   onUploaded: (url: string) => void;
@@ -46,20 +46,27 @@ export default function ImageUploader({
 
     setError(null);
 
-    // Показываем превью если нужно
-    if (showPreview) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+    // Всегда показываем превью перед загрузкой
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
 
     try {
       setLoading(true);
       const { url } = await uploadImage(file);
       onUploaded(url);
-      if (!showPreview && inputRef.current) {
+      // После успешной загрузки показываем превью загруженного изображения
+      if (!showPreview) {
+        // Загружаем превью загруженного изображения
+        const img = new Image();
+        img.onload = () => {
+          setPreview(getImageUrl(url));
+        };
+        img.src = getImageUrl(url);
+      }
+      if (inputRef.current) {
         inputRef.current.value = "";
       }
     } catch (err: any) {
@@ -117,7 +124,7 @@ export default function ImageUploader({
         onChange={handleFile}
       />
       
-      {showPreview && preview && (
+      {preview && (
         <div style={{ marginBottom: 12, position: "relative" }}>
           <img
             src={preview}

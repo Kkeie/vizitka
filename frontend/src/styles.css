@@ -88,7 +88,7 @@
 @media (max-width: 968px) {
   .two-column-layout {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 16px;
   }
   
   /* На мобильных устройствах убираем fixed */
@@ -103,9 +103,9 @@
     overflow-y: visible !important;
   }
   
-  /* Placeholder виден на мобильных */
+  /* Placeholder скрыт на мобильных */
   .profile-placeholder {
-    display: block !important;
+    display: none !important;
   }
 }
 
@@ -464,8 +464,9 @@ p {
 @media (max-width: 900px) {
   .grid { 
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); 
-    gap: 20px; 
+    gap: 16px; 
     grid-auto-rows: 8px; 
+    rowGap: 16px;
   }
   .container {
     padding: 24px 20px;
@@ -476,11 +477,25 @@ p {
     font-size: clamp(28px, 4vw, 40px);
   }
 }
+@media (max-width: 768px) {
+  .topbar .container > div {
+    flex-wrap: wrap;
+  }
+  .topbar .container > div > div[style*="absolute"] {
+    position: relative !important;
+    left: auto !important;
+    transform: none !important;
+    margin: 8px 0;
+    width: 100%;
+    justify-content: center;
+  }
+}
 @media (max-width: 480px) {
   .grid { 
     grid-template-columns: repeat(1, 1fr); 
     gap: 16px; 
-    grid-auto-rows: 6px; 
+    grid-auto-rows: 8px; 
+    rowGap: 16px;
   }
   .container {
     padding: 20px 16px;

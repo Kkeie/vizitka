@@ -5,10 +5,18 @@ import { type User } from "../api";
 export default function Navbar({ user, onLogout }: { user: User | null; onLogout: () => void }) {
   const uname = user?.profile?.username || user?.username;
   const [toast, setToast] = React.useState<string | null>(null);
+  const [isMobile, setIsMobile] = React.useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const isEditor = location.pathname === "/editor";
   const isPublic = location.pathname.startsWith("/public/") || location.pathname.startsWith("/u/");
+
+  React.useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const copyPublic = async () => {
     if (!uname) return;
@@ -58,15 +66,17 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
               transform: "translateX(-50%)",
               display: "flex", 
               alignItems: "center", 
-              gap: 12 
+              gap: 8,
+              flexWrap: "wrap",
+              justifyContent: "center"
             }}>
               {/* Табы Редактор/Превью */}
               <div style={{ display: "flex", gap: 4, background: "var(--accent)", borderRadius: "var(--radius-sm)", padding: 4 }}>
                 <button
                   onClick={() => navigate("/editor")}
                   style={{
-                    padding: "8px 16px",
-                    fontSize: 14,
+                    padding: "6px 12px",
+                    fontSize: 13,
                     fontWeight: 600,
                     background: isEditor ? "var(--primary)" : "transparent",
                     color: isEditor ? "white" : "var(--text)",
@@ -74,6 +84,7 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
                     borderRadius: "var(--radius-sm)",
                     cursor: "pointer",
                     transition: "all 0.2s ease",
+                    whiteSpace: "nowrap"
                   }}
                 >
                   Редактор
@@ -81,8 +92,8 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
                 <button
                   onClick={() => navigate(`/public/${uname}`)}
                   style={{
-                    padding: "8px 16px",
-                    fontSize: 14,
+                    padding: "6px 12px",
+                    fontSize: 13,
                     fontWeight: 600,
                     background: isPublic ? "var(--primary)" : "transparent",
                     color: isPublic ? "white" : "var(--text)",
@@ -90,6 +101,7 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
                     borderRadius: "var(--radius-sm)",
                     cursor: "pointer",
                     transition: "all 0.2s ease",
+                    whiteSpace: "nowrap"
                   }}
                 >
                   Превью
@@ -101,15 +113,16 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
                 onClick={copyPublic}
                 className="btn btn-ghost"
                 style={{
-                  fontSize: 14,
-                  padding: "8px 16px",
+                  fontSize: 12,
+                  padding: "6px 12px",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 6,
+                  gap: 4,
+                  whiteSpace: "nowrap"
                 }}
               >
                 <span>🔗</span>
-                <span>Скопировать ссылку</span>
+                {!isMobile && <span>Скопировать ссылку</span>}
               </button>
             </div>
           )}

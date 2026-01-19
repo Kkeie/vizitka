@@ -83,7 +83,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
       ref={rootRef}
       className="card"
       style={{
-        padding: 16,
+        padding: "16px",
         position: "relative",
         transition: "all 0.2s ease",
         display: "flex",
@@ -102,7 +102,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 16,
+            marginBottom: 0,
             marginLeft: b.type === "note" ? 0 : 0,
             position: "relative",
             zIndex: 1,
@@ -164,10 +164,15 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
           const instagramUsername = extractInstagramUsername(b.linkUrl);
           
           return (
-            <div>
+            <a
+              href={b.linkUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{ textDecoration: "none", color: "inherit", display: "block" }}
+            >
               {socialType === 'telegram' && telegramInfo ? (
-                <div>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+                <div style={{ cursor: "pointer" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                     {linkMetadata?.image ? (
                       <img 
                         src={linkMetadata.image} 
@@ -193,18 +198,19 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 28,
                         flexShrink: 0
                       }}>
-                        ✈️
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/>
+                        </svg>
                       </div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text)", marginBottom: 4, wordBreak: "break-word" }}>
-                        {linkMetadata?.title || (telegramInfo.type === 'channel' ? '📢 Telegram Канал' : '👤 Telegram Пользователь')}
+                        {linkMetadata?.title || (telegramInfo.type === 'channel' ? 'Telegram Канал' : 'Telegram Пользователь')}
                       </div>
                       <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, wordBreak: "break-word" }}>
-                        @{telegramInfo.username}
+                        {telegramInfo.username}
                       </div>
                       {linkMetadata?.description && (
                         <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5, wordBreak: "break-word" }}>
@@ -213,20 +219,10 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                       )}
                     </div>
                   </div>
-                  <a
-                    href={b.linkUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn btn-primary"
-                    style={{ fontSize: 14, padding: "10px 20px", display: "inline-flex", alignItems: "center", gap: 6, width: "100%" }}
-                  >
-                    Открыть в Telegram
-                    <span>↗</span>
-                  </a>
                 </div>
               ) : socialType === 'instagram' && instagramUsername ? (
-                <div>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+                <div style={{ cursor: "pointer" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                     {linkMetadata?.image ? (
                       <img 
                         src={linkMetadata.image} 
@@ -252,10 +248,11 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: 28,
                         flexShrink: 0
                       }}>
-                        📷
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                        </svg>
                       </div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -263,7 +260,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                         {linkMetadata?.title || 'Instagram'}
                       </div>
                       <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, wordBreak: "break-word" }}>
-                        @{instagramUsername}
+                        {instagramUsername}
                       </div>
                       {linkMetadata?.description && (
                         <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5, wordBreak: "break-word" }}>
@@ -272,19 +269,9 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                       )}
                     </div>
                   </div>
-                  <a
-                    href={b.linkUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn btn-primary"
-                    style={{ fontSize: 14, padding: "10px 20px", display: "inline-flex", alignItems: "center", gap: 6, width: "100%" }}
-                  >
-                    Открыть в Instagram
-                    <span>↗</span>
-                  </a>
                 </div>
               ) : (
-                <div>
+                <div style={{ cursor: "pointer" }}>
                   {linkMetadata?.image && (
                     <img 
                       src={linkMetadata.image} 
@@ -306,28 +293,18 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                     {linkMetadata?.title || safeDomain(b.linkUrl)}
                   </div>
                   {linkMetadata?.description && (
-                    <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 16, lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 8, lineHeight: 1.5 }}>
                       {linkMetadata.description}
                     </div>
                   )}
-                  <a
-                    href={b.linkUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn btn-primary"
-                    style={{ fontSize: 14, padding: "10px 20px", display: "inline-flex", alignItems: "center", gap: 6 }}
-                  >
-                    Открыть
-                    <span>↗</span>
-                  </a>
                 </div>
               )}
-            </div>
+            </a>
           );
         })()}
 
         {b.type === "photo" && b.photoUrl && (
-          <div style={{ borderRadius: "var(--radius-sm)", overflow: "hidden", marginTop: -8 }}>
+          <div style={{ borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
             <img src={getImageUrl(b.photoUrl)} alt="" className="photo" loading="lazy" decoding="async" />
           </div>
         )}
@@ -350,7 +327,6 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                   position: "relative",
                   borderRadius: "var(--radius-sm)",
                   overflow: "hidden",
-                  marginTop: -8,
                 }}
               >
                 <img
@@ -401,7 +377,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                 loading="lazy"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
-                style={{ borderRadius: "var(--radius-sm)", marginTop: -8 }}
+                style={{ borderRadius: "var(--radius-sm)" }}
               />
             );
           }
@@ -417,7 +393,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
           const kind = classifyMusic(b.musicEmbed);
           if (kind.kind === "audio") {
             return (
-              <div style={{ padding: 16, borderRadius: "var(--radius-sm)", background: "var(--bg)", marginTop: -8 }}>
+              <div style={{ padding: 16, borderRadius: "var(--radius-sm)", background: "var(--bg)" }}>
                 <audio className="audio" controls style={{ width: "100%" }}>
                   <source src={kind.src} />
                   Ваш браузер не поддерживает аудио.
@@ -437,7 +413,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                 loading="lazy"
                 allow="autoplay; encrypted-media"
                 allowFullScreen
-                style={{ borderRadius: "var(--radius-sm)", marginTop: -8 }}
+                style={{ borderRadius: "var(--radius-sm)" }}
               />
             );
           }
@@ -446,7 +422,6 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
               style={{ 
                 borderRadius: "var(--radius-sm)", 
                 overflow: "hidden", 
-                marginTop: -8,
                 position: "relative",
                 width: "100%",
               }} 
@@ -462,7 +437,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
               src={`https://yandex.ru/map-widget/v1/?ll=${b.mapLng}%2C${b.mapLat}&pt=${b.mapLng}%2C${b.mapLat}&z=14`}
               loading="lazy"
               title="Карта"
-              style={{ borderRadius: "var(--radius-sm)", marginTop: -8 }}
+              style={{ borderRadius: "var(--radius-sm)" }}
             />
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, gap: 8 }}>
               <a
@@ -504,8 +479,13 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
         )}
 
         {b.type === "social" && b.socialType && b.socialUrl && (
-          <div>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 16 }}>
+          <a
+            href={b.socialUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{ textDecoration: "none", color: "inherit", display: "block", cursor: "pointer" }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
               {b.socialType === 'telegram' && (
                 <div style={{ 
                   width: 48, 
@@ -515,10 +495,11 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 24,
                   flexShrink: 0
                 }}>
-                  ✈️
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/>
+                  </svg>
                 </div>
               )}
               {b.socialType === 'vk' && (
@@ -530,10 +511,11 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 24,
                   flexShrink: 0
                 }}>
-                  💙
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                    <path d="M12.785 16.241s.287-.029.436-.18c.136-.137.132-.394.132-.394s-.02-1.283.58-1.473c.592-.188 1.35.95 2.155 1.37.595.31 1.047.242 1.047.242l2.151-.031s1.125-.07.59-.955c-.043-.072-.308-.652-1.585-1.844-1.34-1.25-1.16-.525.453-1.61.983-.66 2.18-1.37 2.406-1.765.226-.395.16-.916.16-.916l-2.005-.062s-.148-.03-.256.07c-.108.1-.175.33-.175.33s-.315.95-.723 1.76c-.87 1.65-1.218 1.74-1.36 1.71-.33-.07-.247-.53-.247-1.02 0-1.11.166-1.57-.323-1.69-.24-.06-.417-.1-1.03-.106-.787-.01-1.45.002-1.827.188-.25.123-.44.396-.323.412.144.02.47.087.642.318.223.3.216.97.216.97s.13 1.92-.3 2.16c-.295.166-.7-.173-1.57-1.73-.445-.78-.78-1.64-.78-1.64s-.065-.4-.18-.615c-.14-.27-.38-.356-.38-.356l-1.91-.012s-.285.018-.39.135c-.1.11-.01.34-.01.34s1.58 3.72 3.37 5.59c1.64 1.7 3.52 1.59 3.52 1.59h.85z"/>
+                  </svg>
                 </div>
               )}
               {b.socialType === 'instagram' && (
@@ -545,10 +527,11 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 24,
                   flexShrink: 0
                 }}>
-                  📷
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                  </svg>
                 </div>
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -558,21 +541,11 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                   {b.socialType === 'instagram' && 'Instagram'}
                 </div>
                 <div style={{ fontSize: 14, color: "var(--muted)", wordBreak: "break-word" }}>
-                  {b.socialUrl.replace(/^https?:\/\//, '').replace(/^www\./, '')}
+                  {b.socialUrl.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/^t\.me\//, '').replace(/^vk\.com\//, '').replace(/^instagram\.com\//, '')}
                 </div>
               </div>
             </div>
-            <a
-              href={b.socialUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-primary"
-              style={{ fontSize: 14, padding: "10px 20px", display: "inline-flex", alignItems: "center", gap: 6, width: "100%" }}
-            >
-              Открыть
-              <span>↗</span>
-            </a>
-          </div>
+          </a>
         )}
       </div>
     </div>

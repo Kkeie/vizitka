@@ -399,43 +399,88 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                     {formData.socialType === 'instagram' && 'Instagram username или ссылка'}
                   </label>
                   {formData.socialType === 'telegram' && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                      <span style={{ 
+                        fontSize: 15, 
+                        color: "var(--text)", 
+                        padding: "8px 0 8px 12px",
+                        background: "var(--accent)",
+                        border: "1px solid var(--border)",
+                        borderRight: "none",
+                        borderRadius: "var(--radius-sm) 0 0 var(--radius-sm)",
+                        display: "inline-flex",
+                        alignItems: "center"
+                      }}>@</span>
                       <input
                         className="input"
                         type="text"
                         placeholder="username или https://t.me/username"
                         value={formData.socialUrl || ""}
                         onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
-                        style={{ fontSize: 15, flex: 1 }}
+                        style={{ 
+                          fontSize: 15, 
+                          flex: 1,
+                          borderLeft: "none",
+                          borderRadius: "0 var(--radius-sm) var(--radius-sm) 0"
+                        }}
                         autoFocus
                       />
                     </div>
                   )}
                   {formData.socialType === 'vk' && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 16, color: "var(--text)" }}>vk.com/</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                      <span style={{ 
+                        fontSize: 15, 
+                        color: "var(--text)", 
+                        padding: "8px 0 8px 12px",
+                        background: "var(--accent)",
+                        border: "1px solid var(--border)",
+                        borderRight: "none",
+                        borderRadius: "var(--radius-sm) 0 0 var(--radius-sm)",
+                        display: "inline-flex",
+                        alignItems: "center"
+                      }}>vk.com/</span>
                       <input
                         className="input"
                         type="text"
                         placeholder="username или https://vk.com/username"
                         value={formData.socialUrl || ""}
                         onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
-                        style={{ fontSize: 15, flex: 1 }}
+                        style={{ 
+                          fontSize: 15, 
+                          flex: 1,
+                          borderLeft: "none",
+                          borderRadius: "0 var(--radius-sm) var(--radius-sm) 0"
+                        }}
                         autoFocus
                       />
                     </div>
                   )}
                   {formData.socialType === 'instagram' && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 16, color: "var(--text)" }}>@</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                      <span style={{ 
+                        fontSize: 15, 
+                        color: "var(--text)", 
+                        padding: "8px 0 8px 12px",
+                        background: "var(--accent)",
+                        border: "1px solid var(--border)",
+                        borderRight: "none",
+                        borderRadius: "var(--radius-sm) 0 0 var(--radius-sm)",
+                        display: "inline-flex",
+                        alignItems: "center"
+                      }}>@</span>
                       <input
                         className="input"
                         type="text"
                         placeholder="username или https://instagram.com/username"
                         value={formData.socialUrl || ""}
                         onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
-                        style={{ fontSize: 15, flex: 1 }}
+                        style={{ 
+                          fontSize: 15, 
+                          flex: 1,
+                          borderLeft: "none",
+                          borderRadius: "0 var(--radius-sm) var(--radius-sm) 0"
+                        }}
                         autoFocus
                       />
                     </div>
@@ -453,28 +498,11 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
               <ImageUploader
                 onUploaded={(url) => setFormData({ ...formData, photoUrl: url })}
                 label="Загрузить фото с компьютера"
-                showPreview={false}
+                showPreview={true}
                 maxSizeMB={10}
               />
               
-              {formData.photoUrl && formData.photoUrl.startsWith('/uploads/') && (
-                <div style={{ 
-                  marginTop: 12, 
-                  padding: "12px", 
-                  background: "var(--accent)", 
-                  borderRadius: "var(--radius-sm)",
-                  fontSize: 13,
-                  color: "var(--text)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8
-                }}>
-                  <span>✅</span>
-                  <span>Фото успешно загружено</span>
-                </div>
-              )}
-              
-              {(!formData.photoUrl || !formData.photoUrl.startsWith('/uploads/')) && (
+              {formData.photoUrl && !formData.photoUrl.startsWith('/uploads/') && (
                 <>
                   <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 16, marginBottom: 8, textAlign: "center" }}>
                     или

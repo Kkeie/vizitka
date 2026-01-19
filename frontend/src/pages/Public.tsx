@@ -307,7 +307,7 @@ export default function PublicPage() {
                       )}
                       {state.telegram && (
                         <div style={{ fontSize: 14, color: "var(--text)" }}>
-                          ✈️ @{state.telegram}
+                          ✈️ {state.telegram}
                         </div>
                       )}
                     </div>
@@ -317,7 +317,7 @@ export default function PublicPage() {
             </div>
             </div>
             {/* Placeholder для сохранения места в grid на больших экранах */}
-            <div className="profile-placeholder" style={{ width: "100%", minHeight: "400px" }}></div>
+            <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }}></div>
           </div>
 
           {/* Right Column: Blocks */}
