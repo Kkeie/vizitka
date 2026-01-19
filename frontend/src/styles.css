@@ -322,25 +322,25 @@ a:hover{color:var(--primary-hover)}
 }
 .blocks-grid{
   --block-gap: 16px;
+  display: grid;
+  grid-auto-rows: 1px;
+  grid-template-columns: repeat(3, minmax(240px, 320px));
+  column-gap: var(--block-gap);
+  row-gap: var(--block-gap);
+  align-items: start;
+  justify-content: start;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  column-count: 3;
-  column-gap: var(--block-gap);
-}
-.blocks-grid > div{
-  break-inside: avoid;
-  margin: 0 0 var(--block-gap);
-  width: 100%;
 }
 @media (max-width: 1200px) {
   .blocks-grid{
-    column-count: 2;
+    grid-template-columns: repeat(2, minmax(240px, 320px));
   }
 }
 @media (max-width: 768px) {
   .blocks-grid{
-    column-count: 1;
+    grid-template-columns: repeat(1, minmax(240px, 320px));
   }
 }
 .card {

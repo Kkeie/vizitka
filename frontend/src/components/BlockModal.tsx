@@ -496,25 +496,6 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 maxSizeMB={10}
               />
               
-              {formData.photoUrl && !formData.photoUrl.startsWith('/uploads/') && (
-                <>
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 16, marginBottom: 8, textAlign: "center" }}>
-                    или
-                  </div>
-                  <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginTop: 16, marginBottom: 8, display: "block" }}>
-                    URL изображения
-                  </label>
-                  <input
-                    className="input"
-                    type="text"
-                    placeholder="https://example.com/image.jpg или /uploads/image.png"
-                    value={formData.photoUrl || ""}
-                    onChange={(e) => setFormData({ ...formData, photoUrl: e.target.value })}
-                    style={{ fontSize: 15 }}
-                    autoFocus
-                  />
-                </>
-              )}
             </div>
           )}
 

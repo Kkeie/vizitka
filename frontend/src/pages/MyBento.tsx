@@ -1,9 +1,11 @@
 import React from "react";
 import { me, getPublic, getImageUrl } from "../api";
 import BlockCard from "../components/BlockCard";
+import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
 export default function MyBento() {
   const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; blocks?: any[]; username?: string; error?: string }>({ loading: true });
+  const gridRef = useMasonryGrid([state.blocks?.length]);
 
   React.useEffect(() => {
     (async () => {
@@ -138,7 +140,7 @@ export default function MyBento() {
           {/* Right Column: Blocks */}
           <div style={{ minWidth: 0, width: "100%" }}>
             {state.blocks && state.blocks.length > 0 ? (
-              <div className="blocks-grid">
+              <div className="blocks-grid" ref={gridRef}>
                 {state.blocks.map((b: any, index: number) => (
                   <div 
                     key={b.id} 
