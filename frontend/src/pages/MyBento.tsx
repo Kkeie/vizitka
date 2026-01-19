@@ -142,16 +142,7 @@ export default function MyBento() {
             {state.blocks && state.blocks.length > 0 ? (
               <div
                 ref={gridRef}
-                className="grid"
-                style={{ 
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(240px, 320px))", 
-                  gap: "16px",
-                  alignItems: "start",
-                  justifyContent: "start",
-                  width: "100%",
-                  gridAutoRows: "8px",
-                }}
+                className="blocks-grid"
               >
                 {state.blocks.map((b: any, index: number) => (
                   <div 

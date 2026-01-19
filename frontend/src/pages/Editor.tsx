@@ -462,16 +462,7 @@ export default function Editor() {
               ) : (
                 <div 
                   ref={gridRef}
-                  className="grid"
-                  style={{ 
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(240px, 320px))", 
-                    gap: "16px",
-                    alignItems: "start",
-                    justifyContent: "start",
-                    width: "100%",
-                    gridAutoRows: "8px",
-                  }}
+                  className="blocks-grid"
                 >
                   {sortedBlocks.map((b, index) => (
                     <div
