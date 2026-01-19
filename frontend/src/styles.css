@@ -321,15 +321,16 @@ a:hover{color:var(--primary-hover)}
   box-sizing: border-box;
 }
 .blocks-grid{
+  --block-gap: 16px;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   column-count: 3;
-  column-gap: 16px;
+  column-gap: var(--block-gap);
 }
 .blocks-grid > div{
   break-inside: avoid;
-  margin: 0 0 16px;
+  margin: 0 0 var(--block-gap);
   width: 100%;
 }
 @media (max-width: 1200px) {
