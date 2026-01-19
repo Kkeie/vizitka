@@ -526,14 +526,14 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
               <input
                 className="input"
                 type="url"
-                placeholder="https://www.youtube.com/watch?v=... или https://vk.com/video..."
+                placeholder="https://www.youtube.com/watch?v=... или https://vk.com/video... или https://vkvideo.ru/video..."
                 value={formData.videoUrl || ""}
                 onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
                 style={{ fontSize: 15 }}
                 autoFocus
               />
               <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
-                Поддерживаются ссылки YouTube, YouTube Shorts, youtu.be, VK Video
+                Поддерживаются ссылки YouTube, YouTube Shorts, youtu.be, VK Video (vk.com, vkvideo.ru)
               </p>
             </div>
           )}

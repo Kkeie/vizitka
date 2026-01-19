@@ -459,17 +459,12 @@ export default function Editor() {
                 </div>
               ) : (
                 <div 
-                  ref={(el) => {
-                    if (gridRef && 'current' in gridRef) {
-                      (gridRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-                    }
-                  }}
                   className="grid" 
                   style={{ 
+                    display: "grid",
                     gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", 
-                    columnGap: "16px",
-                    rowGap: "16px",
-                    gridAutoRows: "8px"
+                    gap: "16px",
+                    alignItems: "start"
                   }}
                 >
                   {sortedBlocks.map((b, index) => (
@@ -479,6 +474,8 @@ export default function Editor() {
                       style={{
                         animationDelay: `${index * 0.03}s`,
                         position: "relative",
+                        margin: 0,
+                        padding: 0
                       }}
                     >
                       <BlockCard

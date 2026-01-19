@@ -145,7 +145,15 @@ export default function MyBento() {
                 alignItems: "start"
               }}>
                 {state.blocks.map((b: any, index: number) => (
-                  <div key={b.id} className="reveal reveal-in" style={{ animationDelay: `${index * 0.03}s` }}>
+                  <div 
+                    key={b.id} 
+                    className="reveal reveal-in" 
+                    style={{ 
+                      animationDelay: `${index * 0.03}s`,
+                      margin: 0,
+                      padding: 0
+                    }}
+                  >
                     <BlockCard b={b} />
                   </div>
                 ))}

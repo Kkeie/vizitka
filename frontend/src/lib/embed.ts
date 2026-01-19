@@ -39,8 +39,10 @@ export function toYouTubeEmbed(url: string): string {
 export function extractVKVideoId(url: string): { ownerId: string; videoId: string } | null {
   try {
     const u = new URL(url);
-    if (u.hostname.includes("vk.com") || u.hostname.includes("vkontakte.ru")) {
+    // Поддержка vk.com, vkontakte.ru и vkvideo.ru
+    if (u.hostname.includes("vk.com") || u.hostname.includes("vkontakte.ru") || u.hostname.includes("vkvideo.ru")) {
       // Формат: https://vk.com/video-123456789_123456789 или https://vk.com/video123456789_123456789
+      // Формат: https://vkvideo.ru/video-123456789_123456789
       const match = u.pathname.match(/\/video(-?\d+)_(\d+)/);
       if (match) {
         return { ownerId: match[1], videoId: match[2] };
