@@ -7,7 +7,7 @@ import BlockModal from "../components/BlockModal";
 import ImageUploader from "../components/ImageUploader";
 import { formatPhoneNumber } from "../utils/phone";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
-import { DndContext, DragOverlay, PointerSensor, useDndContext, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
+import { DndContext, DragOverlay, PointerSensor, useDndContext, useSensor, useSensors, closestCenter, type DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -172,11 +172,11 @@ export default function Editor() {
     return activeId ? sortedBlocks.find((b) => b.id === activeId) ?? null : null;
   }, [activeId, sortedBlocks]);
 
-  const handleDragStart = React.useCallback(({ active }: { active: { id: number | string; rect: { current: { initial?: { width: number; height: number } } } } }) => {
+  const handleDragStart = React.useCallback(({ active }: DragStartEvent) => {
     const id = typeof active.id === "number" ? active.id : Number(active.id);
     setActiveId(Number.isFinite(id) ? id : null);
-    const initial = active.rect?.current?.initial;
-    if (initial?.width && initial?.height) {
+    const initial = active.rect?.current?.initial ?? null;
+    if (initial && initial.width && initial.height) {
       setActiveRect({ width: initial.width, height: initial.height });
     } else {
       setActiveRect(null);
