@@ -2,7 +2,6 @@ import React from "react";
 import { useParams, Navigate, useLocation } from "react-router-dom";
 import { getPublic, getImageUrl } from "../api";
 import BlockCard from "../components/BlockCard";
-import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
 // Системные маршруты, которые не должны обрабатываться как username
 // Примечание: "public" удален из списка, так как теперь мы используем маршрут /public/:username
@@ -13,7 +12,6 @@ export default function PublicPage() {
   const routerLocation = useLocation();
   // ВСЕ хуки должны быть вызваны ДО любых условных возвратов
   const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; phone?: string | null; email?: string | null; telegram?: string | null; blocks?: any[]; error?: string }>({ loading: true });
-  const gridRef = useMasonryGrid([state.blocks?.length]);
   
   // Принудительное обновление компонента при изменении пути
   const [pathKey, setPathKey] = React.useState(0);
@@ -323,11 +321,11 @@ export default function PublicPage() {
           {/* Right Column: Blocks */}
           <div style={{ minWidth: 0, width: "100%" }}>
             {state.blocks && state.blocks.length > 0 ? (
-              <div ref={gridRef} className="grid" style={{ 
+              <div className="grid" style={{ 
+                display: "grid",
                 gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", 
-                columnGap: "16px",
-                rowGap: "16px",
-                gridAutoRows: "8px"
+                gap: "16px",
+                alignItems: "start"
               }}>
                 {state.blocks.map((b: any, index: number) => (
                   <div key={b.id} className="reveal reveal-in" style={{ animationDelay: `${index * 0.03}s` }}>
