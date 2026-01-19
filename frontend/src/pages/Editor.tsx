@@ -244,13 +244,16 @@ export default function Editor() {
                       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Username
                       </label>
-                      <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                      <div style={{ position: "relative", width: "100%" }}>
                         <span style={{ 
+                          position: "absolute",
+                          left: 12,
+                          top: "50%",
+                          transform: "translateY(-50%)",
                           fontSize: 16, 
-                          color: "var(--text)", 
-                          padding: "8px 0 8px 12px",
-                          display: "inline-flex",
-                          alignItems: "center"
+                          color: "var(--text)",
+                          pointerEvents: "none",
+                          zIndex: 1
                         }}>@</span>
                         <input
                           className="input"
@@ -260,8 +263,8 @@ export default function Editor() {
                           required
                           style={{ 
                             fontSize: 16, 
-                            padding: "8px 12px", 
-                            flex: 1
+                            padding: "8px 12px 8px 28px", 
+                            width: "100%"
                           }}
                         />
                       </div>
@@ -312,13 +315,16 @@ export default function Editor() {
                       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Telegram
                       </label>
-                      <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                      <div style={{ position: "relative", width: "100%" }}>
                         <span style={{ 
+                          position: "absolute",
+                          left: 12,
+                          top: "50%",
+                          transform: "translateY(-50%)",
                           fontSize: 14, 
-                          color: "var(--text)", 
-                          padding: "8px 0 8px 12px",
-                          display: "inline-flex",
-                          alignItems: "center"
+                          color: "var(--text)",
+                          pointerEvents: "none",
+                          zIndex: 1
                         }}>@</span>
                         <input
                           className="input"
@@ -327,8 +333,8 @@ export default function Editor() {
                           onChange={(e) => setProfileForm({ ...profileForm, telegram: e.target.value })}
                           style={{ 
                             fontSize: 14, 
-                            padding: "8px 12px", 
-                            flex: 1
+                            padding: "8px 12px 8px 28px", 
+                            width: "100%"
                           }}
                         />
                       </div>
@@ -463,7 +469,8 @@ export default function Editor() {
                   className="grid" 
                   style={{ 
                     gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", 
-                    gap: "16px 16px",
+                    columnGap: "16px",
+                    rowGap: "16px",
                     gridAutoRows: "8px"
                   }}
                 >

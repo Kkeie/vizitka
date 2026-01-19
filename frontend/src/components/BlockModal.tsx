@@ -399,13 +399,16 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                     {formData.socialType === 'instagram' && 'Instagram username или ссылка'}
                   </label>
                   {formData.socialType === 'telegram' && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                    <div style={{ position: "relative", width: "100%" }}>
                       <span style={{ 
+                        position: "absolute",
+                        left: 12,
+                        top: "50%",
+                        transform: "translateY(-50%)",
                         fontSize: 15, 
-                        color: "var(--text)", 
-                        padding: "8px 0 8px 12px",
-                        display: "inline-flex",
-                        alignItems: "center"
+                        color: "var(--text)",
+                        pointerEvents: "none",
+                        zIndex: 1
                       }}>@</span>
                       <input
                         className="input"
@@ -415,20 +418,24 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
                         style={{ 
                           fontSize: 15, 
-                          flex: 1
+                          padding: "8px 12px 8px 28px",
+                          width: "100%"
                         }}
                         autoFocus
                       />
                     </div>
                   )}
                   {formData.socialType === 'vk' && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                    <div style={{ position: "relative", width: "100%" }}>
                       <span style={{ 
+                        position: "absolute",
+                        left: 12,
+                        top: "50%",
+                        transform: "translateY(-50%)",
                         fontSize: 15, 
-                        color: "var(--text)", 
-                        padding: "8px 0 8px 12px",
-                        display: "inline-flex",
-                        alignItems: "center"
+                        color: "var(--text)",
+                        pointerEvents: "none",
+                        zIndex: 1
                       }}>vk.com/</span>
                       <input
                         className="input"
@@ -438,20 +445,24 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
                         style={{ 
                           fontSize: 15, 
-                          flex: 1
+                          padding: "8px 12px 8px 70px",
+                          width: "100%"
                         }}
                         autoFocus
                       />
                     </div>
                   )}
                   {formData.socialType === 'instagram' && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                    <div style={{ position: "relative", width: "100%" }}>
                       <span style={{ 
+                        position: "absolute",
+                        left: 12,
+                        top: "50%",
+                        transform: "translateY(-50%)",
                         fontSize: 15, 
-                        color: "var(--text)", 
-                        padding: "8px 0 8px 12px",
-                        display: "inline-flex",
-                        alignItems: "center"
+                        color: "var(--text)",
+                        pointerEvents: "none",
+                        zIndex: 1
                       }}>@</span>
                       <input
                         className="input"
@@ -461,7 +472,8 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
                         style={{ 
                           fontSize: 15, 
-                          flex: 1
+                          padding: "8px 12px 8px 28px",
+                          width: "100%"
                         }}
                         autoFocus
                       />
