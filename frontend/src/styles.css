@@ -322,23 +322,22 @@ a:hover{color:var(--primary-hover)}
 }
 .blocks-grid{
   display: grid;
-  grid-auto-rows: 8px;
   gap: 16px;
   align-items: start;
   justify-content: start;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  grid-template-columns: repeat(3, minmax(240px, 1fr));
+  grid-template-columns: repeat(3, minmax(240px, 320px));
 }
 @media (max-width: 1200px) {
   .blocks-grid{
-    grid-template-columns: repeat(2, minmax(240px, 1fr));
+    grid-template-columns: repeat(2, minmax(240px, 320px));
   }
 }
 @media (max-width: 768px) {
   .blocks-grid{
-    grid-template-columns: repeat(1, minmax(240px, 1fr));
+    grid-template-columns: repeat(1, minmax(240px, 320px));
   }
 }
 .card {
