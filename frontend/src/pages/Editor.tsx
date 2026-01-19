@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, uploadImage, getImageUrl, type Block, type Profile, type BlockType } from "../api";
+import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, uploadImage, getImageUrl, reorderBlocks, type Block, type Profile, type BlockType } from "../api";
 import Avatar from "../components/Avatar";
 import BlockCard from "../components/BlockCard";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
 import BlockModal from "../components/BlockModal";
 import ImageUploader from "../components/ImageUploader";
 import { formatPhoneNumber } from "../utils/phone";
+import { useDragReorder } from "../hooks/useDragReorder";
+import "../styles/drag-reorder.css";
 
 export default function Editor() {
   const location = useLocation();
@@ -24,6 +26,40 @@ export default function Editor() {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
+
+  const handleReorder = React.useCallback(async (order: string[]) => {
+    if (!blocks || order.length === 0) return;
+    const orderedIds = order.map((id) => Number(id)).filter((id) => Number.isFinite(id));
+    if (orderedIds.length === 0) return;
+
+    const idSet = new Set(orderedIds);
+    const byId = new Map(blocks.map((b) => [b.id, b]));
+    const reordered = orderedIds
+      .map((id, idx) => {
+        const b = byId.get(id);
+        return b ? { ...b, sort: idx + 1 } : null;
+      })
+      .filter(Boolean) as Block[];
+    const rest = blocks.filter((b) => !idSet.has(b.id));
+    const finalBlocks = [
+      ...reordered,
+      ...rest.map((b, idx) => ({ ...b, sort: reordered.length + idx + 1 })),
+    ];
+
+    setBlocks(finalBlocks);
+    try {
+      await reorderBlocks(finalBlocks.map((b, idx) => ({ id: b.id, sort: idx + 1 })));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [blocks]);
+
+  useDragReorder({
+    containerRef: gridRef,
+    itemSelector: "[data-drag-item]",
+    handleSelector: ".drag-handle",
+    onChange: handleReorder,
+  });
   
 
   // Если мы не на странице /editor, не делаем редирект
@@ -465,6 +501,10 @@ export default function Editor() {
                     <div
                       key={b.id}
                       className="reveal reveal-in"
+                      data-drag-item
+                      data-key={String(b.id)}
+                      data-block-id={b.id}
+                      tabIndex={0}
                       style={{
                         animationDelay: `${index * 0.03}s`,
                         position: "relative",

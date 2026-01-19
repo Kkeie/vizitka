@@ -109,21 +109,41 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
             zIndex: 1,
           }}
         >
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.8px",
-              color: typeColors[b.type] || "var(--muted)",
-              padding: "6px 12px",
-              borderRadius: "8px",
-              background: `${typeColors[b.type] || "var(--muted)"}10`,
-              border: `1px solid ${typeColors[b.type] || "var(--muted)"}30`,
-            }}
-          >
-            {typeLabels[b.type] || b.type}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.8px",
+                color: typeColors[b.type] || "var(--muted)",
+                padding: "6px 12px",
+                borderRadius: "8px",
+                background: `${typeColors[b.type] || "var(--muted)"}10`,
+                border: `1px solid ${typeColors[b.type] || "var(--muted)"}30`,
+              }}
+            >
+              {typeLabels[b.type] || b.type}
+            </span>
+            <button
+              type="button"
+              className="drag-handle"
+              aria-label="Перетащить блок"
+              title="Перетащить блок"
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                background: "var(--accent)",
+                color: "var(--text)",
+                fontSize: 14,
+                lineHeight: "1",
+              }}
+            >
+              ⋮⋮
+            </button>
+          </div>
           <button
             onClick={onDelete}
             style={{
@@ -273,7 +293,7 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                 </div>
               ) : (
                 <div style={{ cursor: "pointer" }}>
-                  {linkMetadata?.image && (
+                  {linkMetadata?.image ? (
                     <img 
                       src={linkMetadata.image} 
                       alt=""
@@ -289,15 +309,33 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
                     />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 140,
+                        borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--border)",
+                        background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginBottom: 12,
+                        color: "var(--muted)",
+                        fontSize: 13,
+                        padding: 12,
+                        textAlign: "center",
+                      }}
+                    >
+                      {loadingMetadata ? "Загрузка превью..." : safeDomain(b.linkUrl)}
+                    </div>
                   )}
                   <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 8, color: "var(--text)", lineHeight: 1.4 }}>
                     {linkMetadata?.title || safeDomain(b.linkUrl)}
                   </div>
-                  {linkMetadata?.description && (
-                    <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 8, lineHeight: 1.5 }}>
-                      {linkMetadata.description}
-                    </div>
-                  )}
+                  <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 8, lineHeight: 1.5 }}>
+                    {linkMetadata?.description || b.linkUrl}
+                  </div>
                 </div>
               )}
             </a>

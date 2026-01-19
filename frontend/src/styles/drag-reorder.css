@@ -1,6 +1,7 @@
 /* drag-reorder.css - Styles for advanced drag-and-drop */
 
-.grid {
+.grid,
+.blocks-grid {
   position: relative;
 }
 
@@ -69,6 +70,7 @@
 }
 
 /* Smooth transitions for reordering */
-.grid > [data-drag-item]:not(.dragging) {
+.grid > [data-drag-item]:not(.dragging),
+.blocks-grid > [data-drag-item]:not(.dragging) {
   transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
 }
