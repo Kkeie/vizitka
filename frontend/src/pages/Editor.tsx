@@ -3,12 +3,13 @@ import { Navigate, useLocation } from "react-router-dom";
 import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, uploadImage, getImageUrl, reorderBlocks, type Block, type Profile, type BlockType } from "../api";
 import Avatar from "../components/Avatar";
 import BlockCard from "../components/BlockCard";
-import { useMasonryGrid } from "../components/BlockMasonryGrid";
 import BlockModal from "../components/BlockModal";
 import ImageUploader from "../components/ImageUploader";
 import { formatPhoneNumber } from "../utils/phone";
-import { useDragReorder } from "../hooks/useDragReorder";
-import "../styles/drag-reorder.css";
+import { useMasonryGrid } from "../components/BlockMasonryGrid";
+import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
+import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 export default function Editor() {
   const location = useLocation();
@@ -27,39 +28,9 @@ export default function Editor() {
   const [toast, setToast] = useState<string | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
 
-  const handleReorder = React.useCallback(async (order: string[]) => {
-    if (!blocks || order.length === 0) return;
-    const orderedIds = order.map((id) => Number(id)).filter((id) => Number.isFinite(id));
-    if (orderedIds.length === 0) return;
-
-    const idSet = new Set(orderedIds);
-    const byId = new Map(blocks.map((b) => [b.id, b]));
-    const reordered = orderedIds
-      .map((id, idx) => {
-        const b = byId.get(id);
-        return b ? { ...b, sort: idx + 1 } : null;
-      })
-      .filter(Boolean) as Block[];
-    const rest = blocks.filter((b) => !idSet.has(b.id));
-    const finalBlocks = [
-      ...reordered,
-      ...rest.map((b, idx) => ({ ...b, sort: reordered.length + idx + 1 })),
-    ];
-
-    setBlocks(finalBlocks);
-    try {
-      await reorderBlocks(finalBlocks.map((b, idx) => ({ id: b.id, sort: idx + 1 })));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [blocks]);
-
-  useDragReorder({
-    containerRef: gridRef,
-    itemSelector: "[data-drag-item]",
-    handleSelector: ".drag-handle",
-    onChange: handleReorder,
-  });
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+  );
   
 
   // Если мы не на странице /editor, не делаем редирект
@@ -192,6 +163,51 @@ export default function Editor() {
   const sortedBlocks = useMemo(() => {
     return blocks ? [...blocks].sort((a, b) => a.sort - b.sort) : [];
   }, [blocks]);
+
+  const handleDragEnd = React.useCallback(async ({ active, over }: { active: { id: number | string }; over: { id: number | string } | null }) => {
+    if (!over || active.id === over.id) return;
+    const oldIndex = sortedBlocks.findIndex((b) => b.id === active.id);
+    const newIndex = sortedBlocks.findIndex((b) => b.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const newOrder = arrayMove(sortedBlocks, oldIndex, newIndex).map((b, idx) => ({ ...b, sort: idx + 1 }));
+    setBlocks(newOrder);
+    try {
+      await reorderBlocks(newOrder.map((b, idx) => ({ id: b.id, sort: idx + 1 })));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [sortedBlocks]);
+
+  function SortableBlock({ block, index }: { block: Block; index: number }) {
+    const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
+    const style: React.CSSProperties = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.6 : 1,
+      zIndex: isDragging ? 2 : 1,
+    };
+    return (
+      <div ref={setNodeRef} style={style}>
+        <div
+          className="reveal reveal-in"
+          style={{
+            animationDelay: `${index * 0.03}s`,
+            position: "relative",
+            margin: 0,
+            padding: 0,
+          }}
+        >
+          <BlockCard
+            b={block}
+            onDelete={() => handleDeleteBlock(block.id)}
+            dragHandleRef={setActivatorNodeRef}
+            dragHandleProps={{ ...attributes, ...listeners }}
+          />
+        </div>
+      </div>
+    );
+  }
 
 
 
@@ -496,29 +512,15 @@ export default function Editor() {
                   </p>
                 </div>
               ) : (
-                <div className="blocks-grid" ref={gridRef}>
-                  {sortedBlocks.map((b, index) => (
-                    <div
-                      key={b.id}
-                      className="reveal reveal-in"
-                      data-drag-item
-                      data-key={String(b.id)}
-                      data-block-id={b.id}
-                      tabIndex={0}
-                      style={{
-                        animationDelay: `${index * 0.03}s`,
-                        position: "relative",
-                        margin: 0,
-                        padding: 0
-                      }}
-                    >
-                      <BlockCard
-                        b={b}
-                        onDelete={() => handleDeleteBlock(b.id)}
-                      />
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={sortedBlocks.map((b) => b.id)} strategy={rectSortingStrategy}>
+                    <div className="blocks-grid" ref={gridRef}>
+                      {sortedBlocks.map((b, index) => (
+                        <SortableBlock key={b.id} block={b} index={index} />
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </SortableContext>
+                </DndContext>
               )}
             </div>
           </div>

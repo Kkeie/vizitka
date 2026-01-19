@@ -19,7 +19,17 @@ export type Block = {
   socialUrl?: string | null;
 };
 
-export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => void; }) {
+export default function BlockCard({
+  b,
+  onDelete,
+  dragHandleProps,
+  dragHandleRef,
+}: {
+  b: Block;
+  onDelete?: () => void;
+  dragHandleProps?: React.ButtonHTMLAttributes<HTMLButtonElement>;
+  dragHandleRef?: React.Ref<HTMLButtonElement>;
+}) {
   const [isVideoPlaying, setIsVideoPlaying] = React.useState(false);
   const [linkMetadata, setLinkMetadata] = React.useState<{ title?: string; description?: string; image?: string } | null>(null);
   const [loadingMetadata, setLoadingMetadata] = React.useState(false);
@@ -130,6 +140,8 @@ export default function BlockCard({ b, onDelete }: { b: Block; onDelete?: () => 
               className="drag-handle"
               aria-label="Перетащить блок"
               title="Перетащить блок"
+              ref={dragHandleRef}
+              {...dragHandleProps}
               style={{
                 width: 28,
                 height: 28,
