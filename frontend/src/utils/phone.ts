@@ -22,3 +22,4 @@ export function validatePhoneNumber(value: string): boolean {
   return normalized.length === 11 && normalized.startsWith('7');
 }
 
+

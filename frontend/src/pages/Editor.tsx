@@ -7,7 +7,7 @@ import BlockModal from "../components/BlockModal";
 import ImageUploader from "../components/ImageUploader";
 import { formatPhoneNumber } from "../utils/phone";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
-import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
+import { DndContext, DragOverlay, PointerSensor, useDndContext, useSensor, useSensors, closestCenter } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -26,6 +26,7 @@ export default function Editor() {
   const [modalType, setModalType] = useState<BlockType | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<number | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
 
   const sensors = useSensors(
@@ -163,8 +164,17 @@ export default function Editor() {
   const sortedBlocks = useMemo(() => {
     return blocks ? [...blocks].sort((a, b) => a.sort - b.sort) : [];
   }, [blocks]);
+  const activeBlock = useMemo(() => {
+    return activeId ? sortedBlocks.find((b) => b.id === activeId) ?? null : null;
+  }, [activeId, sortedBlocks]);
+
+  const handleDragStart = React.useCallback(({ active }: { active: { id: number | string } }) => {
+    const id = typeof active.id === "number" ? active.id : Number(active.id);
+    setActiveId(Number.isFinite(id) ? id : null);
+  }, []);
 
   const handleDragEnd = React.useCallback(async ({ active, over }: { active: { id: number | string }; over: { id: number | string } | null }) => {
+    setActiveId(null);
     if (!over || active.id === over.id) return;
     const oldIndex = sortedBlocks.findIndex((b) => b.id === active.id);
     const newIndex = sortedBlocks.findIndex((b) => b.id === over.id);
@@ -179,12 +189,16 @@ export default function Editor() {
     }
   }, [sortedBlocks]);
 
+  const handleDragCancel = React.useCallback(() => {
+    setActiveId(null);
+  }, []);
+
   function SortableBlock({ block, index }: { block: Block; index: number }) {
     const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
     const style: React.CSSProperties = {
       transform: CSS.Transform.toString(transform),
       transition,
-      opacity: isDragging ? 0.6 : 1,
+      opacity: isDragging ? 0 : 1,
       zIndex: isDragging ? 2 : 1,
     };
     return (
@@ -205,6 +219,18 @@ export default function Editor() {
             dragHandleProps={{ ...attributes, ...listeners }}
           />
         </div>
+      </div>
+    );
+  }
+
+  function DragOverlayCard({ block }: { block: Block | null }) {
+    const { active } = useDndContext();
+    const width = active?.rect.current?.initial?.width;
+    const height = active?.rect.current?.initial?.height;
+    if (!block) return null;
+    return (
+      <div style={{ width, height }}>
+        <BlockCard b={block} />
       </div>
     );
   }
@@ -512,7 +538,13 @@ export default function Editor() {
                   </p>
                 </div>
               ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  onDragCancel={handleDragCancel}
+                >
                   <SortableContext items={sortedBlocks.map((b) => b.id)} strategy={rectSortingStrategy}>
                     <div className="blocks-grid" ref={gridRef}>
                       {sortedBlocks.map((b, index) => (
@@ -520,6 +552,9 @@ export default function Editor() {
                       ))}
                     </div>
                   </SortableContext>
+                  <DragOverlay adjustScale={false}>
+                    <DragOverlayCard block={activeBlock} />
+                  </DragOverlay>
                 </DndContext>
               )}
             </div>
