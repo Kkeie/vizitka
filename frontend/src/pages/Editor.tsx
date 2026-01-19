@@ -7,9 +7,7 @@ import BlockModal from "../components/BlockModal";
 import ImageUploader from "../components/ImageUploader";
 import { formatPhoneNumber } from "../utils/phone";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
-import { DndContext, DragOverlay, PointerSensor, useDndContext, useSensor, useSensors, closestCenter, type DragStartEvent } from "@dnd-kit/core";
-import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+// Drag and drop temporarily disabled
 
 export default function Editor() {
   const location = useLocation();
@@ -26,13 +24,7 @@ export default function Editor() {
   const [modalType, setModalType] = useState<BlockType | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [activeId, setActiveId] = useState<number | null>(null);
-  const [activeRect, setActiveRect] = useState<{ width: number; height: number } | null>(null);
   const gridRef = useMasonryGrid([blocks?.length]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
-  );
   
 
   // Если мы не на странице /editor, не делаем редирект
@@ -168,93 +160,6 @@ export default function Editor() {
   const sortedBlocks = useMemo(() => {
     return blocks ? [...blocks].sort((a, b) => a.sort - b.sort) : [];
   }, [blocks]);
-  const activeBlock = useMemo(() => {
-    return activeId ? sortedBlocks.find((b) => b.id === activeId) ?? null : null;
-  }, [activeId, sortedBlocks]);
-
-  const handleDragStart = React.useCallback(({ active }: DragStartEvent) => {
-    const id = typeof active.id === "number" ? active.id : Number(active.id);
-    setActiveId(Number.isFinite(id) ? id : null);
-    const initial = active.rect?.current?.initial ?? null;
-    if (initial && initial.width && initial.height) {
-      setActiveRect({ width: initial.width, height: initial.height });
-    } else {
-      setActiveRect(null);
-    }
-  }, []);
-
-  const handleDragEnd = React.useCallback(async ({ active, over }: { active: { id: number | string }; over: { id: number | string } | null }) => {
-    setActiveId(null);
-    setActiveRect(null);
-    if (!over || active.id === over.id) return;
-    const oldIndex = sortedBlocks.findIndex((b) => b.id === active.id);
-    const newIndex = sortedBlocks.findIndex((b) => b.id === over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
-
-    const newOrder = arrayMove(sortedBlocks, oldIndex, newIndex).map((b, idx) => ({ ...b, sort: idx + 1 }));
-    setBlocks(newOrder);
-    try {
-      await reorderBlocks(newOrder.map((b, idx) => ({ id: b.id, sort: idx + 1 })));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [sortedBlocks]);
-
-  const handleDragCancel = React.useCallback(() => {
-    setActiveId(null);
-    setActiveRect(null);
-  }, []);
-
-  function SortableBlock({ block, index }: { block: Block; index: number }) {
-    const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
-    const style: React.CSSProperties = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0 : 1,
-      zIndex: isDragging ? 2 : 1,
-    };
-    return (
-      <div ref={setNodeRef} style={style}>
-        <div
-          className="reveal reveal-in"
-          style={{
-            animationDelay: `${index * 0.03}s`,
-            position: "relative",
-            margin: 0,
-            padding: 0,
-          }}
-        >
-          <BlockCard
-            b={block}
-            onDelete={() => handleDeleteBlock(block.id)}
-            dragHandleRef={setActivatorNodeRef}
-            dragHandleProps={{ ...attributes, ...listeners }}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  function DragOverlayCard({ block }: { block: Block | null }) {
-    const { active } = useDndContext();
-    const width = activeRect?.width ?? active?.rect.current?.initial?.width;
-    const height = activeRect?.height ?? active?.rect.current?.initial?.height;
-    if (!block) return null;
-    return (
-      <div
-        style={{
-          width,
-          height,
-          maxWidth: width,
-          maxHeight: height,
-          pointerEvents: "none",
-          transformOrigin: "0 0",
-        }}
-      >
-        <BlockCard b={block} isDragPreview />
-      </div>
-    );
-  }
 
 
 
@@ -558,24 +463,25 @@ export default function Editor() {
                   </p>
                 </div>
             ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onDragCancel={handleDragCancel}
-              >
-                <SortableContext items={sortedBlocks.map((b) => b.id)} strategy={rectSortingStrategy}>
-                  <div className="blocks-grid" ref={gridRef}>
-                    {sortedBlocks.map((b, index) => (
-                      <SortableBlock key={b.id} block={b} index={index} />
-                    ))}
+              <div className="blocks-grid" ref={gridRef}>
+                {sortedBlocks.map((b, index) => (
+                  <div
+                    key={b.id}
+                    className="reveal reveal-in"
+                    style={{
+                      animationDelay: `${index * 0.03}s`,
+                      position: "relative",
+                      margin: 0,
+                      padding: 0,
+                    }}
+                  >
+                    <BlockCard
+                      b={b}
+                      onDelete={() => handleDeleteBlock(b.id)}
+                    />
                   </div>
-                </SortableContext>
-                <DragOverlay adjustScale={false}>
-                  <DragOverlayCard block={activeBlock} />
-                </DragOverlay>
-              </DndContext>
+                ))}
+              </div>
             )}
           </div>
         </div>
