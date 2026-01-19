@@ -249,10 +249,6 @@ export default function Editor() {
                           fontSize: 16, 
                           color: "var(--text)", 
                           padding: "8px 0 8px 12px",
-                          background: "var(--accent)",
-                          border: "1px solid var(--border)",
-                          borderRight: "none",
-                          borderRadius: "var(--radius-sm) 0 0 var(--radius-sm)",
                           display: "inline-flex",
                           alignItems: "center"
                         }}>@</span>
@@ -265,9 +261,7 @@ export default function Editor() {
                           style={{ 
                             fontSize: 16, 
                             padding: "8px 12px", 
-                            flex: 1,
-                            borderLeft: "none",
-                            borderRadius: "0 var(--radius-sm) var(--radius-sm) 0"
+                            flex: 1
                           }}
                         />
                       </div>
@@ -323,10 +317,6 @@ export default function Editor() {
                           fontSize: 14, 
                           color: "var(--text)", 
                           padding: "8px 0 8px 12px",
-                          background: "var(--accent)",
-                          border: "1px solid var(--border)",
-                          borderRight: "none",
-                          borderRadius: "var(--radius-sm) 0 0 var(--radius-sm)",
                           display: "inline-flex",
                           alignItems: "center"
                         }}>@</span>
@@ -338,9 +328,7 @@ export default function Editor() {
                           style={{ 
                             fontSize: 14, 
                             padding: "8px 12px", 
-                            flex: 1,
-                            borderLeft: "none",
-                            borderRadius: "0 var(--radius-sm) var(--radius-sm) 0"
+                            flex: 1
                           }}
                         />
                       </div>
@@ -475,9 +463,8 @@ export default function Editor() {
                   className="grid" 
                   style={{ 
                     gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", 
-                    gap: 16,
-                    gridAutoRows: "8px",
-                    rowGap: 16
+                    gap: "16px 16px",
+                    gridAutoRows: "8px"
                   }}
                 >
                   {sortedBlocks.map((b, index) => (

@@ -404,10 +404,6 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         fontSize: 15, 
                         color: "var(--text)", 
                         padding: "8px 0 8px 12px",
-                        background: "var(--accent)",
-                        border: "1px solid var(--border)",
-                        borderRight: "none",
-                        borderRadius: "var(--radius-sm) 0 0 var(--radius-sm)",
                         display: "inline-flex",
                         alignItems: "center"
                       }}>@</span>
@@ -419,9 +415,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
                         style={{ 
                           fontSize: 15, 
-                          flex: 1,
-                          borderLeft: "none",
-                          borderRadius: "0 var(--radius-sm) var(--radius-sm) 0"
+                          flex: 1
                         }}
                         autoFocus
                       />
@@ -433,10 +427,6 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         fontSize: 15, 
                         color: "var(--text)", 
                         padding: "8px 0 8px 12px",
-                        background: "var(--accent)",
-                        border: "1px solid var(--border)",
-                        borderRight: "none",
-                        borderRadius: "var(--radius-sm) 0 0 var(--radius-sm)",
                         display: "inline-flex",
                         alignItems: "center"
                       }}>vk.com/</span>
@@ -448,9 +438,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
                         style={{ 
                           fontSize: 15, 
-                          flex: 1,
-                          borderLeft: "none",
-                          borderRadius: "0 var(--radius-sm) var(--radius-sm) 0"
+                          flex: 1
                         }}
                         autoFocus
                       />
@@ -462,10 +450,6 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         fontSize: 15, 
                         color: "var(--text)", 
                         padding: "8px 0 8px 12px",
-                        background: "var(--accent)",
-                        border: "1px solid var(--border)",
-                        borderRight: "none",
-                        borderRadius: "var(--radius-sm) 0 0 var(--radius-sm)",
                         display: "inline-flex",
                         alignItems: "center"
                       }}>@</span>
@@ -477,9 +461,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
                         style={{ 
                           fontSize: 15, 
-                          flex: 1,
-                          borderLeft: "none",
-                          borderRadius: "0 var(--radius-sm) var(--radius-sm) 0"
+                          flex: 1
                         }}
                         autoFocus
                       />

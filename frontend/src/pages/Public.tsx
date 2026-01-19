@@ -325,7 +325,7 @@ export default function PublicPage() {
             {state.blocks && state.blocks.length > 0 ? (
               <div ref={gridRef} className="grid" style={{ 
                 gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", 
-                gap: 16,
+                gap: "16px 16px",
                 gridAutoRows: "8px"
               }}>
                 {state.blocks.map((b: any, index: number) => (
