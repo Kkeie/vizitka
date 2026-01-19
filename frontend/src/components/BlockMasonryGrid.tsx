@@ -61,7 +61,7 @@ function resizeAllGridItems(grid: HTMLElement) {
     const contentHeight = content.getBoundingClientRect().height;
     // Правильная формула: высота контента делится на (высота строки + промежуток между строками)
     // rowGap уже учитывается автоматически в CSS Grid между элементами
-    const rowSpan = Math.ceil(contentHeight / (rowHeight + rowGap));
+    const rowSpan = Math.ceil((contentHeight + rowGap) / (rowHeight + rowGap));
     item.style.gridRowEnd = `span ${rowSpan}`;
   }
 }

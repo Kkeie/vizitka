@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, uploadImage, getImageUrl, type Block, type Profile, type BlockType } from "../api";
 import Avatar from "../components/Avatar";
 import BlockCard from "../components/BlockCard";
+import { useMasonryGrid } from "../components/BlockMasonryGrid";
 import BlockModal from "../components/BlockModal";
 import ImageUploader from "../components/ImageUploader";
 import { formatPhoneNumber } from "../utils/phone";
@@ -22,6 +23,7 @@ export default function Editor() {
   const [modalType, setModalType] = useState<BlockType | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const gridRef = useMasonryGrid([blocks?.length]);
   
 
   // Если мы не на странице /editor, не делаем редирект
@@ -459,12 +461,16 @@ export default function Editor() {
                 </div>
               ) : (
                 <div 
+                  ref={gridRef}
+                  className="grid"
                   style={{ 
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(240px, max-content))", 
+                    gridTemplateColumns: "repeat(auto-fill, minmax(240px, 320px))", 
                     gap: "16px",
                     alignItems: "start",
-                    width: "100%"
+                    justifyContent: "start",
+                    width: "100%",
+                    gridAutoRows: "8px",
                   }}
                 >
                   {sortedBlocks.map((b, index) => (
