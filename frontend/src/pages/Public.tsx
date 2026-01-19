@@ -321,11 +321,13 @@ export default function PublicPage() {
           {/* Right Column: Blocks */}
           <div style={{ minWidth: 0, width: "100%" }}>
             {state.blocks && state.blocks.length > 0 ? (
-              <div className="grid" style={{ 
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", 
-                gap: "16px",
-                alignItems: "start"
+              <div style={{ 
+                display: "grid !important",
+                gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr)) !important", 
+                gap: "16px !important",
+                alignItems: "start !important",
+                width: "100%",
+                gridAutoRows: "auto !important"
               }}>
                 {state.blocks.map((b: any, index: number) => (
                   <div 
