@@ -107,10 +107,29 @@ export default function BlockCard({
         borderRadius: "var(--radius-md)",
         overflow: "hidden",
       }}
+      onMouseEnter={(e) => {
+        if (onDelete) {
+          const header = e.currentTarget.querySelector('.card-edit-header') as HTMLElement;
+          if (header) {
+            header.style.opacity = '1';
+            header.style.visibility = 'visible';
+          }
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (onDelete) {
+          const header = e.currentTarget.querySelector('.card-edit-header') as HTMLElement;
+          if (header) {
+            header.style.opacity = '0';
+            header.style.visibility = 'hidden';
+          }
+        }
+      }}
     >
-      {/* Header with type badge and delete button - только в редакторе */}
+      {/* Header with type badge and delete button - только в редакторе, скрыт по умолчанию */}
       {onDelete && (
         <div
+          className="card-edit-header"
           style={{
             display: "flex",
             alignItems: "center",
@@ -119,6 +138,9 @@ export default function BlockCard({
             marginLeft: b.type === "note" ? 0 : 0,
             position: "relative",
             zIndex: 1,
+            opacity: 0,
+            visibility: "hidden",
+            transition: "opacity 0.2s ease, visibility 0.2s ease",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -153,6 +175,10 @@ export default function BlockCard({
                 color: "var(--text)",
                 fontSize: 14,
                 lineHeight: "1",
+                cursor: "grab",
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.cursor = "grabbing";
               }}
             >
               ⋮⋮

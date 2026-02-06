@@ -1,0 +1,46 @@
+/* Drag and Drop Styles for Grid Layout */
+
+.card.dragging {
+  opacity: 0.5;
+  cursor: grabbing !important;
+  z-index: 1000;
+}
+
+.card-placeholder {
+  background: var(--accent);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  min-height: 100px;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  opacity: 0.9;
+  transform: rotate(2deg);
+  box-shadow: var(--shadow-xl);
+  cursor: grabbing;
+}
+
+.card[draggable="true"] {
+  cursor: grab;
+}
+
+.card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* Prevent text selection during drag */
+body.dragging-active {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+body.dragging-active * {
+  cursor: grabbing !important;
+}

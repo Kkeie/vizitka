@@ -4,6 +4,7 @@ import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, upload
 import Avatar from "../components/Avatar";
 import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
+import SocialMediaForm, { type SocialSubmitItem } from "../components/SocialMediaForm";
 import ImageUploader from "../components/ImageUploader";
 import { formatPhoneNumber } from "../utils/phone";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
@@ -44,6 +45,63 @@ export default function Editor() {
     }
     loadData();
   }, []);
+
+  // Инициализация drag-and-drop после загрузки блоков
+  useEffect(() => {
+    if (!blocks || blocks.length === 0) return;
+    
+    const gridElement = gridRef.current;
+    if (!gridElement) return;
+
+    // Ждем загрузки скрипта если нужно
+    const initializeDragDrop = () => {
+      if (typeof window === 'undefined' || !window.DragDropGrid) {
+        setTimeout(initializeDragDrop, 100);
+        return;
+      }
+
+      const handleOrderChange = async (orderData: Array<{ id: number; sort: number }>) => {
+        try {
+          await reorderBlocks(orderData);
+          // Обновляем локальное состояние блоков
+          setBlocks((prevBlocks) => {
+            if (!prevBlocks) return prevBlocks;
+            const updatedBlocks = [...prevBlocks];
+            orderData.forEach(({ id, sort }) => {
+              const block = updatedBlocks.find(b => b.id === id);
+              if (block) {
+                block.sort = sort;
+              }
+            });
+            updatedBlocks.sort((a, b) => a.sort - b.sort);
+            return updatedBlocks;
+          });
+        } catch (error) {
+          console.error("Ошибка сохранения порядка:", error);
+          // Перезагружаем блоки при ошибке
+          const token = sessionStorage.getItem("token");
+          if (token) {
+            loadData();
+          }
+        }
+      };
+
+      window.DragDropGrid.init({
+        containerSelector: gridElement,
+        itemSelector: '.card',
+        onUpdateOrder: handleOrderChange,
+      });
+    };
+
+    initializeDragDrop();
+
+    return () => {
+      // Cleanup при размонтировании
+      if (typeof window !== 'undefined' && window.DragDropGrid && window.DragDropGrid.cleanup) {
+        window.DragDropGrid.cleanup();
+      }
+    };
+  }, [blocks]);
 
   async function loadData() {
     try {
@@ -152,6 +210,19 @@ export default function Editor() {
     } catch (e) {
       alert("Не удалось создать блок");
       console.error(e);
+    }
+  }
+
+  async function handleSocialMediaSubmit(blocksData: SocialSubmitItem[]) {
+    try {
+      const createdBlocks = await Promise.all(
+        blocksData.map((blockData) => createBlock(blockData as any))
+      );
+      setBlocks((prev) => [...(prev || []), ...createdBlocks]);
+    } catch (e) {
+      alert("Не удалось создать блоки");
+      console.error(e);
+      throw e;
     }
   }
 
@@ -453,20 +524,15 @@ export default function Editor() {
           <div style={{ minWidth: 0, width: "100%" }}>
             {/* Blocks Grid */}
             {(sortedBlocks || []).length === 0 ? (
-              <div className="card reveal reveal-in" style={{ padding: 60, textAlign: "center" }}>
-                  <div style={{ fontSize: 64, marginBottom: 20 }}>📦</div>
-                  <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>
-                    Пока нет блоков
-                  </h3>
-                  <p style={{ color: "var(--text)", fontSize: 15, lineHeight: 1.6 }}>
-                    Добавьте блоки через меню внизу страницы, чтобы начать создавать свою страницу
-                  </p>
-                </div>
+              <SocialMediaForm 
+                onSubmit={handleSocialMediaSubmit}
+              />
             ) : (
               <div className="blocks-grid" ref={gridRef}>
                 {sortedBlocks.map((b, index) => (
                   <div
                     key={b.id}
+                    data-id={b.id}
                     className="reveal reveal-in"
                     style={{
                       animationDelay: `${index * 0.03}s`,
