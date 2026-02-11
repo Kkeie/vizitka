@@ -131,9 +131,10 @@ export default function ImageUploader({
             alt="Превью"
             style={{
               width: "100%",
-              maxHeight: 200,
-              objectFit: "cover",
-              borderRadius: "var(--radius-sm)",
+              aspectRatio: "1 / 1",
+	      objectFit: "cover",
+              objectPosition: "center",
+	      borderRadius: "var(--radius-sm)",
               border: "1px solid var(--border)",
               display: "block",
             }}

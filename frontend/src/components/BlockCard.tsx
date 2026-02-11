@@ -339,8 +339,8 @@ export default function BlockCard({
                       alt=""
                       style={{ 
                         width: "100%", 
-                        height: 200, 
-                        borderRadius: "var(--radius-sm)", 
+			aspectRatio: "1 / 1",                        
+			borderRadius: "var(--radius-sm)", 
                         objectFit: "cover",
                         marginBottom: 12,
                         border: "1px solid var(--border)"
@@ -353,8 +353,8 @@ export default function BlockCard({
                     <div
                       style={{
                         width: "100%",
-                        height: 140,
-                        borderRadius: "var(--radius-sm)",
+                        aspectRatio: "1 / 1",
+			borderRadius: "var(--radius-sm)",
                         border: "1px solid var(--border)",
                         background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)",
                         display: "flex",
