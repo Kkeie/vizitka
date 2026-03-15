@@ -1,33 +1,111 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, uploadImage, getImageUrl, reorderBlocks, publicUrl, qrUrlForPublic, type Block, type Profile, type BlockType } from "../api";
+import { 
+  listBlocks, 
+  deleteBlock, 
+  getProfile, 
+  updateProfile, 
+  createBlock, 
+  uploadImage, 
+  getImageUrl, 
+  reorderBlocks, 
+  publicUrl, 
+  qrUrlForPublic,
+  type Block, 
+  type Profile, 
+  type BlockType 
+} from "../api";
 import Avatar from "../components/Avatar";
-import BlockCard from "../components/BlockCard";
+import { SortableBlockCard } from "../components/SortableBlockCard";
 import BlockModal from "../components/BlockModal";
 import SocialMediaForm, { type SocialSubmitItem } from "../components/SocialMediaForm";
-import ImageUploader from "../components/ImageUploader";
 import { formatPhoneNumber } from "../utils/phone";
-import { useMasonryGrid } from "../components/BlockMasonryGrid";
-// Drag and drop temporarily disabled
+
+// dnd-kit imports
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+
+import "../styles/drag-reorder.css";
+
+// Хук для определения количества колонок
+function useColumnCount() {
+  const [columnCount, setColumnCount] = useState(3);
+  useEffect(() => {
+    const update = () => {
+      const width = window.innerWidth;
+      if (width < 768) setColumnCount(1);
+      else if (width < 1200) setColumnCount(2);
+      else setColumnCount(3);
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return columnCount;
+}
+
+// Распределение блоков по колонкам последовательно
+function distributeBlocks(blocks: Block[], count: number): Block[][] {
+  const total = blocks.length;
+  const result: Block[][] = Array.from({ length: count }, () => []);
+  const perCol = Math.floor(total / count);
+  const remainder = total % count;
+  let start = 0;
+  for (let i = 0; i < count; i++) {
+    const end = start + perCol + (i < remainder ? 1 : 0);
+    result[i] = blocks.slice(start, end);
+    start = end;
+  }
+  return result;
+}
 
 export default function Editor() {
   const location = useLocation();
-  const profileRef = React.useRef<HTMLDivElement>(null);
-  const headerRef = React.useRef<HTMLDivElement>(null);
-  const [blocks, setBlocks] = useState<Block[] | null>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState<Block[][]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({ username: "", name: "", bio: "", phone: "", email: "", telegram: "" });
+  const [profileForm, setProfileForm] = useState({
+    username: "",
+    name: "",
+    bio: "",
+    phone: "",
+    email: "",
+    telegram: "",
+  });
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<BlockType | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [showQr, setShowQr] = useState(false);
-  const gridRef = useMasonryGrid([blocks?.length]);
+  const [showQr, setShowQr] = useState(false);  
   
+  const columnCount = useColumnCount();
+  const prevColumnCountRef = useRef(columnCount);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 100, tolerance: 5 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
 
   // Если мы не на странице /editor, не делаем редирект
   if (location.pathname !== "/editor") {
@@ -47,69 +125,13 @@ export default function Editor() {
     loadData();
   }, []);
 
-  // Инициализация drag-and-drop после загрузки блоков
-  useEffect(() => {
-    if (!blocks || blocks.length === 0) return;
-    
-    const gridElement = gridRef.current;
-    if (!gridElement) return;
-
-    // Ждем загрузки скрипта если нужно
-    const initializeDragDrop = () => {
-      if (typeof window === 'undefined' || !window.DragDropGrid) {
-        setTimeout(initializeDragDrop, 100);
-        return;
-      }
-
-      const handleOrderChange = async (orderData: Array<{ id: number; sort: number }>) => {
-        try {
-          await reorderBlocks(orderData);
-          // Обновляем локальное состояние блоков
-          setBlocks((prevBlocks) => {
-            if (!prevBlocks) return prevBlocks;
-            const updatedBlocks = [...prevBlocks];
-            orderData.forEach(({ id, sort }) => {
-              const block = updatedBlocks.find(b => b.id === id);
-              if (block) {
-                block.sort = sort;
-              }
-            });
-            updatedBlocks.sort((a, b) => a.sort - b.sort);
-            return updatedBlocks;
-          });
-        } catch (error) {
-          console.error("Ошибка сохранения порядка:", error);
-          // Перезагружаем блоки при ошибке
-          const token = sessionStorage.getItem("token");
-          if (token) {
-            loadData();
-          }
-        }
-      };
-
-      window.DragDropGrid.init({
-        containerSelector: gridElement,
-        itemSelector: '.card',
-        onUpdateOrder: handleOrderChange,
-      });
-    };
-
-    initializeDragDrop();
-
-    return () => {
-      // Cleanup при размонтировании
-      if (typeof window !== 'undefined' && window.DragDropGrid && window.DragDropGrid.cleanup) {
-        window.DragDropGrid.cleanup();
-      }
-    };
-  }, [blocks]);
-
   async function loadData() {
     try {
       setLoading(true);
       setError(null);
       const [b, p] = await Promise.all([listBlocks(), getProfile()]);
-      setBlocks(b);
+      const sorted = [...b].sort((a, b) => a.sort - b.sort);
+      setColumns(distributeBlocks(sorted, columnCount));
       setProfile(p);
       setProfileForm({
         username: p.username || "",
@@ -123,7 +145,7 @@ export default function Editor() {
     } catch (e: any) {
       console.error("Ошибка загрузки данных:", e);
       const errorMessage = e?.message || "Не удалось загрузить данные";
-      
+
       // Если ошибка авторизации, перенаправляем на страницу входа
       if (errorMessage === "unauthorized" || errorMessage === "user_not_found") {
         const token = sessionStorage.getItem("token");
@@ -137,7 +159,7 @@ export default function Editor() {
         setIsAuthorized(false);
         return;
       }
-      
+
       // Если профиль не найден, но пользователь авторизован, это нормально - профиль будет создан автоматически
       if (errorMessage === "profile_load_failed" || errorMessage === "load_blocks_failed") {
         // Попробуем перезагрузить данные через секунду
@@ -146,20 +168,92 @@ export default function Editor() {
         }, 1000);
         return;
       }
-      
+
       // Проверка на сетевые ошибки
       if (e instanceof TypeError && e.message.includes("fetch")) {
         setError("Не удалось подключиться к серверу. Убедитесь, что бэкенд запущен на http://localhost:3000");
         setIsAuthorized(true); // Не редиректим при сетевых ошибках
         return;
       }
-      
+
       setError(errorMessage === "Не удалось загрузить данные" ? errorMessage : `Ошибка: ${errorMessage}`);
       setIsAuthorized(true); // Не редиректим при других ошибках
     } finally {
       setLoading(false);
     }
   }
+
+  // Адаптивность: перераспределение при изменении количества колонок
+  useEffect(() => {
+    if (columns.length === 0) return;
+    if (prevColumnCountRef.current === columnCount) return;
+
+    const allBlocks = columns.flat().sort((a, b) => a.sort - b.sort);
+    const newColumns = distributeBlocks(allBlocks, columnCount);
+    setColumns(newColumns);
+    prevColumnCountRef.current = columnCount;
+  }, [columnCount]);
+
+  // Сохранение порядка на сервере
+  const saveOrder = async (newColumns: Block[][]) => {
+    const allBlocks = newColumns.flat();
+    const items = allBlocks.map((block, idx) => ({ id: block.id, sort: idx + 1 }));
+    try {
+      await reorderBlocks(items);
+      // Обновляем локальные sort-поля
+      setColumns(prev => {
+        const updated = [...prev];
+        let globalIdx = 0;
+        for (let col of updated) {
+          for (let block of col) {
+            block.sort = ++globalIdx;
+          }
+        }
+        return updated;
+      });
+    } catch (error) {
+      console.error("Ошибка сохранения порядка:", error);
+      setToast("Не удалось сохранить порядок блоков");
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id as number;
+    const overId = over.id as number;
+
+    let sourceColIndex = -1, sourceIndex = -1;
+    let destColIndex = -1, destIndex = -1;
+
+    for (let i = 0; i < columns.length; i++) {
+      const idx = columns[i].findIndex(b => b.id === activeId);
+      if (idx !== -1) {
+        sourceColIndex = i;
+        sourceIndex = idx;
+        break;
+      }
+    }
+    for (let i = 0; i < columns.length; i++) {
+      const idx = columns[i].findIndex(b => b.id === overId);
+      if (idx !== -1) {
+        destColIndex = i;
+        destIndex = idx;
+        break;
+      }
+    }
+
+    if (sourceColIndex === -1 || destColIndex === -1) return;
+    if (sourceColIndex === destColIndex && sourceIndex === destIndex) return;
+
+    const newColumns = [...columns];
+    const [movedBlock] = newColumns[sourceColIndex].splice(sourceIndex, 1);
+    newColumns[destColIndex].splice(destIndex, 0, movedBlock);
+
+    setColumns(newColumns);
+    await saveOrder(newColumns);
+  };
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -188,7 +282,9 @@ export default function Editor() {
     if (!confirm("Удалить этот блок?")) return;
     try {
       await deleteBlock(id);
-      setBlocks((prev) => (prev || []).filter((b) => b.id !== id));
+      const newColumns = columns.map(col => col.filter(b => b.id !== id));
+      setColumns(newColumns);
+      await saveOrder(newColumns);
     } catch (e) {
       alert("Не удалось удалить блок");
       console.error(e);
@@ -202,12 +298,13 @@ export default function Editor() {
 
   async function handleBlockSubmit(data: Partial<Block>) {
     try {
-      const blockData = {
-        ...data,
-        sort: (blocks?.length || 0) + 1,
-      };
+      const totalBlocks = columns.flat().length;
+      const blockData = { ...data, sort: totalBlocks + 1 };
       const newBlock = await createBlock(blockData as any);
-      setBlocks((prev) => [...(prev || []), newBlock]);
+      const allBlocks = [...columns.flat(), newBlock].sort((a, b) => a.sort - b.sort);
+      const newColumns = distributeBlocks(allBlocks, columnCount);
+      setColumns(newColumns);
+      await saveOrder(newColumns);
     } catch (e) {
       alert("Не удалось создать блок");
       console.error(e);
@@ -217,22 +314,18 @@ export default function Editor() {
   async function handleSocialMediaSubmit(blocksData: SocialSubmitItem[]) {
     try {
       const createdBlocks = await Promise.all(
-        blocksData.map((blockData) => createBlock(blockData as any))
+        blocksData.map(blockData => createBlock(blockData as any))
       );
-      setBlocks((prev) => [...(prev || []), ...createdBlocks]);
+      const allBlocks = [...columns.flat(), ...createdBlocks].sort((a, b) => a.sort - b.sort);
+      const newColumns = distributeBlocks(allBlocks, columnCount);
+      setColumns(newColumns);
+      await saveOrder(newColumns);
     } catch (e) {
       alert("Не удалось создать блоки");
       console.error(e);
       throw e;
     }
   }
-
-
-  // Вычисляем отсортированные блоки
-  const sortedBlocks = useMemo(() => {
-    return blocks ? [...blocks].sort((a, b) => a.sort - b.sort) : [];
-  }, [blocks]);
-
 
 
   // Редирект на страницу входа, если пользователь не авторизован
@@ -256,7 +349,9 @@ export default function Editor() {
     );
   }
 
-  if (!blocks || !profile) return null;
+  if (!profile) return null;
+
+  const totalBlocks = columns.flat().length;
 
   return (
     <div 
@@ -280,47 +375,47 @@ export default function Editor() {
           <div style={{ width: "100%", maxWidth: "100%" }}>
             {/* Fixed profile */}
             <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
-            <div className="reveal reveal-in">
-              <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%", alignItems: "flex-start" }}>
-                {/* Avatar */}
-                <div style={{ display: "flex", justifyContent: "flex-start" }}>
+              <div className="reveal reveal-in">
+                <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%", alignItems: "flex-start" }}>
+                  {/* Avatar */}
+                  <div style={{ display: "flex", justifyContent: "flex-start" }}>
                     <div>
-                    <Avatar
-                      src={profile.avatarUrl}
-                      size={120}
-                      editable={true}
-                      onChange={async (url: string) => {
-                        try {
-                          const updated = await updateProfile({ avatarUrl: url } as any);
-                          setProfile({ ...updated, avatarUrl: updated.avatarUrl ? `${updated.avatarUrl}?t=${Date.now()}` : updated.avatarUrl });
-                        } catch {
-                          alert("Не удалось сохранить аватар");
-                        }
-                      }}
-                    />
+                      <Avatar
+                        src={profile.avatarUrl}
+                        size={120}
+                        editable={true}
+                        onChange={async (url: string) => {
+                          try {
+                            await updateProfile({ avatarUrl: url } as any);
+                            await loadData();
+                          } catch {
+                            alert("Не удалось сохранить аватар");
+                          }
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
 
                 {/* Profile Info */}
-                {editingProfile ? (
-                  <form onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
-                        Имя
-                      </label>
-                      <input
+                  {editingProfile ? (
+                    <form onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
+                          Имя
+                        </label>
+                        <input 
                         className="input"
                         placeholder="Ваше имя"
                         value={profileForm.name}
                         onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
                         style={{ fontSize: 16, fontWeight: 700, padding: "8px 12px", width: "100%" }}
                       />
-                    </div>
-                    <div>
+                      </div>
+                      <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Username
                       </label>
-                      <div style={{ position: "relative", width: "100%" }}>
+                        <div style={{ position: "relative", width: "100%" }}>
                         <span style={{ 
                           position: "absolute",
                           left: 12,
@@ -343,9 +438,9 @@ export default function Editor() {
                             width: "100%"
                           }}
                         />
+                        </div>
                       </div>
-                    </div>
-                    <div>
+                      <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Описание
                       </label>
@@ -357,8 +452,8 @@ export default function Editor() {
                         rows={4}
                         style={{ fontSize: 14, resize: "vertical", width: "100%" }}
                       />
-                    </div>
-                    <div>
+                      </div>
+                      <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Телефон
                       </label>
@@ -373,8 +468,8 @@ export default function Editor() {
                         }}
                         style={{ fontSize: 14, padding: "8px 12px", width: "100%" }}
                       />
-                    </div>
-                    <div>
+                      </div>
+                      <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Email
                       </label>
@@ -386,12 +481,12 @@ export default function Editor() {
                         onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
                         style={{ fontSize: 14, padding: "8px 12px", width: "100%" }}
                       />
-                    </div>
-                    <div>
+                      </div>
+                      <div>
                       <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>
                         Telegram
                       </label>
-                      <div style={{ position: "relative", width: "100%" }}>
+                        <div style={{ position: "relative", width: "100%" }}>
                         <span style={{ 
                           position: "absolute",
                           left: 12,
@@ -413,9 +508,9 @@ export default function Editor() {
                             width: "100%"
                           }}
                         />
+                        </div>
                       </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
+                      <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
                       <button type="submit" disabled={savingProfile} className="btn btn-primary" style={{ fontSize: 14, width: "100%" }}>
                         {savingProfile ? "Сохранение..." : "Сохранить"}
                       </button>
@@ -437,11 +532,11 @@ export default function Editor() {
                       >
                         Отмена
                       </button>
-                    </div>
-                  </form>
-                ) : (
-                  <>
-                    <div style={{ textAlign: "left", width: "100%" }}>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <div style={{ textAlign: "left", width: "100%" }}>
                       <h1 style={{ 
                         fontSize: 32, 
                         fontWeight: 800, 
@@ -478,8 +573,8 @@ export default function Editor() {
                           {profile.bio}
                         </p>
                       )}
-                      {((profile as any).phone || (profile as any).email || (profile as any).telegram) && (
-                        <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                        {((profile as any).phone || (profile as any).email || (profile as any).telegram) && (
+                          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
                           {(profile as any).phone && (
                             <div style={{ fontSize: 14, color: "var(--text)" }}>
                               📞 {(profile as any).phone}
@@ -525,11 +620,11 @@ export default function Editor() {
                       >
                         ✏️ Редактировать
                       </button>
-                    </div>
-                  </>
-                )}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
             </div>
             {/* Placeholder для сохранения места в grid на больших экранах */}
             <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }}></div>
@@ -537,32 +632,22 @@ export default function Editor() {
 
           {/* Right Column: Blocks */}
           <div style={{ minWidth: 0, width: "100%" }}>
-            {/* Blocks Grid */}
-            {(sortedBlocks || []).length === 0 ? (
-              <SocialMediaForm 
-                onSubmit={handleSocialMediaSubmit}
-              />
+            {totalBlocks === 0 ? (
+              <SocialMediaForm onSubmit={handleSocialMediaSubmit} />
             ) : (
-              <div className="blocks-grid" ref={gridRef}>
-                {sortedBlocks.map((b, index) => (
-                  <div
-                    key={b.id}
-                    data-id={b.id}
-                    className="reveal reveal-in"
-                    style={{
-                      animationDelay: `${index * 0.03}s`,
-                      position: "relative",
-                      margin: 0,
-                      padding: 0,
-                    }}
-                  >
-                    <BlockCard
-                      b={b}
-                      onDelete={() => handleDeleteBlock(b.id)}
-                    />
-                  </div>
-                ))}
-              </div>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <div style={styles.columnsContainer(columnCount)}>
+                  {columns.map((columnBlocks, colIndex) => (
+                    <div key={colIndex} style={styles.column}>
+                      <SortableContext items={columnBlocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
+                        {columnBlocks.map((block) => (
+                          <SortableBlockCard key={block.id} block={block} onDelete={() => handleDeleteBlock(block.id)} />
+                        ))}
+                      </SortableContext>
+                    </div>
+                  ))}
+                </div>
+              </DndContext>
             )}
           </div>
         </div>
@@ -589,15 +674,15 @@ export default function Editor() {
             gap: "8px",
             flexWrap: "wrap",
           }}>
-              {[
-                { type: "note" as BlockType, label: "Заметка", icon: "📝" },
-                { type: "link" as BlockType, label: "Ссылка", icon: "🔗" },
-                { type: "social" as BlockType, label: "Соцсеть", icon: "💬" },
-                { type: "photo" as BlockType, label: "Фото", icon: "🖼️" },
-                { type: "video" as BlockType, label: "Видео", icon: "🎥" },
-                { type: "music" as BlockType, label: "Музыка", icon: "🎵" },
-                { type: "map" as BlockType, label: "Карта", icon: "🗺️" },
-              ].map(({ type, label, icon }) => (
+            {[
+              { type: "note" as BlockType, label: "Заметка", icon: "📝" },
+              { type: "link" as BlockType, label: "Ссылка", icon: "🔗" },
+              { type: "social" as BlockType, label: "Соцсеть", icon: "💬" },
+              { type: "photo" as BlockType, label: "Фото", icon: "🖼️" },
+              { type: "video" as BlockType, label: "Видео", icon: "🎥" },
+              { type: "music" as BlockType, label: "Музыка", icon: "🎵" },
+              { type: "map" as BlockType, label: "Карта", icon: "🗺️" },
+            ].map(({ type, label, icon }) => (
                 <button
                   key={type}
                   onClick={() => handleAddBlockClick(type)}
@@ -623,11 +708,11 @@ export default function Editor() {
                     e.currentTarget.style.background = "transparent";
                     e.currentTarget.style.transform = "translateY(0)";
                   }}
-                >
-                  <span style={{ fontSize: "20px", lineHeight: 1 }}>{icon}</span>
-                  <span style={{ fontSize: "11px", fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
-                </button>
-              ))}
+              >
+                <span style={{ fontSize: "20px", lineHeight: 1 }}>{icon}</span>
+                <span style={{ fontSize: "11px", fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -747,3 +832,17 @@ export default function Editor() {
     </div>
   );
 }
+
+const styles = {
+  columnsContainer: (count: number) => ({
+    display: 'grid',
+    gap: '16px',
+    gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))`,
+    width: '100%',
+  }),
+  column: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '16px',
+  },
+};
