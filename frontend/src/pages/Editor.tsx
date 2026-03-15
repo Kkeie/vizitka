@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, uploadImage, getImageUrl, reorderBlocks, type Block, type Profile, type BlockType } from "../api";
+import { listBlocks, deleteBlock, getProfile, updateProfile, createBlock, uploadImage, getImageUrl, reorderBlocks, publicUrl, qrUrlForPublic, type Block, type Profile, type BlockType } from "../api";
 import Avatar from "../components/Avatar";
 import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
@@ -25,6 +25,7 @@ export default function Editor() {
   const [modalType, setModalType] = useState<BlockType | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showQr, setShowQr] = useState(false);
   const gridRef = useMasonryGrid([blocks?.length]);
   
 
@@ -496,6 +497,20 @@ export default function Editor() {
                           )}
                         </div>
                       )}
+                      {/* QR-код публичной визитки */}
+                      <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ fontSize: 13, width: "100%", justifyContent: "flex-start" }}
+                          onClick={() => setShowQr(true)}
+                        >
+                          📱 Показать QR визитки
+                        </button>
+                        <div style={{ fontSize: 12, color: "var(--muted)", wordBreak: "break-all" }}>
+                          Публичная ссылка: {publicUrl(profile.username)}
+                        </div>
+                      </div>
                       <button
                         onClick={() => setEditingProfile(true)}
                         className="btn btn-ghost"
@@ -645,6 +660,75 @@ export default function Editor() {
           }}
         >
           {toast}
+        </div>
+      )}
+
+      {/* QR-модалка */}
+      {showQr && profile && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 11000,
+          }}
+          onClick={() => setShowQr(false)}
+        >
+          <div
+            className="card"
+            style={{ padding: 24, maxWidth: 360, width: "90%", textAlign: "center" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>QR-код вашей визитки</h2>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
+              Отсканируйте код камерой телефона, чтобы открыть публичную страницу.
+            </p>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+              <img
+                src={qrUrlForPublic(profile.username)}
+                alt="QR-код визитки"
+                style={{ width: 220, height: 220 }}
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+              <button
+                type="button"
+                className="btn"
+                style={{ width: "100%", fontSize: 14 }}
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(publicUrl(profile.username));
+                    setToast("Ссылка на визитку скопирована");
+                    setTimeout(() => setToast(null), 2500);
+                  } catch {
+                    setToast("Не удалось скопировать ссылку");
+                    setTimeout(() => setToast(null), 2500);
+                  }
+                }}
+              >
+                📋 Скопировать ссылку
+              </button>
+              <a
+                href={qrUrlForPublic(profile.username)}
+                download={`vizitka-${profile.username}-qr.png`}
+                className="btn"
+                style={{ width: "100%", fontSize: 14, textAlign: "center", justifyContent: "center", display: "inline-flex" }}
+              >
+                ⬇️ Скачать QR-код
+              </a>
+            </div>
+            <button
+              type="button"
+              className="btn"
+              style={{ width: "100%", fontSize: 14 }}
+              onClick={() => setShowQr(false)}
+            >
+              Закрыть
+            </button>
+          </div>
         </div>
       )}
 

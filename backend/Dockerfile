@@ -39,7 +39,7 @@ COPY --from=build /app/dist ./dist
 
 # стартовый скрипт
 COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 # Примечание: Volumes настраиваются через Railway веб-интерфейс
 # Railway автоматически создаст volumes для /app/data и /app/uploads

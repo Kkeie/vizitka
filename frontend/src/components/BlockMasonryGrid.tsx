@@ -124,9 +124,15 @@ export function useMasonryGrid(depKeys: any[] = []) {
     const grid = ref.current;
     if (!grid) return;
 
+    let firstRun = true;
+
     const updateMasonry = () => {
       imagesLoadedPromise(grid).then(() => {
         resizeAllGridItems(grid);
+        if (firstRun) {
+          firstRun = false;
+          grid.classList.add('masonry-ready');
+        }
       });
     };
 
