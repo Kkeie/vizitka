@@ -9,6 +9,7 @@ services:
       - DATABASE_URL=file:/app/data/dev.db
       - JWT_SECRET=dev_secret_change_me
       - NODE_ENV=production
+      - DOCKER=1
     volumes:
       - backend_data:/app/data
       - backend_uploads:/app/uploads

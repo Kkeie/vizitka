@@ -332,6 +332,12 @@ a:hover{color:var(--primary-hover)}
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  /* Прячем сетку до первого перерасчёта masonry, чтобы карточки не наезжали друг на друга */
+  visibility: hidden;
+}
+
+.blocks-grid.masonry-ready {
+  visibility: visible;
 }
 @media (max-width: 1200px) {
   .blocks-grid{

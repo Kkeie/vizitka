@@ -56,8 +56,27 @@ if (import.meta.env.PROD) {
 export function getImageUrl(url: string | null | undefined): string {
   if (!url) return '';
   
-  // Если это уже полный URL (http/https), возвращаем как есть
+  // Если в URL уже есть /uploads/, всегда используем относительный путь,
+  // чтобы ходить через тот же origin (nginx фронтенда в Docker)
+  const uploadsIndex = url.indexOf('/uploads/');
+  if (uploadsIndex !== -1) {
+    return url.slice(uploadsIndex);
+  }
+  
+  // Если это уже полный URL (http/https), стараемся нормализовать localhost-URL для Docker, иначе возвращаем как есть
   if (url.startsWith('http://') || url.startsWith('https://')) {
+    try {
+      const parsed = new URL(url);
+      // Если ссылка указывает на localhost, приводим протокол/порт к текущему origin
+      if (parsed.hostname === 'localhost') {
+        const current = window.location.origin;
+        const normalized = `${current}${parsed.pathname}${parsed.search}${parsed.hash}`;
+        return normalized;
+      }
+    } catch {
+      // если что-то пошло не так при парсинге, просто вернём исходный url
+      return url;
+    }
     return url;
   }
   
@@ -349,6 +368,12 @@ export async function getPublic(username: string): Promise<{ name: string; bio: 
 }
 export function publicUrl(username: string) {
   return `${window.location.origin}/public/${encodeURIComponent(username)}`;
+}
+
+// QR
+export function qrUrlForPublic(username: string) {
+  const url = publicUrl(username);
+  return `${API}/qr?url=${encodeURIComponent(url)}`;
 }
 
 // New wrappers for layout pages

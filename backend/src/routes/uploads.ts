@@ -84,6 +84,13 @@ function respondWithFile(res: Response, file: Express.Multer.File | null) {
   // Логируем успешную загрузку
   console.log(`[UPLOAD] File uploaded: ${file.filename} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
   
+  // В Docker всегда отдаём относительный путь, чтобы работать через nginx фронтенда
+  if (process.env.DOCKER) {
+    const url = `/uploads/${file.filename}`;
+    console.log(`[UPLOAD] Returning URL (DOCKER): ${url}`);
+    return res.json({ url });
+  }
+  
   // Возвращаем полный URL или относительный путь в зависимости от окружения
   // На Render используем BACKEND_URL из переменных окружения или формируем из запроса
   const baseUrl = process.env.BACKEND_URL || '';
