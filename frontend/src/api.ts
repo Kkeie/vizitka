@@ -1,3 +1,9 @@
+export type Layout = {
+  mobile: number[][];
+  tablet: number[][];
+  desktop: number[][];
+};
+
 export type Profile = {
   id: number;
   username: string;
@@ -9,6 +15,7 @@ export type Profile = {
   email?: string | null;
   telegram?: string | null;
   userId: number;
+  layout: Layout | null;
 };
 export type User = {
   id: number;
@@ -219,7 +226,7 @@ export async function getProfile(): Promise<Profile> {
   }
   return safeJsonParse<Profile>(r);
 }
-export async function updateProfile(p: Partial<Pick<Profile, "username" | "name" | "bio" | "avatarUrl" | "backgroundUrl" | "phone" | "email" | "telegram">>): Promise<Profile> {
+export async function updateProfile(p: Partial<Profile>): Promise<Profile> {
   const r = await fetch(`${API}/profile`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -356,13 +363,23 @@ export async function getLinkMetadata(url: string): Promise<{ title?: string; de
 }
 
 // Public
-export async function getPublic(username: string): Promise<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; phone: string | null; email: string | null; telegram: string | null; blocks: Block[] }> {
+export async function getPublic(username: string): Promise<{ 
+  name: string; 
+  bio: string | null; 
+  avatarUrl: string | null; 
+  backgroundUrl: string | null; 
+  phone: string | null; 
+  email: string | null; 
+  telegram: string | null; 
+  blocks: Block[];
+  layout: Layout | null;
+}> {
   const r = await fetch(`${API}/public/${encodeURIComponent(username)}`);
   if (!r.ok) {
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     throw new Error(errorData.error || errorData.message || "not_found");
   }
-  return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; phone: string | null; email: string | null; telegram: string | null; blocks: Block[] }>(r);
+  return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; phone: string | null; email: string | null; telegram: string | null; blocks: Block[]; layout: Layout | null }>(r);
 }
 export function publicUrl(username: string) {
   return `${window.location.origin}/public/${encodeURIComponent(username)}`;

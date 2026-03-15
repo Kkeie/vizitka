@@ -1,6 +1,23 @@
 import { Router } from "express";
 import { db } from "../utils/db";
 
+function mapDbToLegacy(b: any) {
+  return {
+    id: b.id,
+    type: b.type,
+    sort: b.sort,
+    note: b.note,
+    linkUrl: b.linkUrl,
+    photoUrl: b.photoUrl,
+    videoUrl: b.videoUrl,
+    musicEmbed: b.musicEmbed,
+    mapLat: b.mapLat,
+    mapLng: b.mapLng,
+    socialType: b.socialType,
+    socialUrl: b.socialUrl,
+  };
+}
+
 const router = Router();
 
 /**
@@ -14,15 +31,15 @@ router.get("/:username", async (req, res) => {
     const rawUsername = decodedUsername.trim();
     const username = rawUsername.toLowerCase();
     console.log(`[PUBLIC] Fetching profile for username: "${username}" (raw: "${rawUsername}", decoded: "${decodedUsername}")`);
-    
+
     // Системные маршруты, которые не должны обрабатываться как username
     const SYSTEM_ROUTES = ["login", "register", "editor", "u", "api", "index.html", "404.html", "index", "public", "favicon.ico", "robots.txt"];
-    
+
     if (!username || username === "" || SYSTEM_ROUTES.includes(username)) {
       console.log(`[PUBLIC] Invalid username: "${username}" (system route or empty)`);
       return res.status(404).json({ error: "not_found", message: "Username is required" });
     }
-    
+
     // Пробуем найти профиль разными способами для совместимости
     let profile = db.prepare(`
       SELECT p.*, u.id as userId
@@ -30,7 +47,7 @@ router.get("/:username", async (req, res) => {
       JOIN User u ON p.userId = u.id
       WHERE LOWER(TRIM(p.username)) = ?
     `).get(username) as any;
-    
+
     // Если не нашли, пробуем без LOWER и TRIM (на случай если username уже в нижнем регистре)
     if (!profile) {
       console.log(`[PUBLIC] Trying exact match for username: "${rawUsername}"`);
@@ -41,7 +58,7 @@ router.get("/:username", async (req, res) => {
         WHERE p.username = ?
       `).get(rawUsername) as any;
     }
-    
+
     // Если все еще не нашли, пробуем с TRIM но без LOWER
     if (!profile) {
       console.log(`[PUBLIC] Trying TRIM match for username: "${rawUsername}"`);
@@ -64,7 +81,7 @@ router.get("/:username", async (req, res) => {
     }
     
     console.log(`[PUBLIC] Profile found:`, profile ? { id: profile.id, username: profile.username, userId: profile.userId } : 'null');
-    
+
     if (!profile) {
       console.log(`[PUBLIC] Profile not found for username: "${username}" (raw: "${rawUsername}")`);
       return res.status(404).json({ error: "not_found", message: `Profile with username "${username}" not found` });
@@ -76,6 +93,36 @@ router.get("/:username", async (req, res) => {
       ORDER BY sort ASC
     `).all(profile.userId) as any[];
 
+    // Парсим layout
+    let layout = null;
+    if (profile.layout) {
+      try {
+        layout = JSON.parse(profile.layout);
+      } catch {
+        layout = null;
+      }
+    }
+
+    let blocksForResponse: any[] = [];
+    if (layout) {
+      // Собираем все ID блоков из layout в порядке обхода колонок
+      const allIds: number[] = [];
+      const breakpoints: ('mobile' | 'tablet' | 'desktop')[] = ['mobile', 'tablet', 'desktop'];
+      breakpoints.forEach(bp => {
+        if (layout[bp]) {
+          layout[bp].forEach((col: number[]) => {
+            col.forEach(id => {
+              if (!allIds.includes(id)) allIds.push(id);
+            });
+          });
+        }
+      });
+      const blockMap = new Map(blocks.map((b: any) => [b.id, b]));
+      blocksForResponse = allIds.map(id => blockMap.get(id)).filter(Boolean);
+    } else {
+      blocksForResponse = blocks.sort((a: any, b: any) => a.sort - b.sort);
+    }
+
     res.json({
       name: profile.name || profile.username,
       bio: profile.bio,
@@ -84,20 +131,8 @@ router.get("/:username", async (req, res) => {
       phone: profile.phone,
       email: profile.email,
       telegram: profile.telegram,
-      blocks: blocks.map((b) => ({
-        id: b.id,
-        type: b.type,
-        sort: b.sort,
-        note: b.note,
-        linkUrl: b.linkUrl,
-        photoUrl: b.photoUrl,
-        videoUrl: b.videoUrl,
-        musicEmbed: b.musicEmbed,
-        mapLat: b.mapLat,
-        mapLng: b.mapLng,
-        socialType: b.socialType,
-        socialUrl: b.socialUrl,
-      })),
+      blocks: blocksForResponse.map(mapDbToLegacy),
+      layout,
     });
   } catch (e) {
     console.error(e);

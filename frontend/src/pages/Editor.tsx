@@ -13,23 +13,30 @@ import {
   qrUrlForPublic,
   type Block, 
   type Profile, 
-  type BlockType 
+  type BlockType,
+  type Layout,
 } from "../api";
 import Avatar from "../components/Avatar";
 import { SortableBlockCard } from "../components/SortableBlockCard";
+import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
 import SocialMediaForm, { type SocialSubmitItem } from "../components/SocialMediaForm";
 import { formatPhoneNumber } from "../utils/phone";
+import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
+import debounce from "lodash/debounce";
 
 // dnd-kit imports
 import {
   DndContext,
-  closestCenter,
+  DragOverlay,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
+  DragStartEvent,
   DragEndEvent,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -39,43 +46,32 @@ import {
 
 import "../styles/drag-reorder.css";
 
-// Хук для определения количества колонок
-function useColumnCount() {
-  const [columnCount, setColumnCount] = useState(3);
-  useEffect(() => {
-    const update = () => {
-      const width = window.innerWidth;
-      if (width < 768) setColumnCount(1);
-      else if (width < 1200) setColumnCount(2);
-      else setColumnCount(3);
-    };
-    update();
-    window.addEventListener('resize', update);
-    return () => window.removeEventListener('resize', update);
-  }, []);
-  return columnCount;
-}
-
-// Распределение блоков по колонкам последовательно
-function distributeBlocks(blocks: Block[], count: number): Block[][] {
-  const total = blocks.length;
-  const result: Block[][] = Array.from({ length: count }, () => []);
-  const perCol = Math.floor(total / count);
-  const remainder = total % count;
-  let start = 0;
-  for (let i = 0; i < count; i++) {
-    const end = start + perCol + (i < remainder ? 1 : 0);
-    result[i] = blocks.slice(start, end);
-    start = end;
-  }
-  return result;
+// Компонент для колонки, которая может принимать перетаскиваемые элементы
+function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef } = useDroppable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        minHeight: '50px', // чтобы пустая колонка была видима для сброса
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 export default function Editor() {
   const location = useLocation();
   const profileRef = useRef<HTMLDivElement>(null);
-  const [columns, setColumns] = useState<Block[][]>([]);
+  const breakpoint = useBreakpoint();
+
+  const [blocks, setBlocks] = useState<Block[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [layout, setLayout] = useState<Layout | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,13 +88,11 @@ export default function Editor() {
   const [modalType, setModalType] = useState<BlockType | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [showQr, setShowQr] = useState(false);  
-  
-  const columnCount = useColumnCount();
-  const prevColumnCountRef = useRef(columnCount);
+  const [showQr, setShowQr] = useState(false);
+  const [activeId, setActiveId] = useState<number | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(PointerSensor, { 
       activationConstraint: { delay: 100, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, {
@@ -131,8 +125,18 @@ export default function Editor() {
       setError(null);
       const [b, p] = await Promise.all([listBlocks(), getProfile()]);
       const sorted = [...b].sort((a, b) => a.sort - b.sort);
-      setColumns(distributeBlocks(sorted, columnCount));
+      setBlocks(sorted);
       setProfile(p);
+
+      if (p.layout) {
+        const fixedLayout = ensureColumnCount(p.layout, sorted.map(b => b.id));
+        setLayout(fixedLayout);
+      } else {
+        const initialLayout = generateInitialLayout(sorted);
+        setLayout(initialLayout);
+        updateProfile({ layout: initialLayout }).catch(console.error);
+      }
+
       setProfileForm({
         username: p.username || "",
         name: p.name || "",
@@ -183,76 +187,105 @@ export default function Editor() {
     }
   }
 
-  // Адаптивность: перераспределение при изменении количества колонок
-  useEffect(() => {
-    if (columns.length === 0) return;
-    if (prevColumnCountRef.current === columnCount) return;
+  function ensureColumnCount(layout: Layout, allIds: number[]): Layout {
+    const result: Layout = { mobile: [], tablet: [], desktop: [] };
+    (Object.keys(layout) as Breakpoint[]).forEach(bp => {
+      const expectedCols = bp === 'mobile' ? 1 : bp === 'tablet' ? 2 : 3;
+      let cols = layout[bp];
+      while (cols.length < expectedCols) {
+        cols.push([]);
+      }
+      cols = cols.slice(0, expectedCols);
+      result[bp] = cols;
+    });
+    return result;
+  }
 
-    const allBlocks = columns.flat().sort((a, b) => a.sort - b.sort);
-    const newColumns = distributeBlocks(allBlocks, columnCount);
-    setColumns(newColumns);
-    prevColumnCountRef.current = columnCount;
-  }, [columnCount]);
+  function generateInitialLayout(blocks: Block[]): Layout {
+    const ids = blocks.map(b => b.id);
+    return {
+      mobile: [ids],
+      tablet: [ids, []],
+      desktop: [ids, [], []],
+    };
+  }
 
-  // Сохранение порядка на сервере
-  const saveOrder = async (newColumns: Block[][]) => {
-    const allBlocks = newColumns.flat();
-    const items = allBlocks.map((block, idx) => ({ id: block.id, sort: idx + 1 }));
-    try {
-      await reorderBlocks(items);
-      // Обновляем локальные sort-поля
-      setColumns(prev => {
-        const updated = [...prev];
-        let globalIdx = 0;
-        for (let col of updated) {
-          for (let block of col) {
-            block.sort = ++globalIdx;
-          }
+  const currentColumns = layout ? layout[breakpoint] : [];
+
+  const saveLayout = useMemo(
+    () =>
+      debounce(async (newLayout: Layout) => {
+        try {
+          await updateProfile({ layout: newLayout });
+        } catch (error) {
+          console.error("Failed to save layout", error);
+          setToast("Не удалось сохранить расположение блоков");
         }
-        return updated;
-      });
-    } catch (error) {
-      console.error("Ошибка сохранения порядка:", error);
-      setToast("Не удалось сохранить порядок блоков");
-    }
+      }, 500),
+    []
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as number);
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
+    setActiveId(null);
+    if (!over || !layout) return;
 
     const activeId = active.id as number;
-    const overId = over.id as number;
+    const overId = over.id;
 
-    let sourceColIndex = -1, sourceIndex = -1;
-    let destColIndex = -1, destIndex = -1;
+    console.log('Drag end:', { activeId, overId }); // для отладки
 
-    for (let i = 0; i < columns.length; i++) {
-      const idx = columns[i].findIndex(b => b.id === activeId);
+    const newColumns = currentColumns.map(col => [...col]);
+
+    // Находим исходную позицию
+    let sourceColIdx = -1, sourceIdx = -1;
+    for (let i = 0; i < newColumns.length; i++) {
+      const idx = newColumns[i].indexOf(activeId);
       if (idx !== -1) {
-        sourceColIndex = i;
-        sourceIndex = idx;
+        sourceColIdx = i;
+        sourceIdx = idx;
         break;
       }
     }
-    for (let i = 0; i < columns.length; i++) {
-      const idx = columns[i].findIndex(b => b.id === overId);
-      if (idx !== -1) {
-        destColIndex = i;
-        destIndex = idx;
-        break;
+    if (sourceColIdx === -1) return;
+
+    // Определяем целевую позицию
+    let destColIdx = -1, destIdx = -1;
+
+    if (typeof overId === 'string' && overId.startsWith('column-')) {
+      // Сброс в пустую колонку
+      destColIdx = parseInt(overId.replace('column-', ''), 10);
+      destIdx = newColumns[destColIdx].length; // в конец
+    } else {
+      // Сброс на существующую карточку
+      const overIdNum = overId as number;
+      for (let i = 0; i < newColumns.length; i++) {
+        const idx = newColumns[i].indexOf(overIdNum);
+        if (idx !== -1) {
+          destColIdx = i;
+          destIdx = idx;
+          break;
+        }
       }
     }
 
-    if (sourceColIndex === -1 || destColIndex === -1) return;
-    if (sourceColIndex === destColIndex && sourceIndex === destIndex) return;
+    if (destColIdx === -1) return;
+    if (sourceColIdx === destColIdx && sourceIdx === destIdx) return;
 
-    const newColumns = [...columns];
-    const [movedBlock] = newColumns[sourceColIndex].splice(sourceIndex, 1);
-    newColumns[destColIndex].splice(destIndex, 0, movedBlock);
+    const [moved] = newColumns[sourceColIdx].splice(sourceIdx, 1);
+    if (destIdx === newColumns[destColIdx].length) {
+      newColumns[destColIdx].push(moved);
+    } else {
+      newColumns[destColIdx].splice(destIdx, 0, moved);
+    }
 
-    setColumns(newColumns);
-    await saveOrder(newColumns);
+    const newLayout = { ...layout, [breakpoint]: newColumns };
+    setLayout(newLayout);
+    saveLayout(newLayout);
   };
 
   async function saveProfile(e: React.FormEvent) {
@@ -282,9 +315,14 @@ export default function Editor() {
     if (!confirm("Удалить этот блок?")) return;
     try {
       await deleteBlock(id);
-      const newColumns = columns.map(col => col.filter(b => b.id !== id));
-      setColumns(newColumns);
-      await saveOrder(newColumns);
+      setBlocks(prev => prev.filter(b => b.id !== id));
+      if (!layout) return;
+      const newLayout = { ...layout };
+      (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
+        newLayout[bp] = newLayout[bp].map(col => col.filter(blockId => blockId !== id));
+      });
+      setLayout(newLayout);
+      saveLayout(newLayout);
     } catch (e) {
       alert("Не удалось удалить блок");
       console.error(e);
@@ -296,15 +334,27 @@ export default function Editor() {
     setModalOpen(true);
   }
 
+  async function handleBlockCreated(newBlock: Block) {
+    if (!layout) return;
+    const newLayout = { ...layout };
+    (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
+      const expectedCols = bp === 'mobile' ? 1 : bp === 'tablet' ? 2 : 3;
+      while (newLayout[bp].length < expectedCols) {
+        newLayout[bp].push([]);
+      }
+      newLayout[bp] = newLayout[bp].map((col, idx) =>
+        idx === 0 ? [...col, newBlock.id] : col
+      );
+    });
+    setLayout(newLayout);
+    saveLayout(newLayout);
+    setBlocks(prev => [...prev, newBlock]);
+  }
+
   async function handleBlockSubmit(data: Partial<Block>) {
     try {
-      const totalBlocks = columns.flat().length;
-      const blockData = { ...data, sort: totalBlocks + 1 };
-      const newBlock = await createBlock(blockData as any);
-      const allBlocks = [...columns.flat(), newBlock].sort((a, b) => a.sort - b.sort);
-      const newColumns = distributeBlocks(allBlocks, columnCount);
-      setColumns(newColumns);
-      await saveOrder(newColumns);
+      const newBlock = await createBlock(data as any);
+      await handleBlockCreated(newBlock);
     } catch (e) {
       alert("Не удалось создать блок");
       console.error(e);
@@ -316,10 +366,22 @@ export default function Editor() {
       const createdBlocks = await Promise.all(
         blocksData.map(blockData => createBlock(blockData as any))
       );
-      const allBlocks = [...columns.flat(), ...createdBlocks].sort((a, b) => a.sort - b.sort);
-      const newColumns = distributeBlocks(allBlocks, columnCount);
-      setColumns(newColumns);
-      await saveOrder(newColumns);
+      setBlocks(prev => [...prev, ...createdBlocks]);
+
+      if (!layout) return;
+      const newLayout = { ...layout };
+      const newIds = createdBlocks.map(b => b.id);
+      (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
+        const expectedCols = bp === 'mobile' ? 1 : bp === 'tablet' ? 2 : 3;
+        while (newLayout[bp].length < expectedCols) {
+          newLayout[bp].push([]);
+        }
+        newLayout[bp] = newLayout[bp].map((col, idx) =>
+          idx === 0 ? [...col, ...newIds] : col
+        );
+      });
+      setLayout(newLayout);
+      saveLayout(newLayout);
     } catch (e) {
       alert("Не удалось создать блоки");
       console.error(e);
@@ -349,26 +411,13 @@ export default function Editor() {
     );
   }
 
-  if (!profile) return null;
+  if (!profile || !layout) return null;
 
-  const totalBlocks = columns.flat().length;
+  const totalBlocks = blocks.length;
 
   return (
-    <div 
-      className="page-bg min-h-screen"
-      style={{
-        position: "relative",
-        minHeight: "100vh",
-        width: "100%",
-        maxWidth: "100%",
-        overflowX: "hidden",
-        boxSizing: "border-box",
-        margin: 0,
-        padding: 0,
-      }}
-    >
-      <div className="container" style={{ paddingTop: 40, paddingBottom: 100, position: "relative", zIndex: 1 }}>
-
+    <div className="page-bg min-h-screen">
+      <div className="container" style={{ paddingTop: 40, paddingBottom: 100 }}>
         {/* Two Column Layout: Profile Left, Blocks Right */}
         <div className="two-column-layout" style={{ alignItems: "start" }}>
           {/* Left Column: Profile (fixed) + Placeholder for grid */}
@@ -376,27 +425,25 @@ export default function Editor() {
             {/* Fixed profile */}
             <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
               <div className="reveal reveal-in">
-                <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", maxWidth: "100%", alignItems: "flex-start" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", alignItems: "flex-start" }}>
                   {/* Avatar */}
-                  <div style={{ display: "flex", justifyContent: "flex-start" }}>
-                    <div>
-                      <Avatar
-                        src={profile.avatarUrl}
-                        size={120}
-                        editable={true}
-                        onChange={async (url: string) => {
-                          try {
-                            await updateProfile({ avatarUrl: url } as any);
-                            await loadData();
-                          } catch {
-                            alert("Не удалось сохранить аватар");
-                          }
-                        }}
-                      />
-                    </div>
+                  <div>
+                    <Avatar
+                      src={profile.avatarUrl}
+                      size={120}
+                      editable={true}
+                      onChange={async (url: string) => {
+                        try {
+                          await updateProfile({ avatarUrl: url } as any);
+                          await loadData();
+                        } catch {
+                          alert("Не удалось сохранить аватар");
+                        }
+                      }}
+                    />
                   </div>
 
-                {/* Profile Info */}
+                  {/* Profile Info */}
                   {editingProfile ? (
                     <form onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
                       <div>
@@ -511,122 +558,122 @@ export default function Editor() {
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
-                      <button type="submit" disabled={savingProfile} className="btn btn-primary" style={{ fontSize: 14, width: "100%" }}>
-                        {savingProfile ? "Сохранение..." : "Сохранить"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingProfile(false);
-                        setProfileForm({
-                          username: profile.username || "",
-                          name: profile.name || "",
-                          bio: profile.bio || "",
-                          phone: (profile as any).phone || "",
-                          email: (profile as any).email || "",
-                          telegram: (profile as any).telegram || "",
-                        });
-                        }}
-                        className="btn btn-ghost"
-                        style={{ fontSize: 14, width: "100%" }}
-                      >
-                        Отмена
-                      </button>
+                        <button type="submit" disabled={savingProfile} className="btn btn-primary" style={{ width: "100%" }}>
+                          {savingProfile ? "Сохранение..." : "Сохранить"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingProfile(false);
+                            setProfileForm({
+                              username: profile.username || "",
+                              name: profile.name || "",
+                              bio: profile.bio || "",
+                              phone: (profile as any).phone || "",
+                              email: (profile as any).email || "",
+                              telegram: (profile as any).telegram || "",
+                            });
+                          }}
+                          className="btn btn-ghost"
+                          style={{ width: "100%" }}
+                        >
+                          Отмена
+                        </button>
                       </div>
                     </form>
                   ) : (
                     <>
-                      <div style={{ textAlign: "left", width: "100%" }}>
-                      <h1 style={{ 
-                        fontSize: 32, 
-                        fontWeight: 800, 
-                        letterSpacing: "-0.03em", 
-                        lineHeight: 1.2, 
-                        color: "var(--text)", 
-                        marginBottom: 8, 
-                        wordBreak: "break-word"
-                      }}>
-                        {profile.name || profile.username}
-                      </h1>
-                      <p style={{ 
-                        fontSize: 16, 
-                        color: "var(--text)", 
-                        marginBottom: 16, 
-                        fontWeight: 500
-                      }}>
-                        @{profile.username}
-                      </p>
-                      {profile.bio && (
-                        <p style={{ 
+                                            <div style={{ textAlign: "left", width: "100%" }}>
+                        <h1 style={{ 
+                          fontSize: 32, 
+                          fontWeight: 800, 
+                          letterSpacing: "-0.03em", 
+                          lineHeight: 1.2, 
                           color: "var(--text)", 
-                          fontSize: 14, 
-                          lineHeight: 1.6, 
-                          textAlign: "left",
-                          wordWrap: "break-word",
-                          wordBreak: "break-word",
-                          overflowWrap: "break-word",
-                          whiteSpace: "pre-wrap",
-                          width: "100%",
-                          maxWidth: "100%",
-                          marginBottom: 16
+                          marginBottom: 8, 
+                          wordBreak: "break-word"
                         }}>
-                          {profile.bio}
+                          {profile.name || profile.username}
+                        </h1>
+                        <p style={{ 
+                          fontSize: 16, 
+                          color: "var(--text)", 
+                          marginBottom: 16, 
+                          fontWeight: 500
+                        }}>
+                          @{profile.username}
                         </p>
-                      )}
-                        {((profile as any).phone || (profile as any).email || (profile as any).telegram) && (
+                        {profile.bio && (
+                          <p style={{ 
+                            color: "var(--text)", 
+                            fontSize: 14, 
+                            lineHeight: 1.6, 
+                            textAlign: "left",
+                            wordWrap: "break-word",
+                            wordBreak: "break-word",
+                            overflowWrap: "break-word",
+                            whiteSpace: "pre-wrap",
+                            width: "100%",
+                            maxWidth: "100%",
+                            marginBottom: 16
+                          }}>
+                            {profile.bio}
+                          </p>
+                        )}
+                        {(profile.phone || profile.email || profile.telegram) && (
                           <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-                          {(profile as any).phone && (
-                            <div style={{ fontSize: 14, color: "var(--text)" }}>
-                              📞 {(profile as any).phone}
-                            </div>
-                          )}
-                          {(profile as any).email && (
-                            <div style={{ fontSize: 14, color: "var(--text)" }}>
-                              ✉️ {(profile as any).email}
-                            </div>
-                          )}
-                          {(profile as any).telegram && (
-                            <div style={{ fontSize: 14, color: "var(--text)" }}>
-                              ✈️ {(profile as any).telegram}
-                            </div>
-                          )}
+                            {profile.phone && (
+                              <div style={{ fontSize: 14, color: "var(--text)" }}>
+                                📞 {profile.phone}
+                              </div>
+                            )}
+                            {profile.email && (
+                              <div style={{ fontSize: 14, color: "var(--text)" }}>
+                                ✉️ {profile.email}
+                              </div>
+                            )}
+                            {profile.telegram && (
+                              <div style={{ fontSize: 14, color: "var(--text)" }}>
+                                ✈️ {profile.telegram}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {/* QR-код публичной визитки */}
+                        <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+                          <button
+                            type="button"
+                            className="btn"
+                            style={{ fontSize: 13, width: "100%", justifyContent: "flex-start" }}
+                            onClick={() => setShowQr(true)}
+                          >
+                            📱 Показать QR визитки
+                          </button>
+                          <div style={{ fontSize: 12, color: "var(--muted)", wordBreak: "break-all" }}>
+                            Публичная ссылка: {publicUrl(profile.username)}
+                          </div>
                         </div>
-                      )}
-                      {/* QR-код публичной визитки */}
-                      <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8 }}>
                         <button
-                          type="button"
-                          className="btn"
-                          style={{ fontSize: 13, width: "100%", justifyContent: "flex-start" }}
-                          onClick={() => setShowQr(true)}
+                          onClick={() => setEditingProfile(true)}
+                          className="btn btn-ghost"
+                          style={{ 
+                            fontSize: 13, 
+                            padding: "8px 16px", 
+                            marginTop: 16, 
+                            width: "auto",
+                            background: "var(--accent)",
+                            border: "1px solid var(--border)"
+                          }}
                         >
-                          📱 Показать QR визитки
+                          ✏️ Редактировать
                         </button>
-                        <div style={{ fontSize: 12, color: "var(--muted)", wordBreak: "break-all" }}>
-                          Публичная ссылка: {publicUrl(profile.username)}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setEditingProfile(true)}
-                        className="btn btn-ghost"
-                        style={{ 
-                          fontSize: 13, 
-                          padding: "8px 16px", 
-                          marginTop: 16, 
-                          width: "auto",
-                          background: "var(--accent)",
-                          border: "1px solid var(--border)"
-                        }}
-                      >
-                        ✏️ Редактировать
-                      </button>
                       </div>
                     </>
                   )}
                 </div>
               </div>
             </div>
-            {/* Placeholder для сохранения места в grid на больших экранах */}
+                        {/* Placeholder для сохранения места в grid на больших экранах */}
             <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }}></div>
           </div>
 
@@ -635,18 +682,45 @@ export default function Editor() {
             {totalBlocks === 0 ? (
               <SocialMediaForm onSubmit={handleSocialMediaSubmit} />
             ) : (
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <div style={styles.columnsContainer(columnCount)}>
-                  {columns.map((columnBlocks, colIndex) => (
-                    <div key={colIndex} style={styles.column}>
-                      <SortableContext items={columnBlocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
-                        {columnBlocks.map((block) => (
-                          <SortableBlockCard key={block.id} block={block} onDelete={() => handleDeleteBlock(block.id)} />
-                        ))}
-                      </SortableContext>
-                    </div>
-                  ))}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={rectIntersection}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${breakpoint === 'mobile' ? 1 : breakpoint === 'tablet' ? 2 : 3}, 1fr)`,
+                    gap: '16px',
+                  }}
+                >
+                  {currentColumns.map((column, colIndex) => {
+                    const columnId = `column-${colIndex}`;
+                    return (
+                      <DroppableColumn key={colIndex} id={columnId}>
+                        <SortableContext items={column} strategy={verticalListSortingStrategy}>
+                          {column.map(blockId => {
+                            const block = blocks.find(b => b.id === blockId);
+                            return block ? (
+                              <SortableBlockCard
+                                key={block.id}
+                                block={block}
+                                onDelete={() => handleDeleteBlock(block.id)}
+                              />
+                            ) : null;
+                          })}
+                        </SortableContext>
+                      </DroppableColumn>
+                    );
+                  })}
                 </div>
+
+                <DragOverlay>
+                  {activeId ? (
+                    <BlockCard b={blocks.find(b => b.id === activeId)!} isDragPreview />
+                  ) : null}
+                </DragOverlay>
               </DndContext>
             )}
           </div>
@@ -667,13 +741,7 @@ export default function Editor() {
           maxWidth: "calc(100% - 40px)",
           width: "fit-content",
         }}>
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "8px",
-            flexWrap: "wrap",
-          }}>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
             {[
               { type: "note" as BlockType, label: "Заметка", icon: "📝" },
               { type: "link" as BlockType, label: "Ссылка", icon: "🔗" },
@@ -683,31 +751,31 @@ export default function Editor() {
               { type: "music" as BlockType, label: "Музыка", icon: "🎵" },
               { type: "map" as BlockType, label: "Карта", icon: "🗺️" },
             ].map(({ type, label, icon }) => (
-                <button
-                  key={type}
-                  onClick={() => handleAddBlockClick(type)}
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: "3px",
-                    padding: "6px 10px",
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    borderRadius: "var(--radius-sm)",
-                    transition: "all 0.2s ease",
-                    color: "var(--text)",
-                    minWidth: "65px",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "var(--accent)";
-                    e.currentTarget.style.transform = "translateY(-2px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.transform = "translateY(0)";
-                  }}
+              <button
+                key={type}
+                onClick={() => handleAddBlockClick(type)}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "3px",
+                  padding: "6px 10px",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  borderRadius: "var(--radius-sm)",
+                  transition: "all 0.2s ease",
+                  color: "var(--text)",
+                  minWidth: "65px",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--accent)";
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.transform = "translateY(0)";
+                }}
               >
                 <span style={{ fontSize: "20px", lineHeight: 1 }}>{icon}</span>
                 <span style={{ fontSize: "11px", fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
@@ -732,18 +800,7 @@ export default function Editor() {
 
       {/* Toast Notification */}
       {toast && (
-        <div 
-          className="card" 
-          style={{ 
-            position: "fixed", 
-            right: 24, 
-            top: 24, 
-            padding: "14px 18px",
-            zIndex: 10000,
-            boxShadow: "var(--shadow-xl)",
-            animation: "slideIn 0.3s ease"
-          }}
-        >
+        <div className="card" style={{ position: "fixed", right: 24, top: 24, padding: "14px 18px", zIndex: 10000, boxShadow: "var(--shadow-xl)", animation: "slideIn 0.3s ease" }}>
           {toast}
         </div>
       )}
@@ -832,17 +889,3 @@ export default function Editor() {
     </div>
   );
 }
-
-const styles = {
-  columnsContainer: (count: number) => ({
-    display: 'grid',
-    gap: '16px',
-    gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))`,
-    width: '100%',
-  }),
-  column: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '16px',
-  },
-};

@@ -41,6 +41,14 @@ router.get("/", async (req: AuthedRequest, res) => {
     console.error(`[PROFILE] Failed to get or create profile for user ${userId}`);
     return res.status(500).json({ error: "profile_creation_failed", message: "Failed to create profile" });
   }
+
+  if (profile && profile.layout) {
+    try {
+      profile.layout = JSON.parse(profile.layout);
+    } catch {
+      profile.layout = null;
+    }
+ }
   
   res.json(profile);
 });
@@ -48,7 +56,7 @@ router.get("/", async (req: AuthedRequest, res) => {
 // PATCH /api/profile
 router.patch("/", async (req: AuthedRequest, res) => {
   const userId = req.user!.id;
-  const { username, name, bio, avatarUrl, backgroundUrl, phone, email, telegram } = req.body || {};
+  const { username, name, bio, avatarUrl, backgroundUrl, phone, email, telegram, layout } = req.body || {};
   
   // Проверяем, что пользователь существует
   const user = db.prepare("SELECT id FROM User WHERE id = ?").get(userId) as any;
@@ -98,6 +106,10 @@ router.patch("/", async (req: AuthedRequest, res) => {
   if (telegram !== undefined) {
     updates.push("telegram = ?");
     values.push(telegram);
+  }
+  if (layout !== undefined) {
+    updates.push("layout = ?");
+    values.push(JSON.stringify(layout));
   }
   
   if (updates.length > 0) {

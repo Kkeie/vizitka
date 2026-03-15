@@ -78,6 +78,7 @@ export function initDatabase() {
       bio TEXT,
       avatarUrl TEXT,
       backgroundUrl TEXT,
+      layout TEXT,
       userId INTEGER NOT NULL UNIQUE,
       FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
     )
@@ -200,6 +201,7 @@ export interface Profile {
   phone: string | null;
   email: string | null;
   telegram: string | null;
+  layout: string | null;
   userId: number;
 }
 
