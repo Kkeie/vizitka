@@ -109,27 +109,25 @@ if (import.meta.env.PROD && API.startsWith('/') && !API.startsWith('http')) {
   console.error('[API] Please set VITE_BACKEND_API_URL=https://your-backend.onrender.com/api in Render environment variables');
 }
 
-// Use sessionStorage to avoid shared/lingering logins between users on the same device
+// Token storage policy:
+// only sessionStorage to avoid cross-user leakage via persistent localStorage.
+// If a legacy token is present in localStorage, remove it.
 let token: string | null = sessionStorage.getItem("token");
-if (!token) {
-  const legacyToken = localStorage.getItem("token");
-  if (legacyToken) {
-    token = legacyToken;
-    sessionStorage.setItem("token", legacyToken);
-    localStorage.removeItem("token");
-  }
+if (localStorage.getItem("token")) {
+  localStorage.removeItem("token");
 }
 export function setToken(t: string | null) {
   token = t;
   if (t) {
     sessionStorage.setItem("token", t);
-    localStorage.removeItem("token");
   } else {
     sessionStorage.removeItem("token");
-    localStorage.removeItem("token");
   }
+  localStorage.removeItem("token");
 }
 export function authHeaders(): Record<string, string> {
+  // Keep in-memory token synced with current tab sessionStorage state.
+  token = sessionStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -200,7 +198,7 @@ export async function login(username: string, password: string): Promise<{ token
   return data;
 }
 export async function me(): Promise<User> {
-  const r = await fetch(`${API}/user/me`, { headers: authHeaders() });
+  const r = await fetch(`${API}/user/me`, { headers: authHeaders(), cache: "no-store" });
   if (!r.ok) throw new Error("unauthorized");
   return safeJsonParse<User>(r);
 }
@@ -211,7 +209,7 @@ export async function getProfile(): Promise<Profile> {
   const headers: Record<string, string> = { "Content-Type": "application/json", ...authHeaders() };
   console.log('[API] getProfile request:', { url, headers: { ...headers, Authorization: headers.Authorization ? 'Bearer ***' : 'none' } });
   
-  const r = await fetch(url, { headers });
+  const r = await fetch(url, { headers, cache: "no-store" });
   console.log('[API] getProfile response:', { status: r.status, statusText: r.statusText, ok: r.ok });
   
   if (!r.ok) {
@@ -269,7 +267,7 @@ export async function listBlocks(): Promise<Block[]> {
   const headers: Record<string, string> = authHeaders();
   console.log('[API] listBlocks request:', { url, headers: { ...headers, Authorization: headers.Authorization ? 'Bearer ***' : 'none' } });
   
-  const r = await fetch(url, { headers });
+  const r = await fetch(url, { headers, cache: "no-store" });
   console.log('[API] listBlocks response:', { status: r.status, statusText: r.statusText, ok: r.ok });
   
   if (!r.ok) {

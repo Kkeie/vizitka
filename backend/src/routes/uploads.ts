@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import multer, { MulterError } from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { requireAuth } from '../utils/auth';
 
 const router = Router();
 
@@ -135,23 +136,23 @@ function multerErrorHandler(
 }
 
 // Совместимость со старым фронтом: POST /api/storage/upload
-router.post('/upload', uploadAny, (req: Request, res: Response) => {
+router.post('/upload', requireAuth, uploadAny, (req: Request, res: Response) => {
   const file = pickFirstFile(req);
   return respondWithFile(res, file);
 });
 
 // Явные маршруты (тоже принимают любое имя поля)
-router.post('/image', uploadAny, (req: Request, res: Response) => {
+router.post('/image', requireAuth, uploadAny, (req: Request, res: Response) => {
   const file = pickFirstFile(req);
   return respondWithFile(res, file);
 });
 
-router.post('/video', uploadAny, (req: Request, res: Response) => {
+router.post('/video', requireAuth, uploadAny, (req: Request, res: Response) => {
   const file = pickFirstFile(req);
   return respondWithFile(res, file);
 });
 
-router.post('/audio', uploadAny, (req: Request, res: Response) => {
+router.post('/audio', requireAuth, uploadAny, (req: Request, res: Response) => {
   const file = pickFirstFile(req);
   return respondWithFile(res, file);
 });

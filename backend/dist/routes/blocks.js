@@ -17,10 +17,12 @@ function mapDbToLegacy(b) {
         musicEmbed: b.musicEmbed,
         mapLat: b.mapLat,
         mapLng: b.mapLng,
+        socialType: b.socialType,
+        socialUrl: b.socialUrl,
     };
 }
 function mapUnifiedToDb(type, patch) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l;
     const data = {};
     if (typeof patch.sort === "number")
         data.sort = patch.sort;
@@ -114,6 +116,21 @@ function mapUnifiedToDb(type, patch) {
             data.photoUrl = null;
             data.videoUrl = null;
             data.musicEmbed = null;
+            data.socialType = null;
+            data.socialUrl = null;
+            break;
+        case "social":
+            if (patch.socialType !== undefined)
+                data.socialType = (_k = patch.socialType) !== null && _k !== void 0 ? _k : null;
+            if (patch.socialUrl !== undefined)
+                data.socialUrl = (_l = patch.socialUrl) !== null && _l !== void 0 ? _l : null;
+            data.linkUrl = null;
+            data.photoUrl = null;
+            data.videoUrl = null;
+            data.musicEmbed = null;
+            data.mapLat = null;
+            data.mapLng = null;
+            data.note = null;
             break;
     }
     return data;
@@ -134,18 +151,37 @@ router.get("/", auth_1.requireAuth, async (req, res) => {
  * body: { type: "note"|"link"|..., url?: string|null, content?: string|null, sort?: number }
  */
 router.post("/", auth_1.requireAuth, async (req, res) => {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     const { type } = req.body;
     if (!type)
         return res.status(400).json({ error: "type_required" });
+    const userId = req.user.id;
+    // Проверяем, что пользователь существует в базе данных
+    const userExists = db_1.db.prepare("SELECT id FROM User WHERE id = ?").get(userId);
+    if (!userExists) {
+        console.error(`[BLOCKS] User ${userId} not found in database`);
+        return res.status(401).json({ error: "user_not_found", message: "User does not exist in database" });
+    }
     const dbData = mapUnifiedToDb(type, req.body);
     const insert = db_1.db.prepare(`
-    INSERT INTO Block (userId, type, sort, note, linkUrl, photoUrl, videoUrl, musicEmbed, mapLat, mapLng)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO Block (userId, type, sort, note, linkUrl, photoUrl, videoUrl, musicEmbed, mapLat, mapLng, socialType, socialUrl)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-    const result = insert.run(req.user.id, type, typeof req.body.sort === "number" ? req.body.sort : 0, (_a = dbData.note) !== null && _a !== void 0 ? _a : null, (_b = dbData.linkUrl) !== null && _b !== void 0 ? _b : null, (_c = dbData.photoUrl) !== null && _c !== void 0 ? _c : null, (_d = dbData.videoUrl) !== null && _d !== void 0 ? _d : null, (_e = dbData.musicEmbed) !== null && _e !== void 0 ? _e : null, (_f = dbData.mapLat) !== null && _f !== void 0 ? _f : null, (_g = dbData.mapLng) !== null && _g !== void 0 ? _g : null);
-    const created = db_1.db.prepare("SELECT * FROM Block WHERE id = ?").get(result.lastInsertRowid);
-    res.json(mapDbToLegacy(created));
+    try {
+        const result = insert.run(userId, type, typeof req.body.sort === "number" ? req.body.sort : 0, (_a = dbData.note) !== null && _a !== void 0 ? _a : null, (_b = dbData.linkUrl) !== null && _b !== void 0 ? _b : null, (_c = dbData.photoUrl) !== null && _c !== void 0 ? _c : null, (_d = dbData.videoUrl) !== null && _d !== void 0 ? _d : null, (_e = dbData.musicEmbed) !== null && _e !== void 0 ? _e : null, (_f = dbData.mapLat) !== null && _f !== void 0 ? _f : null, (_g = dbData.mapLng) !== null && _g !== void 0 ? _g : null, (_h = dbData.socialType) !== null && _h !== void 0 ? _h : null, (_j = dbData.socialUrl) !== null && _j !== void 0 ? _j : null);
+        const created = db_1.db.prepare("SELECT * FROM Block WHERE id = ?").get(result.lastInsertRowid);
+        res.json(mapDbToLegacy(created));
+    }
+    catch (error) {
+        console.error(`[BLOCKS] Failed to create block for user ${userId}:`, error);
+        if (error.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+            return res.status(400).json({
+                error: "foreign_key_constraint_failed",
+                message: "User does not exist or database constraint violation"
+            });
+        }
+        return res.status(500).json({ error: "create_block_failed", message: error.message });
+    }
 });
 /**
  * PATCH /api/blocks/:id — обновить блок (унифицированный формат)
@@ -190,6 +226,14 @@ router.patch("/:id", auth_1.requireAuth, async (req, res) => {
     if (dbData.mapLng !== undefined) {
         updates.push("mapLng = ?");
         values.push(dbData.mapLng);
+    }
+    if (dbData.socialType !== undefined) {
+        updates.push("socialType = ?");
+        values.push(dbData.socialType);
+    }
+    if (dbData.socialUrl !== undefined) {
+        updates.push("socialUrl = ?");
+        values.push(dbData.socialUrl);
     }
     if (updates.length > 0) {
         values.push(id);

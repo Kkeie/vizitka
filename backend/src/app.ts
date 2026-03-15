@@ -45,6 +45,16 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Никогда не кешируем приватные ответы, зависящие от bearer token.
+app.use("/api", (req, res, next) => {
+  if (req.headers.authorization) {
+    res.setHeader("Cache-Control", "private, no-store, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Vary", "Authorization");
+  }
+  next();
+});
+
 // статика для загруженных файлов
 // На Render используем /tmp/uploads, в Docker/локально - ./uploads
 function getUploadDir(): string {
