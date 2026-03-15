@@ -78,12 +78,81 @@ export type MusicKind =
   | { kind: "youtube"; src: string }
   | { kind: "rawEmbed"; html: string };
 
+function findEmbedString(value: unknown, depth = 0): string | null {
+  if (depth > 3 || value == null) return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findEmbedString(item, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const prioritizedKeys = ["html", "iframe", "embed", "musicEmbed", "url", "src", "content"];
+    for (const key of prioritizedKeys) {
+      if (key in obj) {
+        const found = findEmbedString(obj[key], depth + 1);
+        if (found) return found;
+      }
+    }
+    for (const key of Object.keys(obj)) {
+      if (prioritizedKeys.includes(key)) continue;
+      const found = findEmbedString(obj[key], depth + 1);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function normalizeMusicInput(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return trimmed;
+
+  const looksLikeJson =
+    trimmed.startsWith("{") ||
+    trimmed.startsWith("[") ||
+    (trimmed.startsWith("\"") && trimmed.endsWith("\""));
+
+  if (!looksLikeJson) return input;
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    const extracted = findEmbedString(parsed);
+    if (!extracted) return input;
+
+    // Поддержка двойной сериализации: "\"<iframe ...>\""
+    const nestedLooksLikeJson =
+      extracted.startsWith("{") ||
+      extracted.startsWith("[") ||
+      (extracted.startsWith("\"") && extracted.endsWith("\""));
+    if (nestedLooksLikeJson) {
+      try {
+        const nested = JSON.parse(extracted) as unknown;
+        const nestedExtracted = findEmbedString(nested);
+        return nestedExtracted || extracted;
+      } catch {
+        return extracted;
+      }
+    }
+    return extracted;
+  } catch {
+    return input;
+  }
+}
+
 export function classifyMusic(input: string): MusicKind {
+  const normalizedInput = normalizeMusicInput(input);
+
   // Проверяем, является ли входная строка iframe от Yandex Music
-  if (input.includes("music.yandex.ru/iframe") || input.includes("<iframe")) {
+  if (normalizedInput.includes("music.yandex.ru/iframe") || normalizedInput.includes("<iframe")) {
     // Если это уже готовый iframe HTML, очищаем sandbox атрибут и добавляем правильные allow атрибуты
-    if (input.trim().startsWith("<iframe")) {
-      let cleanedHtml = input;
+    if (normalizedInput.trim().startsWith("<iframe")) {
+      let cleanedHtml = normalizedInput;
       // Удаляем sandbox атрибут, если он есть (он может вызывать проблемы)
       cleanedHtml = cleanedHtml.replace(/\s*sandbox=["'][^"']*["']/gi, '');
       // Убеждаемся, что есть правильные allow атрибуты
@@ -103,7 +172,7 @@ export function classifyMusic(input: string): MusicKind {
     }
     // Если это URL iframe, извлекаем src
     try {
-      const iframeMatch = input.match(/src=["']([^"']+)["']/);
+      const iframeMatch = normalizedInput.match(/src=["']([^"']+)["']/);
       if (iframeMatch && iframeMatch[1]) {
         const iframeSrc = iframeMatch[1];
         // Создаем полный iframe с правильными атрибутами для Yandex Music
@@ -114,7 +183,7 @@ export function classifyMusic(input: string): MusicKind {
   }
 
   try {
-    const u = new URL(input);
+    const u = new URL(normalizedInput);
     const href = u.href.toLowerCase();
 
     if (/\.(mp3|ogg|wav)(\?|#|$)/i.test(href)) {
@@ -173,10 +242,10 @@ export function classifyMusic(input: string): MusicKind {
     return { kind: "audio", src: u.href };
   } catch {
     // Если не удалось распарсить как URL, проверяем, не является ли это iframe HTML
-    if (input.trim().startsWith("<iframe") || input.includes("music.yandex.ru")) {
-      return { kind: "rawEmbed", html: input };
+    if (normalizedInput.trim().startsWith("<iframe") || normalizedInput.includes("music.yandex.ru")) {
+      return { kind: "rawEmbed", html: normalizedInput };
     }
-    return { kind: "rawEmbed", html: input };
+    return { kind: "rawEmbed", html: normalizedInput };
   }
 }
 
