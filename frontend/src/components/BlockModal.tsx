@@ -225,6 +225,16 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
     social: "Соцсеть",
   };
 
+  const typeAccusative: Record<BlockType, string> = {
+    note: "заметку",
+    link: "ссылку",
+    photo: "фото",
+    video: "видео",
+    music: "музыку",
+    map: "карту",
+    social: "соцсеть",
+  };
+
   return (
     <div
       style={{
@@ -259,7 +269,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
           <h2 style={{ fontSize: 28, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.03em" }}>
-            Добавить {typeLabels[type]}
+            Добавить {typeAccusative[type]}
           </h2>
           <button
             onClick={onClose}
@@ -413,6 +423,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
               <ImageUploader
                 onUploaded={(url) => setFormData({ ...formData, photoUrl: url })}
                 label="Загрузить фото с компьютера"
+                replaceLabel="Заменить фото"
                 showPreview={true}
                 maxSizeMB={10}
               />

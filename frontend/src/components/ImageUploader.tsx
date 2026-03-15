@@ -5,6 +5,7 @@ export type ImageUploaderProps = {
   onUploaded: (url: string) => void;
   accept?: string;
   label?: string;
+  replaceLabel?: string;
   buttonStyle?: React.CSSProperties;
   showPreview?: boolean;
   maxSizeMB?: number;
@@ -14,6 +15,7 @@ export default function ImageUploader({
   onUploaded,
   accept = "image/*",
   label = "Загрузить изображение",
+  replaceLabel,
   buttonStyle,
   showPreview = false,
   maxSizeMB = 10,
@@ -113,6 +115,9 @@ export default function ImageUploader({
     }
   }, []);
 
+  // Определяем, какой текст показывать в зоне загрузки
+  const displayLabel = preview ? (replaceLabel ?? label) : label;
+
   return (
     <div style={{ width: "100%" }}>
       <input
@@ -123,7 +128,7 @@ export default function ImageUploader({
         style={{ display: "none" }}
         onChange={handleFile}
       />
-      
+
       {preview && (
         <div style={{ marginBottom: 12, position: "relative" }}>
           <img
@@ -132,9 +137,9 @@ export default function ImageUploader({
             style={{
               width: "100%",
               aspectRatio: "1 / 1",
-	      objectFit: "cover",
+              objectFit: "cover",
               objectPosition: "center",
-	      borderRadius: "var(--radius-sm)",
+              borderRadius: "var(--radius-sm)",
               border: "1px solid var(--border)",
               display: "block",
             }}
@@ -198,7 +203,7 @@ export default function ImageUploader({
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             <div style={{ fontSize: 32 }}>📷</div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
-              {isDragging ? "Отпустите для загрузки" : label}
+              {isDragging ? "Отпустите для загрузки" : displayLabel}
             </div>
             <div style={{ fontSize: 12, color: "var(--muted)" }}>
               Перетащите изображение сюда или нажмите для выбора
