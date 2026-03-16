@@ -434,8 +434,8 @@ export default function Editor() {
                       editable={true}
                       onChange={async (url: string) => {
                         try {
-                          await updateProfile({ avatarUrl: url } as any);
-                          await loadData();
+                          const updated = await updateProfile({ avatarUrl: url } as any);
+                          setProfile({ ...updated, avatarUrl: updated.avatarUrl ? `${updated.avatarUrl}?t=${Date.now()}` : updated.avatarUrl });
                         } catch {
                           alert("Не удалось сохранить аватар");
                         }
