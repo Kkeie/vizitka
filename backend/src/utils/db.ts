@@ -119,6 +119,14 @@ export function initDatabase() {
     }
   }
 
+  try {
+    db.exec(`ALTER TABLE Profile ADD COLUMN layout TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      console.warn('[DB] Could not add layout column:', e.message);
+    }
+  }
+
   // Таблица блоков
   db.exec(`
     CREATE TABLE IF NOT EXISTS Block (
