@@ -78,6 +78,7 @@ export function initDatabase() {
       bio TEXT,
       avatarUrl TEXT,
       backgroundUrl TEXT,
+      layout TEXT,
       userId INTEGER NOT NULL UNIQUE,
       FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
     )
@@ -115,6 +116,14 @@ export function initDatabase() {
   } catch (e: any) {
     if (!e.message?.includes('duplicate column')) {
       console.warn('[DB] Could not add telegram column:', e.message);
+    }
+  }
+
+  try {
+    db.exec(`ALTER TABLE Profile ADD COLUMN layout TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      console.warn('[DB] Could not add layout column:', e.message);
     }
   }
 
@@ -200,6 +209,7 @@ export interface Profile {
   phone: string | null;
   email: string | null;
   telegram: string | null;
+  layout: string | null;
   userId: number;
 }
 

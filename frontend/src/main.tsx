@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider, useLocation } from "react-router-dom";
 import "./index.css";
 import "./styles.css";
+import "./styles/drag-reorder.css";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -18,10 +19,10 @@ function Shell() {
 
   React.useEffect(() => {
     (async () => {
-      try { 
-        const u = await me(); 
+      try {
+        const u = await me();
         setUser(u);
-      } catch { 
+      } catch {
         setUser(null);
       } finally {
         setCheckingAuth(false);
