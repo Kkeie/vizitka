@@ -22,14 +22,10 @@ export type Block = {
 export default function BlockCard({
   b,
   onDelete,
-  dragHandleProps,
-  dragHandleRef,
   isDragPreview,
 }: {
   b: Block;
   onDelete?: () => void;
-  dragHandleProps?: React.ButtonHTMLAttributes<HTMLButtonElement>;
-  dragHandleRef?: React.Ref<HTMLButtonElement>;
   isDragPreview?: boolean;
 }) {
   const [isVideoPlaying, setIsVideoPlaying] = React.useState(false);
@@ -106,6 +102,7 @@ export default function BlockCard({
         userSelect: "none",
         borderRadius: "var(--radius-md)",
         overflow: "hidden",
+        cursor: 'grab',
       }}
       onMouseEnter={(e) => {
         if (onDelete) {
@@ -164,8 +161,6 @@ export default function BlockCard({
               className="drag-handle"
               aria-label="Перетащить блок"
               title="Перетащить блок"
-              ref={dragHandleRef}
-              {...dragHandleProps}
               style={{
                 width: 28,
                 height: 28,

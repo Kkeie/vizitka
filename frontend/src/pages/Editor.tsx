@@ -373,12 +373,14 @@ export default function Editor() {
       const newIds = createdBlocks.map(b => b.id);
       (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
         const expectedCols = bp === 'mobile' ? 1 : bp === 'tablet' ? 2 : 3;
-        while (newLayout[bp].length < expectedCols) {
-          newLayout[bp].push([]);
+        const columns = newLayout[bp];
+        while (columns.length < expectedCols) {
+          columns.push([]);
         }
-        newLayout[bp] = newLayout[bp].map((col, idx) =>
-          idx === 0 ? [...col, ...newIds] : col
-        );
+        newIds.forEach((id, idx) => {
+          const colIndex = idx % columns.length;
+          columns[colIndex].push(id);
+        });
       });
       setLayout(newLayout);
       saveLayout(newLayout);
@@ -718,7 +720,11 @@ export default function Editor() {
 
                 <DragOverlay>
                   {activeId ? (
-                    <BlockCard b={blocks.find(b => b.id === activeId)!} isDragPreview />
+                    <BlockCard 
+                    b={blocks.find(b => b.id === activeId)!} 
+                    onDelete={() => handleDeleteBlock(activeId)}
+                    isDragPreview 
+                    />
                   ) : null}
                 </DragOverlay>
               </DndContext>
