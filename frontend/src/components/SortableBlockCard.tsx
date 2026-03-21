@@ -23,15 +23,14 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({ block, onD
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    cursor: isDragging ? 'grabbing' : 'default',
+    cursor: isDragging ? 'grabbing' : 'grab',
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <BlockCard
         b={block}
         onDelete={onDelete}
-        dragHandleProps={listeners}
         isDragPreview={isDragging}
       />
     </div>
