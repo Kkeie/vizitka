@@ -718,7 +718,11 @@ export default function Editor() {
 
                 <DragOverlay>
                   {activeId ? (
-                    <BlockCard b={blocks.find(b => b.id === activeId)!} isDragPreview />
+                    <BlockCard 
+                    b={blocks.find(b => b.id === activeId)!} 
+                    onDelete={() => handleDeleteBlock(activeId)}
+                    isDragPreview 
+                    />
                   ) : null}
                 </DragOverlay>
               </DndContext>
