@@ -18,28 +18,20 @@ export type Block = {
   socialUrl?: string | null;
 };
 
-type DragHandleProps = {
-  attributes?: any;
-  listeners?: any;
-  ref?: (node: HTMLButtonElement | null) => void;
-};
-
 export default function BlockCard({
   b,
   onDelete,
   isDragPreview,
-  dragHandleProps,
 }: {
   b: Block;
   onDelete?: () => void;
   isDragPreview?: boolean;
-  dragHandleProps?: DragHandleProps;
 }) {
   const [isVideoPlaying, setIsVideoPlaying] = React.useState(false);
   const [linkMetadata, setLinkMetadata] = React.useState<{ title?: string; description?: string; image?: string } | null>(null);
   const [loadingMetadata, setLoadingMetadata] = React.useState(false);
   const revealRef = useReveal<HTMLDivElement>({ disabled: Boolean(isDragPreview) });
-  const showEditorHeader = Boolean(onDelete || dragHandleProps);
+  const showEditorHeader = Boolean(onDelete);
 
   const stopControlEvent = (event: React.MouseEvent | React.PointerEvent) => {
     event.stopPropagation();
@@ -166,30 +158,6 @@ export default function BlockCard({
             >
               {typeLabels[b.type] || b.type}
             </span>
-            {dragHandleProps && (
-              <button
-                type="button"
-                ref={dragHandleProps.ref}
-                className="drag-handle"
-                aria-label="Перетащить блок"
-                title="Перетащить блок"
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 6,
-                  border: "1px solid var(--border)",
-                  background: "var(--accent)",
-                  color: "var(--text)",
-                  fontSize: 14,
-                  lineHeight: "1",
-                  cursor: "grab",
-                }}
-                {...(dragHandleProps.attributes as any)}
-                {...(dragHandleProps.listeners as any)}
-              >
-                ⋮⋮
-              </button>
-            )}
           </div>
           {onDelete && (
             <button

@@ -25,7 +25,6 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     attributes,
     listeners,
     setNodeRef,
-    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -36,7 +35,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    cursor: isDragging ? 'grabbing' : 'default',
+    cursor: isDragging ? 'grabbing' : 'grab',
     gridColumn: `span ${resolvedGridSize.colSpan}`,
     gridRow: `span ${resolvedGridSize.rowSpan}`,
     position: 'relative' as const,
@@ -114,15 +113,12 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
       style={style}
       data-drag-item
       className={`bento-grid-item ${isDragging ? 'dragging' : ''}`.trim()}
+      {...attributes}
+      {...listeners}
     >
       <BlockCard
         b={block}
         onDelete={onDelete}
-        dragHandleProps={{
-          ref: setActivatorNodeRef,
-          attributes,
-          listeners,
-        }}
         isDragPreview={isDragging}
       />
       {onGridSizeChange && !isDragging && (

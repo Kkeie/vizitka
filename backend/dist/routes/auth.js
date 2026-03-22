@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../utils/db");
 const auth_1 = require("../utils/auth");
+const usernameGenerator_1 = require("../utils/usernameGenerator");
 const router = (0, express_1.Router)();
 /**
  * POST /api/auth/register
@@ -24,7 +25,11 @@ router.post("/register", async (req, res) => {
         const existingProfile = db_1.db.prepare("SELECT id FROM Profile WHERE username = ?").get(uname);
         if (existingProfile) {
             console.log("[REGISTER] Username already taken:", uname);
-            return res.status(409).json({ error: "username_taken" });
+            const suggestions = await (0, usernameGenerator_1.findAvailableUsernames)(db_1.db, uname, 42);
+            return res.status(409).json({
+                error: "username_taken",
+                suggestions,
+            });
         }
         const passwordHash = await (0, auth_1.hashPassword)(password);
         // Создаем пользователя и профиль в транзакции
@@ -110,5 +115,23 @@ router.post("/login", async (req, res) => {
         console.error(e);
         res.status(500).json({ error: "internal_error" });
     }
+});
+/**
+ * POST /api/auth/check-username
+ * { username }
+ */
+router.post("/check-username", async (req, res) => {
+    const { username } = req.body;
+    if (!username)
+        return res.status(400).json({ error: "username_required" });
+    const uname = username.trim().toLowerCase();
+    if (uname.length < 3)
+        return res.status(400).json({ error: "username_too_short" });
+    const existing = db_1.db.prepare("SELECT id FROM Profile WHERE username = ?").get(uname);
+    if (!existing) {
+        return res.json({ available: true });
+    }
+    const suggestions = await (0, usernameGenerator_1.findAvailableUsernames)(db_1.db, uname, 42);
+    return res.json({ available: false, suggestions });
 });
 exports.default = router;
