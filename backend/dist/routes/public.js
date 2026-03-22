@@ -2,6 +2,22 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../utils/db");
+function mapDbToLegacy(b) {
+    return {
+        id: b.id,
+        type: b.type,
+        sort: b.sort,
+        note: b.note,
+        linkUrl: b.linkUrl,
+        photoUrl: b.photoUrl,
+        videoUrl: b.videoUrl,
+        musicEmbed: b.musicEmbed,
+        mapLat: b.mapLat,
+        mapLng: b.mapLng,
+        socialType: b.socialType,
+        socialUrl: b.socialUrl,
+    };
+}
 const router = (0, express_1.Router)();
 /**
  * Публичная страница визитки:
@@ -66,6 +82,46 @@ router.get("/:username", async (req, res) => {
       WHERE userId = ? 
       ORDER BY sort ASC
     `).all(profile.userId);
+        // Парсим layout
+        let layout = null;
+        if (profile.layout) {
+            try {
+                layout = JSON.parse(profile.layout);
+            }
+            catch {
+                layout = null;
+            }
+        }
+        let blockSizes = null;
+        if (profile.blockSizes) {
+            try {
+                blockSizes = JSON.parse(profile.blockSizes);
+            }
+            catch {
+                blockSizes = null;
+            }
+        }
+        let blocksForResponse = [];
+        if (layout) {
+            // Собираем все ID блоков из layout в порядке обхода колонок
+            const allIds = [];
+            const breakpoints = ['mobile', 'tablet', 'desktop'];
+            breakpoints.forEach(bp => {
+                if (layout[bp]) {
+                    layout[bp].forEach((col) => {
+                        col.forEach(id => {
+                            if (!allIds.includes(id))
+                                allIds.push(id);
+                        });
+                    });
+                }
+            });
+            const blockMap = new Map(blocks.map((b) => [b.id, b]));
+            blocksForResponse = allIds.map(id => blockMap.get(id)).filter(Boolean);
+        }
+        else {
+            blocksForResponse = blocks.sort((a, b) => a.sort - b.sort);
+        }
         res.json({
             name: profile.name || profile.username,
             bio: profile.bio,
@@ -74,20 +130,9 @@ router.get("/:username", async (req, res) => {
             phone: profile.phone,
             email: profile.email,
             telegram: profile.telegram,
-            blocks: blocks.map((b) => ({
-                id: b.id,
-                type: b.type,
-                sort: b.sort,
-                note: b.note,
-                linkUrl: b.linkUrl,
-                photoUrl: b.photoUrl,
-                videoUrl: b.videoUrl,
-                musicEmbed: b.musicEmbed,
-                mapLat: b.mapLat,
-                mapLng: b.mapLng,
-                socialType: b.socialType,
-                socialUrl: b.socialUrl,
-            })),
+            blocks: blocksForResponse.map(mapDbToLegacy),
+            layout,
+            blockSizes,
         });
     }
     catch (e) {

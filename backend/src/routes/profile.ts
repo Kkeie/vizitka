@@ -5,6 +5,34 @@ import { requireAuth, type AuthedRequest } from "../utils/auth";
 const router = Router();
 router.use(requireAuth);
 
+function parseProfileJsonFields(profile: any) {
+  if (!profile) return profile;
+
+  const normalized = { ...profile };
+
+  if (normalized.layout) {
+    try {
+      normalized.layout = JSON.parse(normalized.layout);
+    } catch {
+      normalized.layout = null;
+    }
+  } else {
+    normalized.layout = null;
+  }
+
+  if (normalized.blockSizes) {
+    try {
+      normalized.blockSizes = JSON.parse(normalized.blockSizes);
+    } catch {
+      normalized.blockSizes = null;
+    }
+  } else {
+    normalized.blockSizes = null;
+  }
+
+  return normalized;
+}
+
 // GET /api/profile
 router.get("/", async (req: AuthedRequest, res) => {
   const userId = req.user!.id;
@@ -42,21 +70,13 @@ router.get("/", async (req: AuthedRequest, res) => {
     return res.status(500).json({ error: "profile_creation_failed", message: "Failed to create profile" });
   }
 
-  if (profile && profile.layout) {
-    try {
-      profile.layout = JSON.parse(profile.layout);
-    } catch {
-      profile.layout = null;
-    }
- }
-  
-  res.json(profile);
+  res.json(parseProfileJsonFields(profile));
 });
 
 // PATCH /api/profile
 router.patch("/", async (req: AuthedRequest, res) => {
   const userId = req.user!.id;
-  const { username, name, bio, avatarUrl, backgroundUrl, phone, email, telegram, layout } = req.body || {};
+  const { username, name, bio, avatarUrl, backgroundUrl, phone, email, telegram, layout, blockSizes } = req.body || {};
   
   // Проверяем, что пользователь существует
   const user = db.prepare("SELECT id FROM User WHERE id = ?").get(userId) as any;
@@ -111,6 +131,10 @@ router.patch("/", async (req: AuthedRequest, res) => {
     updates.push("layout = ?");
     values.push(JSON.stringify(layout));
   }
+  if (blockSizes !== undefined) {
+    updates.push("blockSizes = ?");
+    values.push(JSON.stringify(blockSizes));
+  }
   
   if (updates.length > 0) {
     values.push(userId);
@@ -119,7 +143,7 @@ router.patch("/", async (req: AuthedRequest, res) => {
   }
   
   const updated = db.prepare("SELECT * FROM Profile WHERE userId = ?").get(userId) as any;
-  res.json(updated);
+  res.json(parseProfileJsonFields(updated));
 });
 
 export default router;

@@ -4,6 +4,18 @@ export type Layout = {
   desktop: number[][];
 };
 
+export type BlockDimensions = {
+  widthPercent: number;
+  aspectRatio: number;
+};
+
+export type BlockGridSize = {
+  colSpan: number;
+  rowSpan: number;
+};
+
+export type BlockSizes = Record<number, BlockGridSize>;
+
 export type Profile = {
   id: number;
   username: string;
@@ -16,6 +28,7 @@ export type Profile = {
   telegram?: string | null;
   userId: number;
   layout: Layout | null;
+  blockSizes: BlockSizes | null;
 };
 export type User = {
   id: number;
@@ -40,14 +53,33 @@ export type Block = {
   socialUrl?: string | null;
 };
 
+const runtimeHost =
+  typeof window !== "undefined" ? window.location.hostname : "";
+const runtimeOrigin =
+  typeof window !== "undefined" ? window.location.origin : "";
+const isLocalRuntime =
+  runtimeHost === "localhost" ||
+  runtimeHost === "127.0.0.1" ||
+  runtimeHost === "0.0.0.0";
+
 // API base URL: использует переменную окружения для production или относительный путь для dev
 // В dev режиме Vite проксирует /api на бэкенд (см. vite.config.ts)
 // В production нужно установить VITE_BACKEND_API_URL (с /api в конце!)
-const API = import.meta.env.VITE_BACKEND_API_URL || "/api";
+const API =
+  import.meta.env.VITE_BACKEND_API_URL ||
+  (import.meta.env.DEV
+    ? "/api"
+    : isLocalRuntime
+      ? "http://localhost:3000/api"
+      : "/api");
 
 // Базовый URL бэкенда (без /api) для загрузки файлов
 // Используем переменную окружения VITE_BACKEND_BASE_URL если она установлена, иначе извлекаем из API
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_BASE_URL || API.replace(/\/api$/, '') || '';
+const missingProductionApiConfig =
+  import.meta.env.PROD &&
+  !import.meta.env.VITE_BACKEND_API_URL &&
+  !isLocalRuntime;
 
 // Логирование для отладки
 if (import.meta.env.PROD) {
@@ -109,11 +141,13 @@ console.log('[API] Mode:', import.meta.env.MODE);
 console.log('[API] VITE_BACKEND_API_URL env:', import.meta.env.VITE_BACKEND_API_URL);
 
 // Предупреждение только для production build
-if (import.meta.env.PROD && API.startsWith('/') && !API.startsWith('http')) {
+if (missingProductionApiConfig && API.startsWith('/') && !API.startsWith('http')) {
   console.error('[API] ERROR: Running in production mode without VITE_BACKEND_API_URL!');
-  console.error('[API] Requests will go to:', window.location.origin + API);
+  console.error('[API] Requests will go to:', runtimeOrigin + API);
   console.error('[API] This will NOT work on Render Static Site!');
   console.error('[API] Please set VITE_BACKEND_API_URL=https://your-backend.onrender.com/api in Render environment variables');
+} else if (import.meta.env.PROD && isLocalRuntime && !import.meta.env.VITE_BACKEND_API_URL) {
+  console.warn('[API] VITE_BACKEND_API_URL is not set. Using local fallback:', API);
 }
 
 // Token storage policy:
@@ -138,6 +172,11 @@ export function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function looksLikeHtmlDocument(text: string): boolean {
+  const normalized = text.trim().toLowerCase();
+  return normalized.startsWith("<!doctype html") || normalized.startsWith("<html");
+}
+
 // Безопасный парсинг JSON из Response
 async function safeJsonParse<T>(response: Response): Promise<T> {
   const text = await response.text();
@@ -149,6 +188,20 @@ async function safeJsonParse<T>(response: Response): Promise<T> {
     return JSON.parse(text) as T;
   } catch (error) {
     console.error('[API] Failed to parse JSON:', text.substring(0, 200));
+    if (looksLikeHtmlDocument(text)) {
+      console.error('[API] HTML returned instead of JSON:', {
+        status: response.status,
+        url: response.url,
+        apiBase: API,
+      });
+
+      if (missingProductionApiConfig) {
+        throw new Error('backend_api_not_configured');
+      }
+
+      throw new Error('api_returned_html');
+    }
+
     throw new Error('invalid_json_response');
   }
 }
@@ -379,13 +432,14 @@ export async function getPublic(username: string): Promise<{
   telegram: string | null; 
   blocks: Block[];
   layout: Layout | null;
+  blockSizes: BlockSizes | null;
 }> {
   const r = await fetch(`${API}/public/${encodeURIComponent(username)}`);
   if (!r.ok) {
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     throw new Error(errorData.error || errorData.message || "not_found");
   }
-  return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; phone: string | null; email: string | null; telegram: string | null; blocks: Block[]; layout: Layout | null }>(r);
+  return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; phone: string | null; email: string | null; telegram: string | null; blocks: Block[]; layout: Layout | null; blockSizes: BlockSizes | null }>(r);
 }
 export function publicUrl(username: string) {
   return `${window.location.origin}/public/${encodeURIComponent(username)}`;

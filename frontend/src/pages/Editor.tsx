@@ -5,15 +5,14 @@ import {
   deleteBlock, 
   getProfile, 
   updateProfile, 
-  createBlock, 
-  uploadImage, 
-  getImageUrl, 
-  reorderBlocks, 
+  createBlock,
   publicUrl, 
   qrUrlForPublic,
   type Block, 
+  type BlockGridSize,
   type Profile, 
   type BlockType,
+  type BlockSizes,
   type Layout,
 } from "../api";
 import Avatar from "../components/Avatar";
@@ -23,45 +22,56 @@ import BlockModal from "../components/BlockModal";
 import SocialMediaForm, { type SocialSubmitItem } from "../components/SocialMediaForm";
 import { formatPhoneNumber } from "../utils/phone";
 import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
-import debounce from "lodash/debounce";
+import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
+import { GRID_COLUMNS, flattenLayoutIds, sanitizeBlockSizes } from "../lib/block-grid";
 
 // dnd-kit imports
 import {
   DndContext,
   DragOverlay,
-  rectIntersection,
+  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
   DragStartEvent,
   DragEndEvent,
-  useDroppable,
 } from '@dnd-kit/core';
 import {
+  arrayMove,
   SortableContext,
+  rectSortingStrategy,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 
 import "../styles/drag-reorder.css";
 
-// Компонент для колонки, которая может принимать перетаскиваемые элементы
-function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
-  const { setNodeRef } = useDroppable({ id });
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '16px',
-        minHeight: '50px', // чтобы пустая колонка была видима для сброса
-      }}
-    >
-      {children}
-    </div>
-  );
+type DebouncedFn<T extends (...args: any[]) => void> = ((...args: Parameters<T>) => void) & {
+  cancel: () => void;
+};
+
+function debounce<T extends (...args: any[]) => void>(fn: T, wait = 500): DebouncedFn<T> {
+  let timeoutId: number | undefined;
+
+  const debounced = ((...args: Parameters<T>) => {
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+    }
+
+    timeoutId = window.setTimeout(() => {
+      timeoutId = undefined;
+      fn(...args);
+    }, wait);
+  }) as DebouncedFn<T>;
+
+  debounced.cancel = () => {
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+      timeoutId = undefined;
+    }
+  };
+
+  return debounced;
 }
 
 export default function Editor() {
@@ -70,6 +80,7 @@ export default function Editor() {
   const breakpoint = useBreakpoint();
 
   const [blocks, setBlocks] = useState<Block[]>([]);
+  const [blockSizes, setBlockSizes] = useState<BlockSizes>({});
   const [profile, setProfile] = useState<Profile | null>(null);
   const [layout, setLayout] = useState<Layout | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -125,12 +136,13 @@ export default function Editor() {
       setError(null);
       const [b, p] = await Promise.all([listBlocks(), getProfile()]);
       const sorted = [...b].sort((a, b) => a.sort - b.sort);
+      const normalizedBlockSizes = sanitizeBlockSizes(p.blockSizes, sorted.map(block => block.id));
       setBlocks(sorted);
+      setBlockSizes(normalizedBlockSizes);
       setProfile(p);
 
       if (p.layout) {
-        const fixedLayout = ensureColumnCount(p.layout, sorted.map(b => b.id));
-        setLayout(fixedLayout);
+        setLayout(normalizeLayout(p.layout, sorted.map(b => b.id)));
       } else {
         const initialLayout = generateInitialLayout(sorted);
         setLayout(initialLayout);
@@ -180,6 +192,18 @@ export default function Editor() {
         return;
       }
 
+      if (errorMessage === "backend_api_not_configured") {
+        setError("Frontend собран без VITE_BACKEND_API_URL. Для Render укажите полный URL backend с /api на конце и пересоберите frontend.");
+        setIsAuthorized(true);
+        return;
+      }
+
+      if (errorMessage === "api_returned_html") {
+        setError("API вернул HTML вместо JSON. Обычно это означает неверный VITE_BACKEND_API_URL или запросы в домен статики вместо backend.");
+        setIsAuthorized(true);
+        return;
+      }
+
       setError(errorMessage === "Не удалось загрузить данные" ? errorMessage : `Ошибка: ${errorMessage}`);
       setIsAuthorized(true); // Не редиректим при других ошибках
     } finally {
@@ -187,17 +211,22 @@ export default function Editor() {
     }
   }
 
-  function ensureColumnCount(layout: Layout, allIds: number[]): Layout {
+  function normalizeLayout(layout: Layout, allIds: number[]): Layout {
     const result: Layout = { mobile: [], tablet: [], desktop: [] };
-    (Object.keys(layout) as Breakpoint[]).forEach(bp => {
-      const expectedCols = bp === 'mobile' ? 1 : bp === 'tablet' ? 2 : 3;
-      let cols = layout[bp];
-      while (cols.length < expectedCols) {
-        cols.push([]);
-      }
-      cols = cols.slice(0, expectedCols);
-      result[bp] = cols;
+
+    (Object.keys(result) as Breakpoint[]).forEach((bp) => {
+      const ordered = flattenLayoutIds(layout?.[bp]);
+      const merged = [...ordered];
+
+      allIds.forEach((id) => {
+        if (!merged.includes(id)) {
+          merged.push(id);
+        }
+      });
+
+      result[bp] = [merged];
     });
+
     return result;
   }
 
@@ -205,12 +234,18 @@ export default function Editor() {
     const ids = blocks.map(b => b.id);
     return {
       mobile: [ids],
-      tablet: [ids, []],
-      desktop: [ids, [], []],
+      tablet: [ids],
+      desktop: [ids],
     };
   }
 
-  const currentColumns = layout ? layout[breakpoint] : [];
+  const currentOrder = React.useMemo(
+    () => (layout ? flattenLayoutIds(layout[breakpoint]) : blocks.map((block) => block.id)),
+    [layout, breakpoint, blocks],
+  );
+
+  const currentGridColumns = GRID_COLUMNS[breakpoint];
+  const { gridRef, cellSize } = useBentoGridMetrics(currentGridColumns, 16);
 
   const saveLayout = useMemo(
     () =>
@@ -225,6 +260,26 @@ export default function Editor() {
     []
   );
 
+  const saveBlockSizes = useMemo(
+    () =>
+      debounce(async (newBlockSizes: BlockSizes) => {
+        try {
+          await updateProfile({ blockSizes: newBlockSizes });
+        } catch (error) {
+          console.error("Failed to save block sizes", error);
+          setToast("Не удалось сохранить размер карточки");
+        }
+      }, 500),
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      saveLayout.cancel();
+      saveBlockSizes.cancel();
+    };
+  }, [saveLayout, saveBlockSizes]);
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as number);
   };
@@ -235,55 +290,16 @@ export default function Editor() {
     if (!over || !layout) return;
 
     const activeId = active.id as number;
-    const overId = over.id;
+    const overId = over.id as number;
+    const oldIndex = currentOrder.indexOf(activeId);
+    const newIndex = currentOrder.indexOf(overId);
 
-    console.log('Drag end:', { activeId, overId }); // для отладки
-
-    const newColumns = currentColumns.map(col => [...col]);
-
-    // Находим исходную позицию
-    let sourceColIdx = -1, sourceIdx = -1;
-    for (let i = 0; i < newColumns.length; i++) {
-      const idx = newColumns[i].indexOf(activeId);
-      if (idx !== -1) {
-        sourceColIdx = i;
-        sourceIdx = idx;
-        break;
-      }
-    }
-    if (sourceColIdx === -1) return;
-
-    // Определяем целевую позицию
-    let destColIdx = -1, destIdx = -1;
-
-    if (typeof overId === 'string' && overId.startsWith('column-')) {
-      // Сброс в пустую колонку
-      destColIdx = parseInt(overId.replace('column-', ''), 10);
-      destIdx = newColumns[destColIdx].length; // в конец
-    } else {
-      // Сброс на существующую карточку
-      const overIdNum = overId as number;
-      for (let i = 0; i < newColumns.length; i++) {
-        const idx = newColumns[i].indexOf(overIdNum);
-        if (idx !== -1) {
-          destColIdx = i;
-          destIdx = idx;
-          break;
-        }
-      }
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
+      return;
     }
 
-    if (destColIdx === -1) return;
-    if (sourceColIdx === destColIdx && sourceIdx === destIdx) return;
-
-    const [moved] = newColumns[sourceColIdx].splice(sourceIdx, 1);
-    if (destIdx === newColumns[destColIdx].length) {
-      newColumns[destColIdx].push(moved);
-    } else {
-      newColumns[destColIdx].splice(destIdx, 0, moved);
-    }
-
-    const newLayout = { ...layout, [breakpoint]: newColumns };
+    const nextOrder = arrayMove(currentOrder, oldIndex, newIndex);
+    const newLayout = { ...layout, [breakpoint]: [nextOrder] };
     setLayout(newLayout);
     saveLayout(newLayout);
   };
@@ -316,6 +332,15 @@ export default function Editor() {
     try {
       await deleteBlock(id);
       setBlocks(prev => prev.filter(b => b.id !== id));
+      setBlockSizes(prev => {
+        if (!(id in prev)) return prev;
+
+        const next = { ...prev };
+        delete next[id];
+        saveBlockSizes(next);
+        return next;
+      });
+
       if (!layout) return;
       const newLayout = { ...layout };
       (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
@@ -329,6 +354,21 @@ export default function Editor() {
     }
   }
 
+  function handleBlockDimensionsChange(id: number, nextDimensions: BlockGridSize | null) {
+    setBlockSizes(prev => {
+      const next = { ...prev };
+
+      if (nextDimensions == null) {
+        delete next[id];
+      } else {
+        next[id] = nextDimensions;
+      }
+
+      saveBlockSizes(next);
+      return next;
+    });
+  }
+
   function handleAddBlockClick(type: BlockType) {
     setModalType(type);
     setModalOpen(true);
@@ -338,13 +378,8 @@ export default function Editor() {
     if (!layout) return;
     const newLayout = { ...layout };
     (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
-      const expectedCols = bp === 'mobile' ? 1 : bp === 'tablet' ? 2 : 3;
-      while (newLayout[bp].length < expectedCols) {
-        newLayout[bp].push([]);
-      }
-      newLayout[bp] = newLayout[bp].map((col, idx) =>
-        idx === 0 ? [...col, newBlock.id] : col
-      );
+      const ordered = flattenLayoutIds(newLayout[bp]);
+      newLayout[bp] = [[...ordered, newBlock.id]];
     });
     setLayout(newLayout);
     saveLayout(newLayout);
@@ -372,15 +407,8 @@ export default function Editor() {
       const newLayout = { ...layout };
       const newIds = createdBlocks.map(b => b.id);
       (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
-        const expectedCols = bp === 'mobile' ? 1 : bp === 'tablet' ? 2 : 3;
-        const columns = newLayout[bp];
-        while (columns.length < expectedCols) {
-          columns.push([]);
-        }
-        newIds.forEach((id, idx) => {
-          const colIndex = idx % columns.length;
-          columns[colIndex].push(id);
-        });
+        const ordered = flattenLayoutIds(newLayout[bp]);
+        newLayout[bp] = [[...ordered, ...newIds]];
       });
       setLayout(newLayout);
       saveLayout(newLayout);
@@ -686,44 +714,46 @@ export default function Editor() {
             ) : (
               <DndContext
                 sensors={sensors}
-                collisionDetection={rectIntersection}
+                collisionDetection={closestCenter}
                 onDragStart={handleDragStart}
+                onDragCancel={() => setActiveId(null)}
                 onDragEnd={handleDragEnd}
               >
                 <div
+                  ref={gridRef}
+                  className="bento-grid"
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: `repeat(${breakpoint === 'mobile' ? 1 : breakpoint === 'tablet' ? 2 : 3}, 1fr)`,
+                    gridTemplateColumns: `repeat(${currentGridColumns}, minmax(0, 1fr))`,
+                    ['--grid-columns' as string]: String(currentGridColumns),
+                    ['--grid-gap' as string]: '16px',
+                    ['--bento-cell-size' as string]: cellSize ? `${cellSize}px` : undefined,
                     gap: '16px',
+                    gridAutoFlow: 'dense',
                   }}
                 >
-                  {currentColumns.map((column, colIndex) => {
-                    const columnId = `column-${colIndex}`;
-                    return (
-                      <DroppableColumn key={colIndex} id={columnId}>
-                        <SortableContext items={column} strategy={verticalListSortingStrategy}>
-                          {column.map(blockId => {
-                            const block = blocks.find(b => b.id === blockId);
-                            return block ? (
-                              <SortableBlockCard
-                                key={block.id}
-                                block={block}
-                                onDelete={() => handleDeleteBlock(block.id)}
-                              />
-                            ) : null;
-                          })}
-                        </SortableContext>
-                      </DroppableColumn>
-                    );
-                  })}
+                  <SortableContext items={currentOrder} strategy={rectSortingStrategy}>
+                    {currentOrder.map(blockId => {
+                      const block = blocks.find(b => b.id === blockId);
+                      return block ? (
+                        <SortableBlockCard
+                          key={block.id}
+                          block={block}
+                          gridColumns={currentGridColumns}
+                          gridSize={blockSizes[block.id]}
+                          onGridSizeChange={(dimensions) => handleBlockDimensionsChange(block.id, dimensions)}
+                          onDelete={() => handleDeleteBlock(block.id)}
+                        />
+                      ) : null;
+                    })}
+                  </SortableContext>
                 </div>
 
                 <DragOverlay>
                   {activeId ? (
                     <BlockCard 
-                    b={blocks.find(b => b.id === activeId)!} 
-                    onDelete={() => handleDeleteBlock(activeId)}
-                    isDragPreview 
+                      b={blocks.find(b => b.id === activeId)!}
+                      isDragPreview
                     />
                   ) : null}
                 </DragOverlay>
