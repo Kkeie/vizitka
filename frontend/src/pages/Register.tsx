@@ -42,6 +42,12 @@ export default function Register({ onAuthed }: { onAuthed: (u: User) => void }) 
         message = "Заполните все поля.";
       } else if (errorMessage === "internal_error") {
         message = "Ошибка сервера. Попробуйте позже.";
+      } else if (errorMessage === "backend_api_not_configured") {
+        message = "Frontend собран без VITE_BACKEND_API_URL. Для Render укажите полный URL backend с /api на конце.";
+      } else if (errorMessage === "api_returned_html") {
+        message = "API вернул HTML вместо JSON. Проверьте URL backend и настройку прокси.";
+      } else if (errorMessage === "network_error") {
+        message = "Не удалось подключиться к API. Проверьте, что backend запущен и доступен.";
       } else {
         console.error("Registration error:", errorMessage);
         message = `Ошибка: ${errorMessage}`;

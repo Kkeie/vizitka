@@ -103,6 +103,15 @@ router.get("/:username", async (req, res) => {
       }
     }
 
+    let blockSizes = null;
+    if (profile.blockSizes) {
+      try {
+        blockSizes = JSON.parse(profile.blockSizes);
+      } catch {
+        blockSizes = null;
+      }
+    }
+
     let blocksForResponse: any[] = [];
     if (layout) {
       // Собираем все ID блоков из layout в порядке обхода колонок
@@ -133,6 +142,7 @@ router.get("/:username", async (req, res) => {
       telegram: profile.telegram,
       blocks: blocksForResponse.map(mapDbToLegacy),
       layout,
+      blockSizes,
     });
   } catch (e) {
     console.error(e);

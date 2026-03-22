@@ -5,6 +5,34 @@ const db_1 = require("../utils/db");
 const auth_1 = require("../utils/auth");
 const router = (0, express_1.Router)();
 router.use(auth_1.requireAuth);
+function parseProfileJsonFields(profile) {
+    if (!profile)
+        return profile;
+    const normalized = { ...profile };
+    if (normalized.layout) {
+        try {
+            normalized.layout = JSON.parse(normalized.layout);
+        }
+        catch {
+            normalized.layout = null;
+        }
+    }
+    else {
+        normalized.layout = null;
+    }
+    if (normalized.blockSizes) {
+        try {
+            normalized.blockSizes = JSON.parse(normalized.blockSizes);
+        }
+        catch {
+            normalized.blockSizes = null;
+        }
+    }
+    else {
+        normalized.blockSizes = null;
+    }
+    return normalized;
+}
 // GET /api/profile
 router.get("/", async (req, res) => {
     const userId = req.user.id;
@@ -38,12 +66,12 @@ router.get("/", async (req, res) => {
         console.error(`[PROFILE] Failed to get or create profile for user ${userId}`);
         return res.status(500).json({ error: "profile_creation_failed", message: "Failed to create profile" });
     }
-    res.json(profile);
+    res.json(parseProfileJsonFields(profile));
 });
 // PATCH /api/profile
 router.patch("/", async (req, res) => {
     const userId = req.user.id;
-    const { username, name, bio, avatarUrl, backgroundUrl, phone, email, telegram } = req.body || {};
+    const { username, name, bio, avatarUrl, backgroundUrl, phone, email, telegram, layout, blockSizes } = req.body || {};
     // Проверяем, что пользователь существует
     const user = db_1.db.prepare("SELECT id FROM User WHERE id = ?").get(userId);
     if (!user) {
@@ -91,12 +119,20 @@ router.patch("/", async (req, res) => {
         updates.push("telegram = ?");
         values.push(telegram);
     }
+    if (layout !== undefined) {
+        updates.push("layout = ?");
+        values.push(JSON.stringify(layout));
+    }
+    if (blockSizes !== undefined) {
+        updates.push("blockSizes = ?");
+        values.push(JSON.stringify(blockSizes));
+    }
     if (updates.length > 0) {
         values.push(userId);
         const update = db_1.db.prepare(`UPDATE Profile SET ${updates.join(", ")} WHERE userId = ?`);
         update.run(...values);
     }
     const updated = db_1.db.prepare("SELECT * FROM Profile WHERE userId = ?").get(userId);
-    res.json(updated);
+    res.json(parseProfileJsonFields(updated));
 });
 exports.default = router;

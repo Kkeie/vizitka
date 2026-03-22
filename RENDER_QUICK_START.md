@@ -36,11 +36,12 @@ PORT=3000
 
 ### Environment Variables:
 ```
-VITE_BACKEND_API_URL=https://vizitka-backend.onrender.com
+VITE_BACKEND_API_URL=https://vizitka-backend.onrender.com/api
 VITE_BASE_PATH=/
 ```
 
 ⚠️ **Замените `vizitka-backend.onrender.com` на реальный URL вашего backend!**
+⚠️ **Для `VITE_BACKEND_API_URL` обязателен суффикс `/api`**
 
 ---
 
@@ -59,4 +60,3 @@ VITE_BASE_PATH=/
 ---
 
 📖 **Подробная инструкция**: `DEPLOY_RENDER_FULL.md`
-

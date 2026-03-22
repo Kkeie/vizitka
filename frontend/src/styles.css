@@ -429,6 +429,21 @@ a:hover{color:var(--primary-hover)}
   decoding:async 
 }
 .audio{ width:100% }
+.bento-grid{
+  --grid-gap: 16px;
+  --grid-columns: 4;
+  --bento-cell-size: 180px;
+  grid-auto-rows: var(--bento-cell-size);
+}
+.bento-grid-item{
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+.bento-grid-item > .card{
+  height: 100% !important;
+  min-height: 100% !important;
+}
 .topbar{ 
   position:sticky; 
   top:0; 

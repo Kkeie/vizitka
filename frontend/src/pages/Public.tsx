@@ -1,8 +1,10 @@
 import React from "react";
 import { useParams, useLocation } from "react-router-dom";
-import { getPublic, getImageUrl, type Block, type Layout } from "../api";
+import { getPublic, getImageUrl, type Block, type BlockSizes, type Layout } from "../api";
 import BlockCard from "../components/BlockCard";
 import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
+import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
+import { GRID_COLUMNS, flattenLayoutIds, getResolvedGridSize } from "../lib/block-grid";
 
 // Системные маршруты, которые не должны обрабатываться как username
 // Примечание: "public" удален из списка, так как теперь мы используем маршрут /public/:username
@@ -25,8 +27,9 @@ export default function PublicPage() {
     telegram?: string | null;
     blocks: Block[];
     layout: Layout | null;
+    blockSizes: BlockSizes;
     error?: string;
-  }>({ loading: true, blocks: [], layout: null });
+  }>({ loading: true, blocks: [], layout: null, blockSizes: {} });
 
   // Принудительное обновление компонента при изменении пути
   const [pathKey, setPathKey] = React.useState(0);
@@ -169,7 +172,7 @@ export default function PublicPage() {
 
   React.useEffect(() => {
     if (!cleanUsername || cleanUsername.trim() === "") {
-      setState({ loading: false, error: "not_found", blocks: [], layout: null });
+      setState({ loading: false, error: "not_found", blocks: [], layout: null, blockSizes: {} });
       return;
     }
     getPublic(cleanUsername)
@@ -185,12 +188,19 @@ export default function PublicPage() {
           telegram: data.telegram,
           blocks: data.blocks,
           layout: data.layout,
+          blockSizes: data.blockSizes ?? {},
         });
       })
       .catch(() => {
-        setState({ loading: false, error: "not_found", blocks: [], layout: null });
+        setState({ loading: false, error: "not_found", blocks: [], layout: null, blockSizes: {} });
       });
   }, [cleanUsername]);
+
+  const orderedIds = state.layout?.[breakpoint]
+    ? flattenLayoutIds(state.layout[breakpoint])
+    : state.blocks.map((block) => block.id);
+  const gridColumns = GRID_COLUMNS[breakpoint];
+  const { gridRef, cellSize } = useBentoGridMetrics(gridColumns, 16);
 
   if (state.loading) {
     return (
@@ -206,15 +216,6 @@ export default function PublicPage() {
         <div className="ribbon error">Профиль не найден</div>
       </div>
     );
-  }
-
-  // Определяем колонки для текущего брейкпоинта
-  let columns: number[][] = [];
-  if (state.layout && state.layout[breakpoint]) {
-    columns = state.layout[breakpoint];
-  } else {
-    // Если layout отсутствует (старые данные), показываем все блоки в одной колонке
-    columns = [state.blocks.map(b => b.id)];
   }
 
   return (
@@ -331,20 +332,39 @@ export default function PublicPage() {
           {/* Right Column: Blocks */}
           <div style={{ minWidth: 0, width: "100%" }}>
             <div
+              ref={gridRef}
+              className="bento-grid"
               style={{
                 display: 'grid',
-                gridTemplateColumns: `repeat(${breakpoint === 'mobile' ? 1 : breakpoint === 'tablet' ? 2 : 3}, 1fr)`,
+                gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
+                ['--grid-columns' as string]: String(gridColumns),
+                ['--grid-gap' as string]: '16px',
+                ['--bento-cell-size' as string]: cellSize ? `${cellSize}px` : undefined,
                 gap: '16px',
+                gridAutoFlow: 'dense',
               }}
             >
-              {columns.map((colIds, colIndex) => (
-                <div key={colIndex} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {colIds.map(blockId => {
-                    const block = state.blocks.find(b => b.id === blockId);
-                    return block ? <BlockCard key={block.id} b={block} /> : null;
-                  })}
-                </div>
-              ))}
+              {orderedIds.map(blockId => {
+                const block = state.blocks.find(b => b.id === blockId);
+                if (!block) return null;
+
+                const gridSize = getResolvedGridSize(block, state.blockSizes[block.id], gridColumns);
+
+                return (
+                  <div
+                    key={block.id}
+                    className="bento-grid-item"
+                    style={{
+                      gridColumn: `span ${gridSize.colSpan}`,
+                      gridRow: `span ${gridSize.rowSpan}`,
+                      minWidth: 0,
+                      minHeight: 0,
+                    }}
+                  >
+                    <BlockCard b={block} />
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

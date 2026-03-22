@@ -17,8 +17,18 @@ export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
       const { user } = await login(username, password);
       onAuthed(user);
       nav("/editor");
-    } catch { 
-      setErr("Неверный username или password"); 
+    } catch (error: any) {
+      const errorMessage = error?.message || "login_failed";
+
+      if (errorMessage === "backend_api_not_configured") {
+        setErr("Frontend собран без VITE_BACKEND_API_URL. Для Render укажите полный URL backend с /api на конце.");
+      } else if (errorMessage === "api_returned_html") {
+        setErr("API вернул HTML вместо JSON. Проверьте URL backend и настройку прокси.");
+      } else if (errorMessage === "network_error") {
+        setErr("Не удалось подключиться к API. Проверьте, что backend запущен и доступен.");
+      } else {
+        setErr("Неверный username или password");
+      }
     }
     finally { 
       setLoading(false); 
