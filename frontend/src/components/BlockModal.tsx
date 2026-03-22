@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { type BlockType, getImageUrl, type NoteTextStyle } from "../api";
+import { type BlockType, getImageUrl } from "../api";
 import ImageUploader from "./ImageUploader";
 
 // Иконки соцсетей для модалки (те же, что при пустой визитке)
@@ -51,18 +51,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
   useEffect(() => {
     if (isOpen) {
       if (type === "note") {
-        setFormData({
-          note: "",
-          noteStyle: {
-            align: "left",
-            fontFamily: "default",
-            bold: false,
-            italic: false,
-            textColor: "#0a0a0a",
-            useBackground: false,
-            backgroundColor: "#ffffff",
-          } as NoteTextStyle & { useBackground?: boolean },
-        });
+        setFormData({ note: "" });
       } else {
         setFormData({});
       }
@@ -130,19 +119,8 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
           alert("Введите текст заметки");
           return;
         }
-        submitData.note = formData.note;
-        {
-          const ns = formData.noteStyle as (NoteTextStyle & { useBackground?: boolean }) | undefined;
-          const useBg = Boolean(ns?.useBackground);
-          submitData.noteStyle = {
-            align: ns?.align || "left",
-            fontFamily: ns?.fontFamily || "default",
-            bold: !!ns?.bold,
-            italic: !!ns?.italic,
-            textColor: ns?.textColor || "#0a0a0a",
-            ...(useBg && ns?.backgroundColor ? { backgroundColor: ns.backgroundColor } : {}),
-          };
-        }
+        submitData.note = formData.note.trim();
+        submitData.noteStyle = { align: "left" };
         break;
         
       case "link":
@@ -330,158 +308,20 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
 
         <form onSubmit={handleSubmit}>
           {type === "note" && (
-            <>
-              <div className="field">
-                <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
-                  Текст заметки
-                </label>
-                <textarea
-                  className="textarea"
-                  placeholder="Введите текст заметки..."
-                  value={formData.note || ""}
-                  onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-                  rows={6}
-                  style={{ fontSize: 15 }}
-                  autoFocus
-                />
-              </div>
-
-              <div className="field" style={{ marginTop: 24 }}>
-                <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
-                  Оформление текста
-                </label>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, alignItems: "center" }}>
-                  <span style={{ fontSize: 13, color: "var(--muted)", width: "100%" }}>Выравнивание</span>
-                  {(["left", "center", "right"] as const).map((a) => {
-                    const active = (formData.noteStyle?.align || "left") === a;
-                    return (
-                      <button
-                        key={a}
-                        type="button"
-                        onClick={() =>
-                          setFormData({
-                            ...formData,
-                            noteStyle: { ...formData.noteStyle, align: a },
-                          })
-                        }
-                        className="btn"
-                        style={{
-                          padding: "8px 14px",
-                          fontSize: 13,
-                          background: active ? "var(--text)" : "var(--accent)",
-                          color: active ? "#fff" : "var(--text)",
-                          borderColor: active ? "var(--text)" : "var(--border)",
-                        }}
-                      >
-                        {a === "left" ? "Слева" : a === "center" ? "По центру" : "Справа"}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 12, alignItems: "center" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={Boolean((formData.noteStyle as { useBackground?: boolean })?.useBackground)}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          noteStyle: {
-                            ...formData.noteStyle,
-                            useBackground: e.target.checked,
-                          },
-                        })
-                      }
-                    />
-                    Цвет фона карточки
-                  </label>
-                  {(formData.noteStyle as { useBackground?: boolean })?.useBackground && (
-                    <input
-                      type="color"
-                      value={(formData.noteStyle as NoteTextStyle)?.backgroundColor || "#ffffff"}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          noteStyle: { ...formData.noteStyle, backgroundColor: e.target.value },
-                        })
-                      }
-                      style={{ width: 44, height: 36, padding: 0, border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer" }}
-                      title="Фон"
-                    />
-                  )}
-                </div>
-
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 12, alignItems: "center" }}>
-                  <span style={{ fontSize: 13, color: "var(--muted)" }}>Цвет текста</span>
-                  <input
-                    type="color"
-                    value={(formData.noteStyle as NoteTextStyle)?.textColor || "#0a0a0a"}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        noteStyle: { ...formData.noteStyle, textColor: e.target.value },
-                      })
-                    }
-                    style={{ width: 44, height: 36, padding: 0, border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer" }}
-                    title="Цвет текста"
-                  />
-                </div>
-
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ fontSize: 13, color: "var(--muted)", display: "block", marginBottom: 6 }}>Шрифт</label>
-                  <select
-                    className="select"
-                    value={(formData.noteStyle as NoteTextStyle)?.fontFamily || "default"}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        noteStyle: {
-                          ...formData.noteStyle,
-                          fontFamily: e.target.value as NoteTextStyle["fontFamily"],
-                        },
-                      })
-                    }
-                    style={{ fontSize: 14, maxWidth: "100%" }}
-                  >
-                    <option value="default">По умолчанию</option>
-                    <option value="system">Системный (sans-serif)</option>
-                    <option value="serif">С засечками (Georgia)</option>
-                    <option value="mono">Моноширинный</option>
-                  </select>
-                </div>
-
-                <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={!!(formData.noteStyle as NoteTextStyle)?.bold}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          noteStyle: { ...formData.noteStyle, bold: e.target.checked },
-                        })
-                      }
-                    />
-                    Жирный
-                  </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={!!(formData.noteStyle as NoteTextStyle)?.italic}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          noteStyle: { ...formData.noteStyle, italic: e.target.checked },
-                        })
-                      }
-                    />
-                    Курсив
-                  </label>
-                </div>
-              </div>
-            </>
+            <div className="field">
+              <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
+                Текст заметки
+              </label>
+              <textarea
+                className="textarea"
+                placeholder="Введите текст заметки..."
+                value={formData.note || ""}
+                onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                rows={6}
+                style={{ fontSize: 15 }}
+                autoFocus
+              />
+            </div>
           )}
 
           {type === "link" && (
