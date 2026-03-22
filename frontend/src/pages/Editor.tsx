@@ -5,10 +5,7 @@ import {
   deleteBlock, 
   getProfile, 
   updateProfile, 
-  createBlock, 
-  uploadImage, 
-  getImageUrl, 
-  reorderBlocks, 
+  createBlock,
   publicUrl, 
   qrUrlForPublic,
   type Block, 
@@ -719,6 +716,7 @@ export default function Editor() {
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragStart={handleDragStart}
+                onDragCancel={() => setActiveId(null)}
                 onDragEnd={handleDragEnd}
               >
                 <div

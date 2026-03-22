@@ -95,6 +95,7 @@ export default function BlockCard({
     borderRadius: "var(--radius-md)",
     overflow: "hidden",
     height: "100%",
+    pointerEvents: isDragPreview ? "none" : undefined,
   }
 
   const scrollableContentStyle: React.CSSProperties = { height: "100%", overflowY: "auto", paddingRight: 4, minHeight: 0 };
