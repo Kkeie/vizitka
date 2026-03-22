@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "../utils/db";
 import { hashPassword, verifyPassword, signToken } from "../utils/auth";
+import { findAvailableUsernames } from '../utils/usernameGenerator';
 
 const router = Router();
 
@@ -23,7 +24,11 @@ router.post("/register", async (req, res) => {
     const existingProfile = db.prepare("SELECT id FROM Profile WHERE username = ?").get(uname);
     if (existingProfile) {
       console.log("[REGISTER] Username already taken:", uname);
-      return res.status(409).json({ error: "username_taken" });
+      const suggestions = await findAvailableUsernames(db, uname, 42);
+      return res.status(409).json({
+        error: "username_taken",
+        suggestions,
+      });
     }
 
     const passwordHash = await hashPassword(password);
@@ -115,6 +120,24 @@ router.post("/login", async (req, res) => {
     console.error(e);
     res.status(500).json({ error: "internal_error" });
   }
+});
+
+/**
+ * POST /api/auth/check-username
+ * { username }
+ */
+router.post("/check-username", async (req, res) => {
+  const { username } = req.body as { username?: string };
+  if (!username) return res.status(400).json({ error: "username_required" });
+  const uname = username.trim().toLowerCase();
+  if (uname.length < 3) return res.status(400).json({ error: "username_too_short" });
+  
+  const existing = db.prepare("SELECT id FROM Profile WHERE username = ?").get(uname);
+  if (!existing) {
+    return res.json({ available: true });
+  }
+  const suggestions = await findAvailableUsernames(db, uname, 42);
+  return res.json({ available: false, suggestions });
 });
 
 export default router;

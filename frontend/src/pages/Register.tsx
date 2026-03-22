@@ -1,6 +1,7 @@
 import React from "react";
 import { register, type User } from "../api";
 import { useNavigate, Link } from "react-router-dom";
+import UsernameInput from '../components/UsernameInput';
 
 export default function Register({ onAuthed }: { onAuthed: (u: User) => void }) {
   const [username, setUsername] = React.useState("");
@@ -11,8 +12,18 @@ export default function Register({ onAuthed }: { onAuthed: (u: User) => void }) 
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr(null); 
-    setLoading(true);
+
+    if (!username || username.length < 3) {
+      setErr("Username должен содержать минимум 3 символа");
+      return;
+    }
+    if (!password || password.length < 4) {
+      setErr("Пароль должен содержать минимум 4 символа");
+      return;
+    }
+    
+    setErr(null);   
+    setLoading(true); 
     try {
       const { user } = await register(username, password);
       onAuthed(user);
@@ -20,7 +31,7 @@ export default function Register({ onAuthed }: { onAuthed: (u: User) => void }) 
     } catch (error: any) {
       const errorMessage = error?.message || "register_failed";
       let message = "Не удалось создать аккаунт.";
-      
+
       if (errorMessage === "username_taken") {
         message = "Этот username уже занят. Выберите другой.";
       } else if (errorMessage === "username_too_short") {
@@ -35,12 +46,19 @@ export default function Register({ onAuthed }: { onAuthed: (u: User) => void }) 
         console.error("Registration error:", errorMessage);
         message = `Ошибка: ${errorMessage}`;
       }
-      
+
       setErr(message);
-    }
-    finally { 
+    } finally { 
       setLoading(false); 
     }
+  };
+
+  const handleSuggestionSelect = (suggestion: string) => {
+    setUsername(suggestion);
+    // setTimeout(() => {
+    //   const form = document.querySelector("form");
+    //   if (form) form.requestSubmit();
+    // }, 100);
   };
 
   return (
@@ -55,25 +73,14 @@ export default function Register({ onAuthed }: { onAuthed: (u: User) => void }) 
               Создайте аккаунт и начните создавать свою страницу
             </p>
           </div>
-          
-          <div className="field" style={{ marginBottom: 20 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
-              Username
-            </label>
-            <input 
-              className="input" 
-              placeholder="Придумайте username" 
-              value={username} 
-              onChange={(e)=>setUsername(e.target.value)}
-              required
-              minLength={3}
-              autoFocus
-              style={{ fontSize: 15 }}
-            />
-            <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
-              Минимум 3 символа
-            </p>
-          </div>
+
+          {/* Компонент для username со встроенными предложениями */}
+          <UsernameInput
+            value={username}
+            onChange={setUsername}
+            onSelectSuggestion={handleSuggestionSelect}
+            disabled={loading}
+          />
           
           <div className="field" style={{ marginBottom: 24 }}>
             <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
