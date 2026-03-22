@@ -157,6 +157,7 @@ async function safeJsonParse<T>(response: Response): Promise<T> {
 interface ApiError {
   error?: string;
   message?: string;
+  suggestions?: string[];
 }
 
 // Auth
@@ -174,6 +175,11 @@ export async function register(username: string, password: string): Promise<{ to
     if (!r.ok) {
       const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
       const errorMessage = errorData.error || errorData.message || "register_failed";
+      if (errorData.error === "username_taken" && errorData.suggestions) {
+        const customError: any = new Error(errorMessage);
+        customError.suggestions = errorData.suggestions;
+        throw customError;
+      }
       console.error('[API] Register failed:', r.status, errorMessage);
       throw new Error(errorMessage);
     }
@@ -402,4 +408,17 @@ export async function getMyPublicBento(): Promise<BentoData> {
 export async function getPublicBento(username: string): Promise<BentoData> {
   const data = await getPublic(username);
   return { username, ...data } as BentoData;
+}
+
+export async function checkUsername(username: string): Promise<{ available: boolean; suggestions?: string[] }> {
+  const r = await fetch(`${API}/auth/check-username`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username }),
+  });
+  if (!r.ok) {
+    const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
+    throw new Error(errorData.error || "check_username_failed");
+  }
+  return safeJsonParse<{ available: boolean; suggestions?: string[] }>(r);
 }
