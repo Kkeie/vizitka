@@ -2,7 +2,7 @@ import type { Block, BlockGridSize, BlockType } from "../api";
 import type { Breakpoint } from "../hooks/useBreakpoint";
 
 export const GRID_COLUMNS: Record<Breakpoint, number> = {
-  mobile: 1,
+  mobile: 2,
   tablet: 2,
   desktop: 4,
 };

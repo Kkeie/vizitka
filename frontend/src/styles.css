@@ -109,6 +109,57 @@
   }
 }
 
+/* Компактный профиль на мобильной визитке — карточки помещаются на экран */
+@media (max-width: 767px) {
+  .public-page .public-profile .public-profile-avatar {
+    width: 72px !important;
+    height: 72px !important;
+  }
+  .public-page .public-profile .public-profile-inner {
+    gap: 12px !important;
+  }
+  .public-page .public-profile h1 {
+    font-size: 22px !important;
+    margin-bottom: 4px !important;
+  }
+  .public-page .public-profile p {
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    margin-top: 8px !important;
+  }
+  .public-page .public-profile .public-profile-inner > div:last-child > div {
+    margin-top: 12px !important;
+    gap: 6px !important;
+  }
+  .public-page .public-profile .public-profile-inner > div:last-child > div > div {
+    font-size: 13px !important;
+  }
+  .public-page .container {
+    padding-top: 48px !important;
+    padding-bottom: 48px !important;
+  }
+  /* Меньший gap в bento-сетке на мобильном */
+  .public-page .bento-grid {
+    --grid-gap: 12px;
+    gap: 12px !important;
+  }
+}
+
+/* Очень маленькие экраны — ещё компактнее */
+@media (max-width: 480px) {
+  .public-page .public-profile .public-profile-avatar {
+    width: 64px !important;
+    height: 64px !important;
+  }
+  .public-page .public-profile h1 {
+    font-size: 20px !important;
+  }
+  .public-page .container {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+
 html,body,#root{
   height:100%;
   width: 100%;
