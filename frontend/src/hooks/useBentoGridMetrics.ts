@@ -1,6 +1,10 @@
 import React from "react";
 
-export function useBentoGridMetrics(columns: number, gap = 16) {
+export function useBentoGridMetrics(
+  columns: number,
+  gap = 16,
+  options?: { maxCellSize?: number; minCellSize?: number }
+) {
   const gridRef = React.useRef<HTMLDivElement | null>(null);
   const [cellSize, setCellSize] = React.useState<number | null>(null);
 
@@ -16,7 +20,16 @@ export function useBentoGridMetrics(columns: number, gap = 16) {
         return;
       }
 
-      const nextCellSize = (width - gap * (columns - 1)) / columns;
+      let nextCellSize = (width - gap * (columns - 1)) / columns;
+      if (nextCellSize <= 0) {
+        nextCellSize = 0;
+      }
+      if (options?.maxCellSize != null && nextCellSize > options.maxCellSize) {
+        nextCellSize = options.maxCellSize;
+      }
+      if (options?.minCellSize != null && nextCellSize < options.minCellSize && nextCellSize > 0) {
+        nextCellSize = options.minCellSize;
+      }
       setCellSize(nextCellSize > 0 ? nextCellSize : null);
     };
 
@@ -26,7 +39,7 @@ export function useBentoGridMetrics(columns: number, gap = 16) {
     observer.observe(node);
 
     return () => observer.disconnect();
-  }, [columns, gap]);
+  }, [columns, gap, options?.maxCellSize, options?.minCellSize]);
 
   return { gridRef, cellSize };
 }

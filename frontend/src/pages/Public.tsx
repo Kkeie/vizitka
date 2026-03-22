@@ -200,7 +200,10 @@ export default function PublicPage() {
     ? flattenLayoutIds(state.layout[breakpoint])
     : state.blocks.map((block) => block.id);
   const gridColumns = GRID_COLUMNS[breakpoint];
-  const { gridRef, cellSize } = useBentoGridMetrics(gridColumns, 16);
+  const gridGap = breakpoint === "mobile" ? 12 : 16;
+  const { gridRef, cellSize } = useBentoGridMetrics(gridColumns, gridGap, {
+    maxCellSize: breakpoint === "mobile" ? 100 : undefined,
+  });
 
   if (state.loading) {
     return (
@@ -228,7 +231,7 @@ export default function PublicPage() {
         backgroundRepeat: "no-repeat",
         backgroundAttachment: "fixed",
         position: "relative",
-        minHeight: "100vh",
+        minHeight: "100dvh",
         width: "100%",
         maxWidth: "100%",
         overflowX: "hidden",
@@ -257,11 +260,11 @@ export default function PublicPage() {
           {/* Left Column: Profile (fixed) + Placeholder for grid */}
           <div style={{ width: "100%", maxWidth: "100%" }}>
             {/* Profile that scrolls with page */}
-            <div className="profile-column" style={{ maxWidth: "100%" }}>
+            <div className="profile-column public-profile" style={{ maxWidth: "100%" }}>
               <div className="reveal reveal-in">
-                <div style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "flex-start", textAlign: "left", width: "100%", maxWidth: "100%" }}>
+                <div className="public-profile-inner" style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "flex-start", textAlign: "left", width: "100%", maxWidth: "100%" }}>
                   {state.avatarUrl && (
-                    <div style={{
+                    <div className="public-profile-avatar" style={{
                       width: 120,
                       height: 120,
                       borderRadius: "50%",
@@ -338,9 +341,9 @@ export default function PublicPage() {
                 display: 'grid',
                 gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
                 ['--grid-columns' as string]: String(gridColumns),
-                ['--grid-gap' as string]: '16px',
+                ['--grid-gap' as string]: `${gridGap}px`,
                 ['--bento-cell-size' as string]: cellSize ? `${cellSize}px` : undefined,
-                gap: '16px',
+                gap: `${gridGap}px`,
                 gridAutoFlow: 'dense',
               }}
             >
