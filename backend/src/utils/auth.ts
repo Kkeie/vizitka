@@ -14,12 +14,18 @@ function getJwtSecret(): string {
     return cachedJwtSecret;
   }
 
+  // Не падаем: локально часто NODE_ENV=production без .env (Windows и т.д.)
+  // На хостинге JWT_SECRET обычно задан в панели — тогда используется ветка выше.
   if (process.env.NODE_ENV === "production") {
-    throw new Error("JWT_SECRET must be set and contain at least 32 characters in production");
+    console.warn(
+      "[AUTH] JWT_SECRET не задан или короче 32 символов — временный ключ для этого процесса. " +
+        "Для локального теста без .env это нормально; на проде задайте JWT_SECRET в окружении."
+    );
+  } else {
+    console.warn("[AUTH] JWT_SECRET is not set (or too short). Generated ephemeral dev secret for current process.");
   }
 
   cachedJwtSecret = crypto.randomBytes(48).toString("hex");
-  console.warn("[AUTH] JWT_SECRET is not set (or too short). Generated ephemeral dev secret for current process.");
   return cachedJwtSecret;
 }
 

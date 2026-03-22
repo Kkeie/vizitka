@@ -38,11 +38,23 @@ export type User = {
 };
 
 export type BlockType = "note" | "link" | "photo" | "video" | "music" | "map" | "social";
+
+/** Оформление текстовой заметки (type === "note") */
+export type NoteTextStyle = {
+  align?: "left" | "center" | "right";
+  backgroundColor?: string;
+  textColor?: string;
+  fontFamily?: "default" | "serif" | "mono" | "system";
+  bold?: boolean;
+  italic?: boolean;
+};
+
 export type Block = {
   id: number;
   type: BlockType;
   sort: number;
   note?: string | null;
+  noteStyle?: NoteTextStyle | null;
   linkUrl?: string | null;
   photoUrl?: string | null;
   videoUrl?: string | null;

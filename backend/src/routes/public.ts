@@ -1,6 +1,16 @@
 import { Router } from "express";
 import { db } from "../utils/db";
 
+function parseNoteStyleColumn(raw: string | null | undefined): Record<string, unknown> | null {
+  if (raw == null || raw === "") return null;
+  try {
+    const o = JSON.parse(raw);
+    return typeof o === "object" && o !== null && !Array.isArray(o) ? (o as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 function mapDbToLegacy(b: any) {
   return {
     id: b.id,
@@ -15,6 +25,7 @@ function mapDbToLegacy(b: any) {
     mapLng: b.mapLng,
     socialType: b.socialType,
     socialUrl: b.socialUrl,
+    noteStyle: parseNoteStyleColumn(b.noteStyle),
   };
 }
 

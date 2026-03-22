@@ -4,6 +4,42 @@ import { requireAuth, AuthedRequest } from "../utils/auth";
 
 const router = Router();
 
+function parseNoteStyleColumn(raw: string | null | undefined): Record<string, unknown> | null {
+  if (raw == null || raw === "") return null;
+  try {
+    const o = JSON.parse(raw);
+    return typeof o === "object" && o !== null && !Array.isArray(o) ? (o as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeNoteStyleForDb(input: unknown): string | null {
+  if (input === null || input === undefined) return null;
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
+  const p = input as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+
+  const align = p.align;
+  if (align === "left" || align === "center" || align === "right") out.align = align;
+
+  const hexOk = (s: string) => /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(s.trim());
+  if (typeof p.backgroundColor === "string" && hexOk(p.backgroundColor)) out.backgroundColor = p.backgroundColor.trim();
+  if (typeof p.textColor === "string" && hexOk(p.textColor)) out.textColor = p.textColor.trim();
+
+  const ff = p.fontFamily;
+  if (ff === "default" || ff === "serif" || ff === "mono" || ff === "system") out.fontFamily = ff;
+
+  if (p.bold === true) out.bold = true;
+  else if (p.bold === false) out.bold = false;
+
+  if (p.italic === true) out.italic = true;
+  else if (p.italic === false) out.italic = false;
+
+  if (Object.keys(out).length === 0) return null;
+  return JSON.stringify(out);
+}
+
 // Возвращаем legacy-формат блоков, как в публичном API и как ожидает фронт
 function mapDbToLegacy(b: any) {
   return {
@@ -19,6 +55,7 @@ function mapDbToLegacy(b: any) {
     mapLng: b.mapLng,
     socialType: b.socialType,
     socialUrl: b.socialUrl,
+    noteStyle: parseNoteStyleColumn(b.noteStyle),
   };
 }
 
@@ -35,6 +72,9 @@ function mapUnifiedToDb(type: string, patch: { url?: string | null; content?: st
   switch (type) {
     case "note":
       if (patch.content !== undefined) data.note = patch.content ?? null;
+      if (patch.noteStyle !== undefined) {
+        data.noteStyle = patch.noteStyle === null ? null : sanitizeNoteStyleForDb(patch.noteStyle);
+      }
       // чистим остальные поля
       data.linkUrl = null; data.photoUrl = null; data.videoUrl = null; data.musicEmbed = null; data.mapLat = null; data.mapLng = null;
       break;
@@ -129,8 +169,8 @@ router.post("/", requireAuth, async (req: AuthedRequest, res) => {
   const dbData = mapUnifiedToDb(type, req.body);
   
   const insert = db.prepare(`
-    INSERT INTO Block (userId, type, sort, note, linkUrl, photoUrl, videoUrl, musicEmbed, mapLat, mapLng, socialType, socialUrl)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO Block (userId, type, sort, note, linkUrl, photoUrl, videoUrl, musicEmbed, mapLat, mapLng, socialType, socialUrl, noteStyle)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
   try {
@@ -146,7 +186,8 @@ router.post("/", requireAuth, async (req: AuthedRequest, res) => {
       dbData.mapLat ?? null,
       dbData.mapLng ?? null,
       dbData.socialType ?? null,
-      dbData.socialUrl ?? null
+      dbData.socialUrl ?? null,
+      dbData.noteStyle ?? null
     );
 
     const created = db.prepare("SELECT * FROM Block WHERE id = ?").get(result.lastInsertRowid) as any;
@@ -216,6 +257,10 @@ router.patch("/:id", requireAuth, async (req: AuthedRequest, res) => {
   if (dbData.socialUrl !== undefined) {
     updates.push("socialUrl = ?");
     values.push(dbData.socialUrl);
+  }
+  if (dbData.noteStyle !== undefined) {
+    updates.push("noteStyle = ?");
+    values.push(dbData.noteStyle);
   }
   
   if (updates.length > 0) {
