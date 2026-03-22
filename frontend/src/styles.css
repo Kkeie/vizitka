@@ -444,6 +444,13 @@ a:hover{color:var(--primary-hover)}
   height: 100% !important;
   min-height: 100% !important;
 }
+
+/* Placeholder для contentEditable заметки */
+[contenteditable][data-placeholder]:empty:before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+}
+
 .topbar{ 
   position:sticky; 
   top:0; 

@@ -9,6 +9,7 @@ import { clampGridSize, getResolvedGridSize } from '../lib/block-grid';
 interface SortableBlockCardProps {
   block: Block;
   onDelete?: () => void;
+  onUpdate?: (partial: Partial<Block>) => void;
   gridSize?: BlockGridSize | null;
   gridColumns: number;
   onGridSizeChange?: (size: BlockGridSize | null) => void;
@@ -17,6 +18,7 @@ interface SortableBlockCardProps {
 export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   block,
   onDelete,
+  onUpdate,
   gridSize,
   gridColumns,
   onGridSizeChange,
@@ -119,6 +121,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
       <BlockCard
         b={block}
         onDelete={onDelete}
+        onUpdate={onUpdate}
         isDragPreview={isDragging}
       />
       {onGridSizeChange && !isDragging && (

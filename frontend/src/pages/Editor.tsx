@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { 
   listBlocks, 
   deleteBlock, 
+  updateBlock,
   getProfile, 
   updateProfile, 
   createBlock,
@@ -351,6 +352,16 @@ export default function Editor() {
     } catch (e) {
       alert("Не удалось удалить блок");
       console.error(e);
+    }
+  }
+
+  async function handleUpdateBlock(id: number, partial: Partial<Block>) {
+    try {
+      const updated = await updateBlock(id, partial);
+      setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...updated } : b)));
+    } catch (e) {
+      console.error(e);
+      setToast("Не удалось сохранить изменения");
     }
   }
 
@@ -743,6 +754,7 @@ export default function Editor() {
                           gridSize={blockSizes[block.id]}
                           onGridSizeChange={(dimensions) => handleBlockDimensionsChange(block.id, dimensions)}
                           onDelete={() => handleDeleteBlock(block.id)}
+                          onUpdate={(partial) => handleUpdateBlock(block.id, partial)}
                         />
                       ) : null;
                     })}

@@ -1,10 +1,13 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { useReveal } from "../hooks/useReveal";
 import { extractYouTubeId, toYouTubeEmbed, extractVKVideoId, toVKVideoEmbed, classifyMusic } from "../lib/embed";
 import { detectSocialType, extractTelegramInfo, extractInstagramUsername } from "../lib/social-preview";
 import { getLinkMetadata, getImageUrl } from "../api";
 import type { NoteTextStyle } from "../api";
 import { noteStyleToTextCss } from "../lib/noteStyle";
+import { sanitizeNoteHtml, looksLikeHtml } from "../lib/sanitizeNoteHtml";
+import NoteFloatingToolbar from "./NoteFloatingToolbar";
 
 export type Block = {
   id: number;
@@ -24,10 +27,12 @@ export type Block = {
 export default function BlockCard({
   b,
   onDelete,
+  onUpdate,
   isDragPreview,
 }: {
   b: Block;
   onDelete?: () => void;
+  onUpdate?: (partial: Partial<Block>) => void;
   isDragPreview?: boolean;
 }) {
   const [isVideoPlaying, setIsVideoPlaying] = React.useState(false);
@@ -35,6 +40,55 @@ export default function BlockCard({
   const [loadingMetadata, setLoadingMetadata] = React.useState(false);
   const revealRef = useReveal<HTMLDivElement>({ disabled: Boolean(isDragPreview) });
   const showEditorHeader = Boolean(onDelete);
+  const isNoteEditable = Boolean(onUpdate) && b.type === "note";
+  const noteEditableRef = React.useRef<HTMLDivElement | null>(null);
+  const [selectionRect, setSelectionRect] = React.useState<DOMRect | null>(null);
+  const saveNoteDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSelectionChange = React.useCallback(() => {
+    if (!isNoteEditable) return;
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) {
+      setSelectionRect(null);
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    const editable = noteEditableRef.current;
+    if (!editable || !editable.contains(range.commonAncestorContainer)) {
+      setSelectionRect(null);
+      return;
+    }
+    if (sel.isCollapsed) {
+      setSelectionRect(null);
+      return;
+    }
+    const rect = range.getBoundingClientRect();
+    if (rect.width > 0 || rect.height > 0) {
+      setSelectionRect(rect);
+    } else {
+      setSelectionRect(null);
+    }
+  }, [isNoteEditable]);
+
+  React.useEffect(() => {
+    if (!isNoteEditable) return;
+    document.addEventListener("selectionchange", handleSelectionChange);
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        noteEditableRef.current?.contains(target) ||
+        (target as Element).closest?.(".note-floating-toolbar")
+      ) {
+        return;
+      }
+      setSelectionRect(null);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("selectionchange", handleSelectionChange);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isNoteEditable, handleSelectionChange]);
 
   const stopControlEvent = (event: React.MouseEvent | React.PointerEvent) => {
     event.stopPropagation();
@@ -190,6 +244,29 @@ export default function BlockCard({
           const ns = b.noteStyle;
           const textCss = noteStyleToTextCss(ns);
           const hasBg = Boolean(ns?.backgroundColor);
+          const editable = isNoteEditable;
+
+          const saveNoteContent = () => {
+            const el = noteEditableRef.current;
+            if (!el || !onUpdate) return;
+            const raw = el.innerHTML?.trim() ?? "";
+            const sanitized = raw ? sanitizeNoteHtml(`<div>${raw}</div>`) : "";
+            const prev = b.note ?? "";
+            if (sanitized !== prev) {
+              onUpdate({ note: sanitized || null });
+            }
+          };
+
+          const applyInlineFormat = (type: "bold" | "italic" | "foreColor", value?: string) => {
+            const el = noteEditableRef.current;
+            if (!el) return;
+            el.focus();
+            if (type === "bold") document.execCommand("bold", false);
+            else if (type === "italic") document.execCommand("italic", false);
+            else if (type === "foreColor" && value) document.execCommand("foreColor", false, value);
+            saveNoteContent();
+          };
+
           return (
             <div
               className="card__content"
@@ -200,20 +277,86 @@ export default function BlockCard({
                 borderRadius: hasBg ? "var(--radius-sm)" : undefined,
                 backgroundColor: hasBg ? ns?.backgroundColor : undefined,
                 boxSizing: "border-box",
+                userSelect: editable ? "text" : undefined,
               }}
+              onPointerDown={editable ? (e) => e.stopPropagation() : undefined}
             >
-              <div
-                style={{
-                  whiteSpace: "pre-wrap",
-                  lineHeight: 1.7,
-                  fontSize: 15,
-                  wordBreak: "break-word",
-                  overflowWrap: "break-word",
-                  ...textCss,
-                }}
-              >
-                {b.note}
-              </div>
+              {editable ? (
+                <div
+                  ref={(node) => {
+                    noteEditableRef.current = node;
+                    if (node && document.activeElement !== node) {
+                      const target = b.note ?? "";
+                      const current = looksLikeHtml(target) ? node.innerHTML : node.innerText;
+                      if (current !== target) {
+                        if (looksLikeHtml(target)) {
+                          node.innerHTML = target;
+                        } else {
+                          node.innerText = target;
+                        }
+                      }
+                    }
+                  }}
+                  contentEditable
+                  suppressContentEditableWarning
+                  data-placeholder="Добавить заметку…"
+                  onBlur={saveNoteContent}
+                  onInput={() => {
+                    if (saveNoteDebounceRef.current) clearTimeout(saveNoteDebounceRef.current);
+                    saveNoteDebounceRef.current = setTimeout(saveNoteContent, 800);
+                  }}
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    lineHeight: 1.7,
+                    fontSize: 15,
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
+                    outline: "none",
+                    minHeight: 24,
+                    ...textCss,
+                  }}
+                />
+              ) : looksLikeHtml(b.note ?? "") ? (
+                <div
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    lineHeight: 1.7,
+                    fontSize: 15,
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
+                    ...textCss,
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeNoteHtml(`<div>${b.note ?? ""}</div>`),
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    lineHeight: 1.7,
+                    fontSize: 15,
+                    wordBreak: "break-word",
+                    overflowWrap: "break-word",
+                    ...textCss,
+                  }}
+                >
+                  {b.note ?? ""}
+                </div>
+              )}
+              {editable &&
+                selectionRect &&
+                createPortal(
+                  <NoteFloatingToolbar
+                    rect={selectionRect}
+                    noteStyle={ns}
+                    onInlineFormat={applyInlineFormat}
+                    onAlignChange={(align) => {
+                      onUpdate?.({ noteStyle: { ...ns, align } });
+                    }}
+                  />,
+                  document.body
+                )}
             </div>
           );
         })()}
