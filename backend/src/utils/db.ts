@@ -173,6 +173,14 @@ export function initDatabase() {
     }
   }
 
+  try {
+    db.exec(`ALTER TABLE Block ADD COLUMN noteStyle TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      console.warn('[DB] Could not add noteStyle column:', e.message);
+    }
+  }
+
   // Индексы для производительности
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_block_userId ON Block(userId);
@@ -239,6 +247,7 @@ export interface Block {
   mapLng: number | null;
   socialType: string | null;
   socialUrl: string | null;
+  noteStyle: string | null;
 }
 
 // Закрываем соединение при выходе

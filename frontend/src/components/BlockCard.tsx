@@ -3,11 +3,14 @@ import { useReveal } from "../hooks/useReveal";
 import { extractYouTubeId, toYouTubeEmbed, extractVKVideoId, toVKVideoEmbed, classifyMusic } from "../lib/embed";
 import { detectSocialType, extractTelegramInfo, extractInstagramUsername } from "../lib/social-preview";
 import { getLinkMetadata, getImageUrl } from "../api";
+import type { NoteTextStyle } from "../api";
+import { noteStyleToTextCss } from "../lib/noteStyle";
 
 export type Block = {
   id: number;
   type: "note" | "link" | "photo" | "video" | "music" | "map" | "social";
   note?: string | null;
+  noteStyle?: NoteTextStyle | null;
   linkUrl?: string | null;
   photoUrl?: string | null;
   videoUrl?: string | null;
@@ -183,11 +186,37 @@ export default function BlockCard({
       )}
 
       <div style={{ flex: 1, position: "relative", zIndex: 0, minHeight: 0, overflow: "hidden" }}>
-        {b.type === "note" && (
-          <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, color: "var(--text)", fontSize: 15, wordBreak: "break-word", overflowWrap: "break-word", ...scrollableContentStyle }}>
-            {b.note}
-          </div>
-        )}
+        {b.type === "note" && (() => {
+          const ns = b.noteStyle;
+          const textCss = noteStyleToTextCss(ns);
+          const hasBg = Boolean(ns?.backgroundColor);
+          return (
+            <div
+              className="card__content"
+              style={{
+                ...scrollableContentStyle,
+                margin: hasBg ? -16 : 0,
+                padding: hasBg ? 16 : 0,
+                borderRadius: hasBg ? "var(--radius-sm)" : undefined,
+                backgroundColor: hasBg ? ns?.backgroundColor : undefined,
+                boxSizing: "border-box",
+              }}
+            >
+              <div
+                style={{
+                  whiteSpace: "pre-wrap",
+                  lineHeight: 1.7,
+                  fontSize: 15,
+                  wordBreak: "break-word",
+                  overflowWrap: "break-word",
+                  ...textCss,
+                }}
+              >
+                {b.note}
+              </div>
+            </div>
+          );
+        })()}
 
         {b.type === "link" && b.linkUrl && (() => {
           const socialType = detectSocialType(b.linkUrl);
