@@ -37,7 +37,7 @@ export type User = {
   profile: Profile | null;
 };
 
-export type BlockType = "note" | "link" | "photo" | "video" | "music" | "map" | "social";
+export type BlockType = "section" | "note" | "link" | "photo" | "video" | "music" | "map" | "social";
 
 /** Оформление текстовой заметки (type === "note") */
 export type NoteTextStyle = {
@@ -121,8 +121,7 @@ export function getImageUrl(url: string | null | undefined): string {
       // Если ссылка указывает на localhost, приводим протокол/порт к текущему origin
       if (parsed.hostname === 'localhost') {
         const current = window.location.origin;
-        const normalized = `${current}${parsed.pathname}${parsed.search}${parsed.hash}`;
-        return normalized;
+        return `${current}${parsed.pathname}${parsed.search}${parsed.hash}`;
       }
     } catch {
       // если что-то пошло не так при парсинге, просто вернём исходный url
@@ -229,37 +228,32 @@ interface ApiError {
 export async function register(username: string, password: string): Promise<{ token: string; user: User }> {
   const url = `${API}/auth/register`;
   console.log('[API] Register request to:', url);
-  
-  try {
-    const r = await fetch(url, {
+
+  const r = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
-    });
-    
-    if (!r.ok) {
-      const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
-      const errorMessage = errorData.error || errorData.message || "register_failed";
-      if (errorData.error === "username_taken" && errorData.suggestions) {
-        const customError: any = new Error(errorMessage);
-        customError.suggestions = errorData.suggestions;
-        throw customError;
-      }
-      console.error('[API] Register failed:', r.status, errorMessage);
-      throw new Error(errorMessage);
-    }
-    
-    const data = await safeJsonParse<{ token: string; user: User }>(r);
-    setToken(data.token);
-    return data;
-  } catch (error: any) {
-    // Если это сетевая ошибка (CORS, недоступен сервер и т.д.)
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+    })
+    .catch((error: any) => {
       console.error('[API] Network error:', error);
       throw new Error('network_error');
+    });
+
+  if (!r.ok) {
+    const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
+    const errorMessage = errorData.error || errorData.message || "register_failed";
+    if (errorData.error === "username_taken" && errorData.suggestions) {
+      const customError: any = new Error(errorMessage);
+      customError.suggestions = errorData.suggestions;
+      throw customError;
     }
-    throw error;
+    console.error('[API] Register failed:', r.status, errorMessage);
+    throw new Error(errorMessage);
   }
+
+  const data = await safeJsonParse<{ token: string; user: User }>(r);
+  setToken(data.token);
+  return data;
 }
 export async function login(username: string, password: string): Promise<{ token: string; user: User }> {
   const r = await fetch(`${API}/auth/login`, {
@@ -314,29 +308,22 @@ export async function updateProfile(p: Partial<Profile>): Promise<Profile> {
 export async function uploadImage(file: File): Promise<{ url: string }> {
   const form = new FormData();
   form.append('image', file);
-  
-  try {
-    const r = await fetch(`${API}/storage/image`, { 
-      method: 'POST', 
-      headers: { ...authHeaders() }, 
-      body: form 
-    });
-    
-    if (!r.ok) {
-      const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
-      if (r.status === 413) {
-        throw new Error('file_too_large');
-      }
-      throw new Error(errorData.error || 'upload_failed');
-    }
-    
-    return safeJsonParse<{ url: string }>(r);
-  } catch (error: any) {
-    if (error.message === 'file_too_large') {
+
+  const r = await fetch(`${API}/storage/image`, {
+    method: 'POST',
+    headers: { ...authHeaders() },
+    body: form
+  });
+
+  if (!r.ok) {
+    const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
+    if (r.status === 413) {
       throw new Error('Файл слишком большой. Максимальный размер: 50MB');
     }
-    throw error;
+    throw new Error(errorData.error || 'upload_failed');
   }
+
+  return safeJsonParse<{ url: string }>(r);
 }
 
 // Blocks
@@ -397,18 +384,13 @@ export async function reorderBlocks(items: { id: number; sort: number }[]): Prom
   const text = await r.text();
   
   if (!r.ok) {
-    // Для ошибок пытаемся распарсить JSON
+    let errorData: ApiError;
     try {
-      const errorData = text ? JSON.parse(text) : {};
-      throw new Error(errorData.error || errorData.message || "reorder_failed");
-    } catch (e: any) {
-      // Если это уже наша ошибка, пробрасываем её
-      if (e.message && e.message !== "reorder_failed") {
-        throw e;
-      }
-      // Иначе создаём новую ошибку
-      throw new Error("reorder_failed");
+      errorData = text ? JSON.parse(text) as ApiError : {};
+    } catch {
+      errorData = {};
     }
+    throw new Error(errorData.error || errorData.message || "reorder_failed");
   }
   
   // Для успешного ответа проверяем, что это валидный JSON (если есть тело)

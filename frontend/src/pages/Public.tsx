@@ -2,9 +2,9 @@ import React from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { getPublic, getImageUrl, type Block, type BlockSizes, type Layout } from "../api";
 import BlockCard from "../components/BlockCard";
-import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
+import { useBreakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
-import { GRID_COLUMNS, flattenLayoutIds, getResolvedGridSize } from "../lib/block-grid";
+import { BENTO_ROW_UNIT, GRID_COLUMNS, flattenLayoutIds, getGridRowSpan, getResolvedGridSize } from "../lib/block-grid";
 
 // Системные маршруты, которые не должны обрабатываться как username
 // Примечание: "public" удален из списка, так как теперь мы используем маршрут /public/:username
@@ -201,6 +201,7 @@ export default function PublicPage() {
     : state.blocks.map((block) => block.id);
   const gridColumns = GRID_COLUMNS[breakpoint];
   const gridGap = breakpoint === "mobile" ? 12 : 16;
+  const hasSectionBlocks = state.blocks.some((block) => block.type === "section");
   const { gridRef, cellSize } = useBentoGridMetrics(gridColumns, gridGap, {
     maxCellSize: breakpoint === "mobile" ? 100 : undefined,
   });
@@ -343,8 +344,10 @@ export default function PublicPage() {
                 ['--grid-columns' as string]: String(gridColumns),
                 ['--grid-gap' as string]: `${gridGap}px`,
                 ['--bento-cell-size' as string]: cellSize ? `${cellSize}px` : undefined,
+                ['--bento-row-unit' as string]: `${BENTO_ROW_UNIT}px`,
                 gap: `${gridGap}px`,
-                gridAutoFlow: 'dense',
+                gridAutoRows: `${BENTO_ROW_UNIT}px`,
+                gridAutoFlow: hasSectionBlocks ? 'row' : 'dense',
               }}
             >
               {orderedIds.map(blockId => {
@@ -352,6 +355,7 @@ export default function PublicPage() {
                 if (!block) return null;
 
                 const gridSize = getResolvedGridSize(block, state.blockSizes[block.id], gridColumns);
+                const resolvedRowSpan = getGridRowSpan(block, gridSize, cellSize, gridGap);
 
                 return (
                   <div
@@ -359,7 +363,7 @@ export default function PublicPage() {
                     className="bento-grid-item"
                     style={{
                       gridColumn: `span ${gridSize.colSpan}`,
-                      gridRow: `span ${gridSize.rowSpan}`,
+                      gridRow: `span ${resolvedRowSpan}`,
                       minWidth: 0,
                       minHeight: 0,
                     }}

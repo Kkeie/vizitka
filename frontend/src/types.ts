@@ -1,4 +1,4 @@
-export type BlockType = 'note' | 'link' | 'photo' | 'video' | 'music' | 'map';
+export type BlockType = 'section' | 'note' | 'link' | 'photo' | 'video' | 'music' | 'map' | 'social';
 
 export interface Block {
   id: number;
@@ -11,6 +11,8 @@ export interface Block {
   musicEmbed?: string;
   mapLat?: number;
   mapLng?: number;
+  socialType?: 'telegram' | 'vk' | 'instagram';
+  socialUrl?: string;
 }
 
 export interface UserDto {

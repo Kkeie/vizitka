@@ -4,7 +4,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { BlockGridSize } from '../api';
 import BlockCard, { Block } from './BlockCard';
-import { clampGridSize, getResolvedGridSize } from '../lib/block-grid';
+import { clampGridSize, getGridRowSpan, getResolvedGridSize } from '../lib/block-grid';
 
 interface SortableBlockCardProps {
   block: Block;
@@ -12,6 +12,8 @@ interface SortableBlockCardProps {
   onUpdate?: (partial: Partial<Block>) => void;
   gridSize?: BlockGridSize | null;
   gridColumns: number;
+  cellSize: number | null;
+  gridGap: number;
   onGridSizeChange?: (size: BlockGridSize | null) => void;
 }
 
@@ -21,6 +23,8 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   onUpdate,
   gridSize,
   gridColumns,
+  cellSize,
+  gridGap,
   onGridSizeChange,
 }) => {
   const {
@@ -32,6 +36,8 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     isDragging,
   } = useSortable({ id: block.id });
   const resolvedGridSize = getResolvedGridSize(block, gridSize, gridColumns);
+  const resolvedRowSpan = getGridRowSpan(block, resolvedGridSize, cellSize, gridGap);
+  const isSection = block.type === 'section';
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -39,7 +45,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     opacity: isDragging ? 0.5 : 1,
     cursor: isDragging ? 'grabbing' : 'grab',
     gridColumn: `span ${resolvedGridSize.colSpan}`,
-    gridRow: `span ${resolvedGridSize.rowSpan}`,
+    gridRow: `span ${resolvedRowSpan}`,
     position: 'relative' as const,
     minWidth: 0,
     minHeight: 0,
@@ -113,7 +119,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     <div
       ref={setNodeRef}
       style={style}
-      data-drag-item
+      data-drag-item=""
       className={`bento-grid-item ${isDragging ? 'dragging' : ''}`.trim()}
       {...attributes}
       {...listeners}
@@ -124,7 +130,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
         onUpdate={onUpdate}
         isDragPreview={isDragging}
       />
-      {onGridSizeChange && !isDragging && (
+      {onGridSizeChange && !isDragging && !isSection && (
         <>
           {handles.map((handle) => (
             <div

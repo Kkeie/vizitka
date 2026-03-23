@@ -60,7 +60,7 @@ class Spring {
 
 export default function initDragReorder(config: DragReorderConfig = {}): DragReorderInstance | null {
   const {
-    containerSelector = '.grid',
+    containerSelector: rawContainerSelector,
     itemSelector = '[data-drag-item]',
     handleSelector = null,
     onChange = () => {},
@@ -69,14 +69,21 @@ export default function initDragReorder(config: DragReorderConfig = {}): DragReo
     disabled = false,
   } = config;
 
-  const container = typeof containerSelector === 'string' 
-    ? document.querySelector(containerSelector) as HTMLElement
-    : containerSelector;
+  const resolvedContainer = (() => {
+    if (rawContainerSelector instanceof HTMLElement) {
+      return rawContainerSelector;
+    }
 
-  if (!container) {
-    console.warn(`DragReorder: Container not found`, containerSelector);
+    const selector = rawContainerSelector ?? '.grid';
+    return document.querySelector(selector) as HTMLElement | null;
+  })();
+
+  if (!resolvedContainer) {
+    console.warn(`DragReorder: Container not found`, rawContainerSelector ?? '.grid');
     return null;
   }
+
+  const container: HTMLElement = resolvedContainer;
 
   if (disabled) {
     return null;
@@ -165,8 +172,6 @@ export default function initDragReorder(config: DragReorderConfig = {}): DragReo
       if (pos.el === draggingEl) continue;
 
       const centerY = pos.top + pos.height / 2;
-      const centerX = pos.left + pos.width / 2;
-
       // Check if pointer is within bounds
       if (
         y >= pos.top &&

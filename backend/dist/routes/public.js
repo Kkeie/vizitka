@@ -2,6 +2,17 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../utils/db");
+function parseNoteStyleColumn(raw) {
+    if (raw == null || raw === "")
+        return null;
+    try {
+        const o = JSON.parse(raw);
+        return typeof o === "object" && o !== null && !Array.isArray(o) ? o : null;
+    }
+    catch {
+        return null;
+    }
+}
 function mapDbToLegacy(b) {
     return {
         id: b.id,
@@ -16,6 +27,7 @@ function mapDbToLegacy(b) {
         mapLng: b.mapLng,
         socialType: b.socialType,
         socialUrl: b.socialUrl,
+        noteStyle: parseNoteStyleColumn(b.noteStyle),
     };
 }
 const router = (0, express_1.Router)();

@@ -1,9 +1,12 @@
-import React from "react";
 import { createBlock, type Block, type BlockType } from "../api";
 
 export default function AddBlockGrid({ onCreated, nextSort }: { onCreated: (b: Block) => void; nextSort: number }) {
   const add = async (type: BlockType) => {
-    if (type === "note") {
+    if (type === "section") {
+      const note = prompt("Заголовок раздела:");
+      if (!note) return;
+      onCreated(await createBlock({ type: "section", note, sort: nextSort }));
+    } else if (type === "note") {
       const note = prompt("Текст заметки:");
       if (!note) return;
       onCreated(await createBlock({ type: "note", note, sort: nextSort }));
@@ -33,6 +36,7 @@ export default function AddBlockGrid({ onCreated, nextSort }: { onCreated: (b: B
 
   const Icon = ({ name }: { name: string }) => (
     <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" style={{ color: "var(--muted)" }}>
+      {name === "section" && <path d="M3 12h18M6 7h12M6 17h12"/>}
       {name === "note" && <path d="M4 7a2 2 0 0 1 2-2h8l6 6v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7z"/>}
       {name === "link" && <path d="M10 13a5 5 0 0 1 7 0l2 2a5 5 0 0 1-7 7l-1-1"/>}
       {name === "photo" && <path d="M4 5h16v14H4z M8 11l3 3 3-4 4 6H6z"/>}
@@ -53,6 +57,7 @@ export default function AddBlockGrid({ onCreated, nextSort }: { onCreated: (b: B
     <div className="card" style={{ padding: 16 }}>
       <h3 className="muted" style={{ fontSize: 14, marginBottom: 10 }}>Добавить блок</h3>
       <div className="grid">
+        <Tile t="section" label="Заголовок" icon="section" />
         <Tile t="note" label="Заметка" icon="note" />
         <Tile t="link" label="Ссылка" icon="link" />
         <Tile t="photo" label="Фото" icon="photo" />

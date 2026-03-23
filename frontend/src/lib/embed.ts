@@ -160,7 +160,7 @@ export function classifyMusic(input: string): MusicKind {
         cleanedHtml = cleanedHtml.replace(/<iframe/i, '<iframe allow="clipboard-write; autoplay; encrypted-media"');
       } else {
         // Добавляем недостающие разрешения к существующему allow
-        cleanedHtml = cleanedHtml.replace(/allow=["']([^"']*)["']/i, (match, existing) => {
+        cleanedHtml = cleanedHtml.replace(/allow=["']([^"']*)["']/i, (_match, existing) => {
           const permissions = existing.split(';').map((p: string) => p.trim());
           if (!permissions.includes('clipboard-write')) permissions.push('clipboard-write');
           if (!permissions.includes('autoplay')) permissions.push('autoplay');
@@ -176,7 +176,7 @@ export function classifyMusic(input: string): MusicKind {
       if (iframeMatch && iframeMatch[1]) {
         const iframeSrc = iframeMatch[1];
         // Создаем полный iframe с правильными атрибутами для Yandex Music
-        const iframeHtml = `<iframe frameborder="0" allow="clipboard-write; autoplay; encrypted-media" style="border:none;width:100%;height:244px;max-width:614px;" width="100%" height="244" src="${iframeSrc}"></iframe>`;
+        const iframeHtml = `<iframe allow="clipboard-write; autoplay; encrypted-media" style="border:none;width:100%;height:244px;max-width:614px;" width="100%" height="244" src="${iframeSrc}"></iframe>`;
         return { kind: "rawEmbed", html: iframeHtml };
       }
     } catch {}
@@ -228,14 +228,14 @@ export function classifyMusic(input: string): MusicKind {
           iframeSrc = `https://music.yandex.ru/iframe/#track/${trackId}`;
         }
         
-        const iframeHtml = `<iframe frameborder="0" allow="clipboard-write; autoplay; encrypted-media" style="border:none;width:100%;height:244px;max-width:614px;" width="100%" height="244" src="${iframeSrc}"></iframe>`;
+        const iframeHtml = `<iframe allow="clipboard-write; autoplay; encrypted-media" style="border:none;width:100%;height:244px;max-width:614px;" width="100%" height="244" src="${iframeSrc}"></iframe>`;
         return { kind: "rawEmbed", html: iframeHtml };
       }
       
       // Если это прямая ссылка на iframe
       if (u.pathname.includes("/iframe/") || u.pathname.includes("/iframe#") || u.pathname.includes("/iframe")) {
         const iframeSrc = u.href;
-        const iframeHtml = `<iframe frameborder="0" allow="clipboard-write; autoplay; encrypted-media" style="border:none;width:100%;height:244px;max-width:614px;" width="100%" height="244" src="${iframeSrc}"></iframe>`;
+        const iframeHtml = `<iframe allow="clipboard-write; autoplay; encrypted-media" style="border:none;width:100%;height:244px;max-width:614px;" width="100%" height="244" src="${iframeSrc}"></iframe>`;
         return { kind: "rawEmbed", html: iframeHtml };
       }
     }
@@ -249,14 +249,13 @@ export function classifyMusic(input: string): MusicKind {
   }
 }
 
-export function osmEmbedUrl(lat: number, lng: number, z = 14) {
+export function osmEmbedUrl(lat: number, lng: number, _z = 14) {
   const bboxPad = 0.02;
   const left = lng - bboxPad;
   const right = lng + bboxPad;
   const top = lat + bboxPad;
   const bottom = lat - bboxPad;
-  const embed = `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${lat}%2C${lng}`;
-  return embed;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${lat}%2C${lng}`;
 }
 
 export function osmLink(lat: number, lng: number, z = 14) {

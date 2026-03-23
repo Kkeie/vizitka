@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { type BlockType, getImageUrl } from "../api";
+import { type BlockType } from "../api";
 import ImageUploader from "./ImageUploader";
 
 // Иконки соцсетей для модалки (те же, что при пустой визитке)
@@ -50,7 +50,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
 
   useEffect(() => {
     if (isOpen) {
-      if (type === "note") {
+      if (type === "note" || type === "section") {
         setFormData({ note: "" });
       } else {
         setFormData({});
@@ -72,23 +72,26 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
       );
       
       if (!response.ok) {
-        throw new Error('geocoding_failed');
+        alert("Не удалось найти адрес. Попробуйте ввести координаты вручную или уточните адрес.");
+        return;
       }
       
       const text = await response.text();
       if (!text || text.trim().length === 0) {
-        throw new Error('empty_response');
+        alert("Не удалось найти адрес. Попробуйте ввести координаты вручную или уточните адрес.");
+        return;
       }
       
-      let data;
+      let data: Array<{ lat: string; lon: string; display_name?: string }> | null = null;
       try {
-        data = JSON.parse(text);
-      } catch (error) {
+        data = JSON.parse(text) as Array<{ lat: string; lon: string; display_name?: string }>;
+      } catch {
         console.error('[BlockModal] Failed to parse geocoding response:', text.substring(0, 200));
-        throw new Error('invalid_json_response');
+        alert("Не удалось найти адрес. Попробуйте ввести координаты вручную или уточните адрес.");
+        return;
       }
       
-      if (data && data.length > 0) {
+      if (data.length > 0) {
         const { lat, lon, display_name } = data[0];
         setFormData({
           ...formData,
@@ -114,6 +117,14 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
     let submitData: any = { type };
     
     switch (type) {
+      case "section":
+        if (!formData.note?.trim()) {
+          alert("Введите текст заголовка");
+          return;
+        }
+        submitData.note = formData.note.trim();
+        break;
+
       case "note":
         if (!formData.note?.trim()) {
           alert("Введите текст заметки");
@@ -220,17 +231,8 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
 
   if (!isOpen) return null;
 
-  const typeLabels: Record<BlockType, string> = {
-    note: "Заметка",
-    link: "Ссылка",
-    photo: "Фото",
-    video: "Видео",
-    music: "Музыка",
-    map: "Карта",
-    social: "Соцсеть",
-  };
-
   const typeAccusative: Record<BlockType, string> = {
+    section: "заголовок",
     note: "заметку",
     link: "ссылку",
     photo: "фото",
@@ -307,6 +309,26 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         </div>
 
         <form onSubmit={handleSubmit}>
+          {type === "section" && (
+            <div className="field">
+              <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
+                Текст заголовка
+              </label>
+              <input
+                className="input"
+                type="text"
+                placeholder="Например, Проекты"
+                value={formData.note || ""}
+                onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                style={{ fontSize: 16, fontWeight: 600, textAlign: "center" }}
+                autoFocus
+              />
+              <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>
+                Заголовок будет отображаться на всю ширину сетки и разделять группы карточек.
+              </p>
+            </div>
+          )}
+
           {type === "note" && (
             <div className="field">
               <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>

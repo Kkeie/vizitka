@@ -24,7 +24,7 @@ import SocialMediaForm, { type SocialSubmitItem } from "../components/SocialMedi
 import { formatPhoneNumber } from "../utils/phone";
 import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
-import { GRID_COLUMNS, flattenLayoutIds, sanitizeBlockSizes } from "../lib/block-grid";
+import { BENTO_ROW_UNIT, GRID_COLUMNS, flattenLayoutIds, sanitizeBlockSizes } from "../lib/block-grid";
 
 // dnd-kit imports
 import {
@@ -246,7 +246,9 @@ export default function Editor() {
   );
 
   const currentGridColumns = GRID_COLUMNS[breakpoint];
-  const { gridRef, cellSize } = useBentoGridMetrics(currentGridColumns, 16);
+  const currentGridGap = 16;
+  const hasSectionBlocks = blocks.some((block) => block.type === "section");
+  const { gridRef, cellSize } = useBentoGridMetrics(currentGridColumns, currentGridGap);
 
   const saveLayout = useMemo(
     () =>
@@ -737,10 +739,12 @@ export default function Editor() {
                     display: 'grid',
                     gridTemplateColumns: `repeat(${currentGridColumns}, minmax(0, 1fr))`,
                     ['--grid-columns' as string]: String(currentGridColumns),
-                    ['--grid-gap' as string]: '16px',
+                    ['--grid-gap' as string]: `${currentGridGap}px`,
                     ['--bento-cell-size' as string]: cellSize ? `${cellSize}px` : undefined,
-                    gap: '16px',
-                    gridAutoFlow: 'dense',
+                    ['--bento-row-unit' as string]: `${BENTO_ROW_UNIT}px`,
+                    gap: `${currentGridGap}px`,
+                    gridAutoRows: `${BENTO_ROW_UNIT}px`,
+                    gridAutoFlow: hasSectionBlocks ? 'row' : 'dense',
                   }}
                 >
                   <SortableContext items={currentOrder} strategy={rectSortingStrategy}>
@@ -751,6 +755,8 @@ export default function Editor() {
                           key={block.id}
                           block={block}
                           gridColumns={currentGridColumns}
+                          cellSize={cellSize}
+                          gridGap={currentGridGap}
                           gridSize={blockSizes[block.id]}
                           onGridSizeChange={(dimensions) => handleBlockDimensionsChange(block.id, dimensions)}
                           onDelete={() => handleDeleteBlock(block.id)}
@@ -791,6 +797,7 @@ export default function Editor() {
         }}>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
             {[
+              { type: "section" as BlockType, label: "Заголовок", icon: "📑" },
               { type: "note" as BlockType, label: "Заметка", icon: "📝" },
               { type: "link" as BlockType, label: "Ссылка", icon: "🔗" },
               { type: "social" as BlockType, label: "Соцсеть", icon: "💬" },

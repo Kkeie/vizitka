@@ -102,7 +102,6 @@ function respondWithFile(res: Response, file: Express.Multer.File | null) {
     url = `${baseUrl}/uploads/${file.filename}`;
   } else {
     // Иначе формируем из запроса (для локальной разработки и Render)
-    const protocol = res.req.headers['x-forwarded-proto'] || 'https';
     const host = res.req.headers.host || 'localhost:3000';
     // На Render всегда используем https
     const isRender = process.env.RENDER || process.env.NODE_ENV === 'production';
