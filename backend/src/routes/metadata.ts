@@ -42,8 +42,6 @@ function fetchHtml(url: URL): Promise<string> {
     
     // Специальные заголовки только для Instagram
     const isInstagram = url.hostname.includes('instagram.com');
-    const isTelegram = url.hostname.includes('t.me') || url.hostname.includes('telegram.me');
-    
     // Для Telegram используем простые заголовки (как было раньше)
     // Для Instagram - более полные заголовки
     const headers: any = isInstagram ? {
@@ -203,4 +201,3 @@ function parseOpenGraph(html: string, url: string): {
 }
 
 export default router;
-

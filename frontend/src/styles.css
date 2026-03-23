@@ -475,16 +475,15 @@ a:hover{color:var(--primary-hover)}
   object-fit: cover;
   object-position: center; 
   border-radius: var(--radius-md); 
-  display:block; 
-  loading:lazy; 
-  decoding:async 
+  display:block;
 }
 .audio{ width:100% }
 .bento-grid{
   --grid-gap: 16px;
   --grid-columns: 4;
   --bento-cell-size: 180px;
-  grid-auto-rows: var(--bento-cell-size);
+  --bento-row-unit: 8px;
+  grid-auto-rows: var(--bento-row-unit);
 }
 .bento-grid-item{
   position: relative;

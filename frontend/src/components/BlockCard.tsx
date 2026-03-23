@@ -11,7 +11,7 @@ import NoteFloatingToolbar from "./NoteFloatingToolbar";
 
 export type Block = {
   id: number;
-  type: "note" | "link" | "photo" | "video" | "music" | "map" | "social";
+  type: "section" | "note" | "link" | "photo" | "video" | "music" | "map" | "social";
   note?: string | null;
   noteStyle?: NoteTextStyle | null;
   linkUrl?: string | null;
@@ -44,6 +44,9 @@ export default function BlockCard({
   const noteEditableRef = React.useRef<HTMLDivElement | null>(null);
   const [selectionRect, setSelectionRect] = React.useState<DOMRect | null>(null);
   const saveNoteDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isSection = b.type === "section";
+  const isSectionEditable = Boolean(onUpdate) && isSection;
+  const [sectionValue, setSectionValue] = React.useState(b.note ?? "");
 
   const handleSelectionChange = React.useCallback(() => {
     if (!isNoteEditable) return;
@@ -90,6 +93,11 @@ export default function BlockCard({
     };
   }, [isNoteEditable, handleSelectionChange]);
 
+  React.useEffect(() => {
+    if (!isSection) return;
+    setSectionValue(b.note ?? "");
+  }, [b.id, b.note, isSection]);
+
   const stopControlEvent = (event: React.MouseEvent | React.PointerEvent) => {
     event.stopPropagation();
   };
@@ -116,6 +124,7 @@ export default function BlockCard({
   }, [b.type, b.linkUrl]);
 
   const typeLabels: Record<string, string> = {
+    section: "Раздел",
     note: "Заметка",
     link: "Ссылка",
     photo: "Фото",
@@ -126,6 +135,7 @@ export default function BlockCard({
   };
 
   const typeColors: Record<string, string> = {
+    section: "#0f172a",
     note: "#6366f1",
     link: "#8b5cf6",
     photo: "#ec4899",
@@ -140,19 +150,25 @@ export default function BlockCard({
   const playButtonSize = 72;
 
   const cardStyle: React.CSSProperties = {
-    padding: "16px",
+    padding: isSection ? "0 28px" : "16px",
     position: "relative",
     transition: isDragPreview ? "none" : "all 0.2s ease",
     display: "flex",
     flexDirection: "column",
+    justifyContent: isSection ? "center" : undefined,
     width: "100%",
     maxWidth: "100%",
     boxSizing: "border-box",
     userSelect: "none",
-    borderRadius: "var(--radius-md)",
-    overflow: "hidden",
+    borderRadius: isSection ? "var(--radius-sm)" : "var(--radius-md)",
+    overflow: isSection ? "visible" : "hidden",
     height: "100%",
     pointerEvents: isDragPreview ? "none" : undefined,
+    background: isSection
+      ? "linear-gradient(90deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.96) 18%, rgba(255,255,255,0.96) 82%, rgba(255,255,255,0.45) 100%)"
+      : undefined,
+    border: isSection ? "1px solid rgba(15, 23, 42, 0.08)" : undefined,
+    boxShadow: isSection ? "none" : undefined,
   }
 
   const scrollableContentStyle: React.CSSProperties = { height: "100%", overflowY: "auto", paddingRight: 4, minHeight: 0 };
@@ -240,6 +256,87 @@ export default function BlockCard({
       )}
 
       <div style={{ flex: 1, position: "relative", zIndex: 0, minHeight: 0, overflow: "hidden" }}>
+        {isSection && (
+          <div
+            className="card__content"
+            style={{
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 20,
+            }}
+          >
+            <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(15,23,42,0.18), rgba(15,23,42,0.04))" }} />
+            {isSectionEditable ? (
+              <input
+                className="input"
+                type="text"
+                value={sectionValue}
+                placeholder="Новый раздел"
+                onPointerDown={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
+                  setSectionValue(nextValue);
+                  if (saveNoteDebounceRef.current) clearTimeout(saveNoteDebounceRef.current);
+                  saveNoteDebounceRef.current = setTimeout(() => {
+                    const normalized = nextValue.trim();
+                    const prev = (b.note ?? "").trim();
+                    if (normalized !== prev) {
+                      onUpdate?.({ note: normalized || null });
+                    }
+                  }, 500);
+                }}
+                onBlur={() => {
+                  const normalized = sectionValue.trim();
+                  const prev = (b.note ?? "").trim();
+                  if (normalized !== prev) {
+                    onUpdate?.({ note: normalized || null });
+                  }
+                }}
+                style={{
+                  width: "auto",
+                  minWidth: 220,
+                  maxWidth: "min(100%, 420px)",
+                  padding: "10px 16px",
+                  textAlign: "center",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  borderRadius: 999,
+                  border: "1px solid rgba(15, 23, 42, 0.08)",
+                  background: "rgba(255,255,255,0.88)",
+                  boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  maxWidth: "100%",
+                  padding: "10px 18px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(15, 23, 42, 0.08)",
+                  background: "rgba(255,255,255,0.88)",
+                  boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
+                  color: "var(--text)",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={b.note ?? ""}
+              >
+                {b.note ?? "Раздел"}
+              </div>
+            )}
+            <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(15,23,42,0.04), rgba(15,23,42,0.18))" }} />
+          </div>
+        )}
+
         {b.type === "note" && (() => {
           const ns = b.noteStyle;
           const textCss = noteStyleToTextCss(ns);

@@ -8,8 +8,12 @@ export const GRID_COLUMNS: Record<Breakpoint, number> = {
 };
 
 export const MAX_ROW_SPAN = 6;
+export const BENTO_ROW_UNIT = 8;
+export const DEFAULT_BENTO_CELL_SIZE = 180;
+export const SECTION_BLOCK_HEIGHT = 88;
 
 const DEFAULT_SIZES: Record<BlockType, BlockGridSize> = {
+  section: { colSpan: GRID_COLUMNS.desktop, rowSpan: 1 },
   note: { colSpan: 2, rowSpan: 2 },
   link: { colSpan: 2, rowSpan: 1 },
   photo: { colSpan: 2, rowSpan: 2 },
@@ -49,6 +53,10 @@ export function clampGridSize(size: BlockGridSize, maxCols: number): BlockGridSi
 }
 
 export function getDefaultGridSize(blockType: BlockType, maxCols: number): BlockGridSize {
+  if (blockType === "section") {
+    return { colSpan: Math.max(1, maxCols), rowSpan: 1 };
+  }
+
   return clampGridSize(DEFAULT_SIZES[blockType] || { colSpan: 2, rowSpan: 2 }, maxCols);
 }
 
@@ -57,6 +65,10 @@ export function getResolvedGridSize(
   rawSize: BlockGridSize | null | undefined,
   maxCols: number,
 ): BlockGridSize {
+  if (block.type === "section") {
+    return getDefaultGridSize(block.type, maxCols);
+  }
+
   if (!rawSize) {
     return getDefaultGridSize(block.type, maxCols);
   }
@@ -93,4 +105,29 @@ export function sanitizeBlockSizes(
   });
 
   return sanitized;
+}
+
+export function getBlockHeightPx(
+  block: Pick<Block, "type">,
+  gridSize: BlockGridSize,
+  cellSize: number | null,
+  gap: number,
+): number {
+  if (block.type === "section") {
+    return SECTION_BLOCK_HEIGHT;
+  }
+
+  const safeCellSize = cellSize && cellSize > 0 ? cellSize : DEFAULT_BENTO_CELL_SIZE;
+  return gridSize.rowSpan * safeCellSize + Math.max(0, gridSize.rowSpan - 1) * gap;
+}
+
+export function getGridRowSpan(
+  block: Pick<Block, "type">,
+  gridSize: BlockGridSize,
+  cellSize: number | null,
+  gap: number,
+  rowUnit = BENTO_ROW_UNIT,
+): number {
+  const blockHeight = getBlockHeightPx(block, gridSize, cellSize, gap);
+  return Math.max(1, Math.ceil((blockHeight + gap) / (rowUnit + gap)));
 }

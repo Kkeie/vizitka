@@ -16,7 +16,7 @@ function parseNoteStyleColumn(raw: string | null | undefined): Record<string, un
 
 function sanitizeNoteStyleForDb(input: unknown): string | null {
   if (input === null || input === undefined) return null;
-  if (typeof input !== "object" || input === null || Array.isArray(input)) return null;
+  if (typeof input !== "object" || Array.isArray(input)) return null;
   const p = input as Record<string, unknown>;
   const out: Record<string, unknown> = {};
 
@@ -77,6 +77,13 @@ function mapUnifiedToDb(type: string, patch: { url?: string | null; content?: st
       }
       // чистим остальные поля
       data.linkUrl = null; data.photoUrl = null; data.videoUrl = null; data.musicEmbed = null; data.mapLat = null; data.mapLng = null;
+      break;
+
+    case "section":
+      if (patch.content !== undefined) data.note = patch.content ?? null;
+      if (patch.note !== undefined) data.note = patch.note ?? null;
+      data.noteStyle = null;
+      data.linkUrl = null; data.photoUrl = null; data.videoUrl = null; data.musicEmbed = null; data.mapLat = null; data.mapLng = null; data.socialType = null; data.socialUrl = null;
       break;
 
     case "link":
@@ -140,6 +147,7 @@ function mapUnifiedToDb(type: string, patch: { url?: string | null; content?: st
  * GET /api/blocks — список моих блоков (legacy формат, как ожидает фронт)
  */
 router.get("/", requireAuth, async (req: AuthedRequest, res) => {
+  // noinspection SqlNoDataSourceInspection
   const blocks = db.prepare(`
     SELECT * FROM Block 
     WHERE userId = ? 
@@ -160,6 +168,7 @@ router.post("/", requireAuth, async (req: AuthedRequest, res) => {
   const userId = req.user!.id;
   
   // Проверяем, что пользователь существует в базе данных
+  // noinspection SqlNoDataSourceInspection
   const userExists = db.prepare("SELECT id FROM User WHERE id = ?").get(userId);
   if (!userExists) {
     console.error(`[BLOCKS] User ${userId} not found in database`);
@@ -168,6 +177,7 @@ router.post("/", requireAuth, async (req: AuthedRequest, res) => {
 
   const dbData = mapUnifiedToDb(type, req.body);
   
+  // noinspection SqlNoDataSourceInspection
   const insert = db.prepare(`
     INSERT INTO Block (userId, type, sort, note, linkUrl, photoUrl, videoUrl, musicEmbed, mapLat, mapLng, socialType, socialUrl, noteStyle)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -190,6 +200,7 @@ router.post("/", requireAuth, async (req: AuthedRequest, res) => {
       dbData.noteStyle ?? null
     );
 
+    // noinspection SqlNoDataSourceInspection
     const created = db.prepare("SELECT * FROM Block WHERE id = ?").get(result.lastInsertRowid) as any;
     res.json(mapDbToLegacy(created));
   } catch (error: any) {
@@ -209,6 +220,7 @@ router.post("/", requireAuth, async (req: AuthedRequest, res) => {
  */
 router.patch("/:id", requireAuth, async (req: AuthedRequest, res) => {
   const id = Number(req.params.id);
+  // noinspection SqlNoDataSourceInspection
   const existing = db.prepare("SELECT * FROM Block WHERE id = ? AND userId = ?").get(id, req.user!.id) as any;
   if (!existing) return res.status(404).json({ error: "not_found" });
 
@@ -269,6 +281,7 @@ router.patch("/:id", requireAuth, async (req: AuthedRequest, res) => {
     update.run(...values);
   }
 
+  // noinspection SqlNoDataSourceInspection
   const updated = db.prepare("SELECT * FROM Block WHERE id = ?").get(id) as any;
   res.json(mapDbToLegacy(updated));
 });
@@ -280,6 +293,7 @@ router.post("/reorder", requireAuth, async (req: AuthedRequest, res) => {
   const payload = (req.body as { items?: { id: number | string; sort: number | string }[] }) || {};
   const items = Array.isArray(payload.items) ? payload.items : [];
   
+  // noinspection SqlNoDataSourceInspection
   const update = db.prepare("UPDATE Block SET sort = ? WHERE id = ? AND userId = ?");
   const transaction = db.transaction(() => {
     for (const it of items) {
@@ -296,6 +310,7 @@ router.post("/reorder", requireAuth, async (req: AuthedRequest, res) => {
  */
 router.delete("/:id", requireAuth, async (req: AuthedRequest, res) => {
   const id = Number(req.params.id);
+  // noinspection SqlNoDataSourceInspection
   db.prepare("DELETE FROM Block WHERE id = ? AND userId = ?").run(id, req.user!.id);
   res.json({ ok: true });
 });

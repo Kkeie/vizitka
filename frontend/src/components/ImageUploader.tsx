@@ -192,6 +192,7 @@ export default function ImageUploader({
           transition: "all 0.2s ease",
           cursor: "pointer",
           textAlign: "center",
+          ...buttonStyle,
         }}
         onClick={openDialog}
       >

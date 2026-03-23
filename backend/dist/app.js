@@ -29,7 +29,7 @@ const corsOptions = {
 };
 app.use((0, cors_1.default)(corsOptions));
 // Логирование всех запросов для отладки
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
     console.log(`[${req.method}] ${req.path}`, {
         origin: req.headers.origin,
         'content-type': req.headers['content-type'],
@@ -38,7 +38,7 @@ app.use((req, res, next) => {
     next();
 });
 // Логирование ошибок
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
     console.error(`[ERROR] ${req.method} ${req.path}:`, err);
     res.status(500).json({ error: 'internal_error', message: err.message });
 });

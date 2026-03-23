@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import BlockCard, { Block } from "./BlockCard";
 
 type CreatePayload =
+  | { type: "section"; note: string }
   | { type: "note"; note: string }
   | { type: "link"; linkUrl: string }
   | { type: "photo"; photoUrl: string }
@@ -103,6 +104,17 @@ export default function Editor() {
     if (!text) return;
     try {
       const b = await createBlock({ type: "note", note: text });
+      setBlocks((prev) => [b, ...prev]);
+    } catch (e: any) {
+      alert(e?.message || e);
+    }
+  }
+
+  async function addSection() {
+    const text = prompt("Заголовок раздела:");
+    if (!text) return;
+    try {
+      const b = await createBlock({ type: "section", note: text });
       setBlocks((prev) => [b, ...prev]);
     } catch (e: any) {
       alert(e?.message || e);
@@ -218,6 +230,9 @@ export default function Editor() {
       {err && <div style={alertErr}>{err}</div>}
 
       <div style={bar}>
+        <button style={btn} onClick={addSection} disabled={!authed}>
+          Заголовок
+        </button>
         <button style={btn} onClick={addNote} disabled={!authed}>
           Заметка
         </button>

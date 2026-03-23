@@ -14,7 +14,6 @@ import { me, setToken, type User } from "./api";
 
 function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
-  const [checkingAuth, setCheckingAuth] = React.useState(true);
 
 
   React.useEffect(() => {
@@ -24,8 +23,6 @@ function Shell() {
         setUser(u);
       } catch {
         setUser(null);
-      } finally {
-        setCheckingAuth(false);
       }
     })();
   }, []);

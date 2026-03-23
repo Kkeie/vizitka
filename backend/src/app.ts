@@ -28,7 +28,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Логирование всех запросов для отладки
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
   console.log(`[${req.method}] ${req.path}`, {
     origin: req.headers.origin,
     'content-type': req.headers['content-type'],
@@ -38,7 +38,7 @@ app.use((req, res, next) => {
 });
 
 // Логирование ошибок
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(`[ERROR] ${req.method} ${req.path}:`, err);
   res.status(500).json({ error: 'internal_error', message: err.message });
 });
