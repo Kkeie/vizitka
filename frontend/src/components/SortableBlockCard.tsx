@@ -2,10 +2,11 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { BlockGridSize } from '../api';
+import type { BlockGridSize, NoteTextStyle } from '../api';
 import BlockCard, { Block } from './BlockCard';
 import { clampGridSize, getGridRowSpan, getResolvedGridSize } from '../lib/block-grid';
 import SizeMenu from './SizeMenu';
+import TextStyleMenu from './TextStyleMenu';
 
 interface SortableBlockCardProps {
   block: Block;
@@ -39,6 +40,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   const resolvedGridSize = getResolvedGridSize(block, gridSize, gridColumns);
   const resolvedRowSpan = getGridRowSpan(block, resolvedGridSize, cellSize, gridGap);
   const isSection = block.type === 'section';
+  const isNote = block.type === 'note';
 
   const [isHovered, setIsHovered] = React.useState(false);
   const [isMenuVisible, setIsMenuVisible] = React.useState(false);
@@ -46,10 +48,24 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   const cardRef = React.useRef<HTMLDivElement>(null);
   const [menuPosition, setMenuPosition] = React.useState<{ top: number; left: number; cardWidth: number } | null>(null);
 
+  const [isTextMenuVisible, setIsTextMenuVisible] = React.useState(false);
+  const textMenuRef = React.useRef<HTMLDivElement>(null);
+  const [textMenuPosition, setTextMenuPosition] = React.useState<{ top: number; left: number; cardWidth: number } | null>(null);
+
   const updateMenuPosition = React.useCallback(() => {
     if (!cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
     setMenuPosition({
+      top: rect.bottom + window.scrollY - 4,
+      left: rect.left + window.scrollX + rect.width / 2,
+      cardWidth: rect.width,
+    });
+  }, []);
+
+  const updateTextMenuPosition = React.useCallback(() => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    setTextMenuPosition({
       top: rect.bottom + window.scrollY - 4,
       left: rect.left + window.scrollX + rect.width / 2,
       cardWidth: rect.width,
@@ -68,6 +84,32 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     };
   }, [isMenuVisible, updateMenuPosition]);
 
+  React.useEffect(() => {
+    if (!isTextMenuVisible) return;
+    updateTextMenuPosition();
+    window.addEventListener('scroll', updateTextMenuPosition);
+    window.addEventListener('resize', updateTextMenuPosition);
+    return () => {
+      window.removeEventListener('scroll', updateTextMenuPosition);
+      window.removeEventListener('resize', updateTextMenuPosition);
+    };
+  }, [isTextMenuVisible, updateTextMenuPosition]);
+
+  React.useEffect(() => {
+    if (!isTextMenuVisible) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        textMenuRef.current &&
+        !textMenuRef.current.contains(e.target as Node) &&
+        !cardRef.current?.contains(e.target as Node)
+      ) {
+        setIsTextMenuVisible(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isTextMenuVisible]);
+
   const handleMouseEnter = () => {
     setIsHovered(true);
     setIsMenuVisible(true);
@@ -78,8 +120,12 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     if (menuRef.current && menuRef.current.contains(relatedTarget)) {
       return;
     }
+    if (textMenuRef.current && textMenuRef.current.contains(relatedTarget)) {
+      return;
+    }
     setIsHovered(false);
     setIsMenuVisible(false);
+    setIsTextMenuVisible(false);
   };
 
   const handleMenuMouseLeave = (e: React.MouseEvent) => {
@@ -91,8 +137,49 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     setIsHovered(false);
   };
 
+  const handleTextMenuMouseLeave = (e: React.MouseEvent) => {
+    const relatedTarget = e.relatedTarget as Node;
+    if (cardRef.current && cardRef.current.contains(relatedTarget)) {
+      return;
+    }
+    setIsTextMenuVisible(false);
+    setIsHovered(false);
+  };
+
   const handleSizeSelect = (newSize: BlockGridSize) => {
     onGridSizeChange?.(newSize);
+  };
+
+  const handleTextStyleChange = (style: Partial<NoteTextStyle>) => {
+    if (!onUpdate) return;
+    const newNoteStyle = { ...(block.noteStyle || {}), ...style };
+    onUpdate({ noteStyle: newNoteStyle });
+  };
+
+  const handleStyleMenuOpen = () => {
+    updateTextMenuPosition();
+    setIsTextMenuVisible(true);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      const activeEl = document.activeElement;
+      if (activeEl instanceof HTMLElement && (
+        activeEl.tagName === 'INPUT' ||
+        activeEl.tagName === 'TEXTAREA' ||
+        activeEl.isContentEditable
+      )) {
+        e.stopPropagation();
+      }
+    }
+  };
+
+  const handlePointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    const interactive = target.closest('a, button, input, textarea, [contenteditable="true"], .no-drag');
+    if (interactive) {
+      e.stopPropagation();
+    }
   };
 
   const style = {
@@ -170,12 +257,14 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
         (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
       }}
       style={style}
+      onPointerDownCapture={handlePointerDownCapture}
       data-drag-item=""
       className={`bento-grid-item ${isDragging ? 'dragging' : ''}`.trim()}
       {...attributes}
       {...listeners}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleCardMouseLeave}
+      onKeyDown={handleKeyDown}
     >
       <BlockCard
         b={block}
@@ -191,22 +280,22 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
           aria-label="Удалить блок"
           style={{
             position: 'absolute',
-            top: 12,
-            left: 12,
+            top: 4,
+            left: 4,
             zIndex: 4,
             padding: 0,
-            width: 28,
-            height: 28,
-            fontSize: 14,
-            color: '#dc2626',
-            background: 'rgba(255,255,255,0.9)',
+            width: 20,
+            height: 20,
+            fontSize: 10,
+            color: '#000000',
+            background: '#ffffff',
             border: '1px solid #e2e8f0',
             borderRadius: '50%',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
           }}
         >
           🗑️
@@ -263,6 +352,31 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
             onSelect={handleSizeSelect}
             currentSize={resolvedGridSize}
             maxCols={gridColumns}
+            showStyleButton={isNote}
+            onStyleClick={handleStyleMenuOpen}
+          />
+        </div>,
+        document.body
+      )}
+
+      {isNote && onUpdate && isTextMenuVisible && textMenuPosition && createPortal(
+        <div
+          ref={textMenuRef}
+          style={{
+            position: 'absolute',
+            top: textMenuPosition.top,
+            left: textMenuPosition.left,
+            transform: 'translateX(-50%)',
+            zIndex: 10001,
+            maxWidth: textMenuPosition.cardWidth,
+            width: 'auto',
+          }}
+          onMouseEnter={() => setIsTextMenuVisible(true)}
+          onMouseLeave={handleTextMenuMouseLeave}
+        >
+          <TextStyleMenu
+            currentStyle={block.noteStyle || {}}
+            onStyleChange={handleTextStyleChange}
           />
         </div>,
         document.body

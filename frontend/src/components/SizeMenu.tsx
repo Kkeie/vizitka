@@ -5,6 +5,8 @@ interface SizeMenuProps {
   onSelect: (size: BlockGridSize) => void;
   currentSize: BlockGridSize;
   maxCols: number;
+  showStyleButton?: boolean;
+  onStyleClick?: () => void;
 }
 
 const PRESETS: Array<{ cols: number; rows: number }> = [
@@ -15,7 +17,7 @@ const PRESETS: Array<{ cols: number; rows: number }> = [
 ];
 
 const SizeMenu = React.forwardRef<HTMLDivElement, SizeMenuProps>(
-  ({ onSelect, currentSize, maxCols }, ref) => {
+  ({ onSelect, currentSize, maxCols, showStyleButton = false, onStyleClick }, ref) => {
     const validPresets = PRESETS.filter(p => p.cols <= maxCols);
     const isActive = (cols: number, rows: number) =>
       currentSize.colSpan === cols && currentSize.rowSpan === rows;
@@ -27,7 +29,6 @@ const SizeMenu = React.forwardRef<HTMLDivElement, SizeMenuProps>(
     return (
       <div
         ref={ref}
-        className="size-menu"
         style={{
           background: '#1a1a1a',
           borderRadius: '6px',
@@ -35,11 +36,10 @@ const SizeMenu = React.forwardRef<HTMLDivElement, SizeMenuProps>(
           display: 'flex',
           gap: '4px',
           flexWrap: 'nowrap',
-          overflowX: 'auto',
-          justifyContent: 'center',
           alignItems: 'center',
           boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
         }}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {validPresets.map(preset => {
           const active = isActive(preset.cols, preset.rows);
@@ -49,6 +49,7 @@ const SizeMenu = React.forwardRef<HTMLDivElement, SizeMenuProps>(
             <button
               key={`${preset.cols}x${preset.rows}`}
               onClick={() => onSelect({ colSpan: preset.cols, rowSpan: preset.rows })}
+              onPointerDown={(e) => e.stopPropagation()}
               style={{
                 width: '28px',
                 height: '28px',
@@ -79,6 +80,33 @@ const SizeMenu = React.forwardRef<HTMLDivElement, SizeMenuProps>(
             </button>
           );
         })}
+        {showStyleButton && onStyleClick && (
+          <>
+            <div style={{ width: 1, height: 20, background: '#444', margin: '0 4px' }} />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onStyleClick();
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{
+                width: 28,
+                height: 28,
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 4,
+                color: '#fff',
+                fontSize: 16,
+              }}
+            >
+              ⋯
+            </button>
+          </>
+        )}
       </div>
     );
   }

@@ -197,68 +197,6 @@ export default function BlockCard({
         }
       }}
     >
-      {showEditorHeader && (
-        <div
-          className="card-edit-header"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-start",
-            gap: 12,
-            position: "absolute",
-            top: 12,
-            left: 12,
-            zIndex: 3,
-            opacity: 0,
-            visibility: "hidden",
-            transition: "opacity 0.2s ease, visibility 0.2s ease",
-            pointerEvents: "auto",
-          }}
-        >
-          {/* <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.8px",
-                color: typeColors[b.type] || "var(--muted)",
-                padding: "6px 12px",
-                borderRadius: "8px",
-                background: `${typeColors[b.type] || "var(--muted)"}10`,
-                border: `1px solid ${typeColors[b.type] || "var(--muted)"}30`,
-              }}
-            >
-              {typeLabels[b.type] || b.type}
-            </span>
-          </div> */}
-          {onDelete && (
-            <button
-              onClick={onDelete}
-              onPointerDown={stopControlEvent}
-              aria-label="Удалить блок"
-              style={{
-                padding: 0,
-                width: 28,
-                height: 28,
-                fontSize: 14,
-                color: "#dc2626",
-                background: "rgba(255,255,255,0.9)",
-                border: "1px solid #e2e8f0",
-                borderRadius: "50%",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-              }}
-            >
-              🗑️
-            </button>
-          )}
-        </div>
-      )}
 
       <div style={{ flex: 1, position: "relative", zIndex: 0, minHeight: 0, overflow: "hidden" }}>
         {isSection && (
@@ -407,6 +345,11 @@ export default function BlockCard({
                     if (saveNoteDebounceRef.current) clearTimeout(saveNoteDebounceRef.current);
                     saveNoteDebounceRef.current = setTimeout(saveNoteContent, 800);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.stopPropagation();
+                    }
+                  }}
                   style={{
                     whiteSpace: "pre-wrap",
                     lineHeight: 1.7,
@@ -415,6 +358,7 @@ export default function BlockCard({
                     overflowWrap: "break-word",
                     outline: "none",
                     minHeight: 24,
+                    cursor: "text",
                     ...textCss,
                   }}
                 />
@@ -446,19 +390,15 @@ export default function BlockCard({
                   {b.note ?? ""}
                 </div>
               )}
-              {editable &&
-                selectionRect &&
-                createPortal(
-                  <NoteFloatingToolbar
-                    rect={selectionRect}
-                    noteStyle={ns}
-                    onInlineFormat={applyInlineFormat}
-                    onAlignChange={(align) => {
-                      onUpdate?.({ noteStyle: { ...ns, align } });
-                    }}
-                  />,
-                  document.body
-                )}
+              {editable && selectionRect && createPortal(
+                <NoteFloatingToolbar
+                  rect={selectionRect}
+                  noteStyle={ns}
+                  onInlineFormat={applyInlineFormat}
+                  onAlignChange={(align) => onUpdate?.({ noteStyle: { ...ns, align } })}
+                />,
+                document.body
+              )}
             </div>
           );
         })()}
