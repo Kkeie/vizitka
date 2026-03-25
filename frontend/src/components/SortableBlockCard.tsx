@@ -1,15 +1,17 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { BlockGridSize } from '../api';
 import BlockCard, { Block } from './BlockCard';
 import { clampGridSize, getGridRowSpan, getResolvedGridSize } from '../lib/block-grid';
+import SizeMenu from './SizeMenu';
 
 interface SortableBlockCardProps {
   block: Block;
   onDelete?: () => void;
   onUpdate?: (partial: Partial<Block>) => void;
-  gridSize?: BlockGridSize | null ;
+  gridSize?: BlockGridSize | null;
   gridColumns: number;
   cellSize: number | null;
   gridGap: number;
@@ -39,6 +41,59 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   const isSection = block.type === 'section';
 
   const [isHovered, setIsHovered] = React.useState(false);
+  const [isMenuVisible, setIsMenuVisible] = React.useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = React.useState<{ top: number; left: number; cardWidth: number } | null>(null);
+
+  const updateMenuPosition = React.useCallback(() => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    setMenuPosition({
+      top: rect.bottom + window.scrollY - 4,
+      left: rect.left + window.scrollX + rect.width / 2,
+      cardWidth: rect.width,
+    });
+  }, []);
+
+  // Обновляем позицию при скролле и ресайзе, если меню видимо
+  React.useEffect(() => {
+    if (!isMenuVisible) return;
+    updateMenuPosition();
+    window.addEventListener('scroll', updateMenuPosition);
+    window.addEventListener('resize', updateMenuPosition);
+    return () => {
+      window.removeEventListener('scroll', updateMenuPosition);
+      window.removeEventListener('resize', updateMenuPosition);
+    };
+  }, [isMenuVisible, updateMenuPosition]);
+
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    setIsMenuVisible(true);
+  };
+
+  const handleCardMouseLeave = (e: React.MouseEvent) => {
+    const relatedTarget = e.relatedTarget as Node;
+    if (menuRef.current && menuRef.current.contains(relatedTarget)) {
+      return;
+    }
+    setIsHovered(false);
+    setIsMenuVisible(false);
+  };
+
+  const handleMenuMouseLeave = (e: React.MouseEvent) => {
+    const relatedTarget = e.relatedTarget as Node;
+    if (cardRef.current && cardRef.current.contains(relatedTarget)) {
+      return;
+    }
+    setIsMenuVisible(false);
+    setIsHovered(false);
+  };
+
+  const handleSizeSelect = (newSize: BlockGridSize) => {
+    onGridSizeChange?.(newSize);
+  };
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -56,13 +111,10 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     (direction: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw') =>
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (!onGridSizeChange) return;
-
       event.preventDefault();
       event.stopPropagation();
-
       const grid = event.currentTarget.closest('.bento-grid') as HTMLElement | null;
       if (!grid) return;
-
       const computed = window.getComputedStyle(grid);
       const gap = parseFloat(computed.columnGap || computed.gap || '16') || 16;
       const cssCellSize = parseFloat(computed.getPropertyValue('--bento-cell-size'));
@@ -72,11 +124,9 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
       const startX = event.clientX;
       const startY = event.clientY;
       const startSize = resolvedGridSize;
-
       const handlePointerMove = (moveEvent: PointerEvent) => {
         const deltaCols = Math.round((moveEvent.clientX - startX) / step);
         const deltaRows = Math.round((moveEvent.clientY - startY) / step);
-
         const nextSize = clampGridSize(
           {
             colSpan: direction.includes('e')
@@ -92,15 +142,12 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
           },
           gridColumns,
         );
-
         onGridSizeChange(nextSize);
       };
-
       const handlePointerUp = () => {
         window.removeEventListener('pointermove', handlePointerMove);
         window.removeEventListener('pointerup', handlePointerUp);
       };
-
       window.addEventListener('pointermove', handlePointerMove);
       window.addEventListener('pointerup', handlePointerUp);
     };
@@ -118,14 +165,17 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }}
       style={style}
       data-drag-item=""
       className={`bento-grid-item ${isDragging ? 'dragging' : ''}`.trim()}
       {...attributes}
       {...listeners}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleCardMouseLeave}
     >
       <BlockCard
         b={block}
@@ -133,6 +183,36 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
         onUpdate={onUpdate}
         isDragPreview={isDragging}
       />
+
+      {onDelete && isHovered && !isDragging && (
+        <button
+          onClick={onDelete}
+          onPointerDown={(e) => e.stopPropagation()}
+          aria-label="Удалить блок"
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 12,
+            zIndex: 4,
+            padding: 0,
+            width: 28,
+            height: 28,
+            fontSize: 14,
+            color: '#dc2626',
+            background: 'rgba(255,255,255,0.9)',
+            border: '1px solid #e2e8f0',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+          }}
+        >
+          🗑️
+        </button>
+      )}
+
       {onGridSizeChange && !isDragging && !isSection && isHovered && (
         <>
           {handles.map((handle) => (
@@ -162,6 +242,30 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
             </div>
           ))}
         </>
+      )}
+
+      {isMenuVisible && onGridSizeChange && !isSection && menuPosition && createPortal(
+        <div
+          ref={menuRef}
+          style={{
+            position: 'absolute',
+            top: menuPosition.top,
+            left: menuPosition.left,
+            transform: 'translateX(-50%)',
+            zIndex: 10000,
+            maxWidth: menuPosition.cardWidth,
+            width: 'auto',
+          }}
+          onMouseEnter={() => setIsMenuVisible(true)}
+          onMouseLeave={handleMenuMouseLeave}
+        >
+          <SizeMenu
+            onSelect={handleSizeSelect}
+            currentSize={resolvedGridSize}
+            maxCols={gridColumns}
+          />
+        </div>,
+        document.body
       )}
     </div>
   );
