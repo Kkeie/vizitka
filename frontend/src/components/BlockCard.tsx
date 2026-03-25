@@ -123,27 +123,27 @@ export default function BlockCard({
     }
   }, [b.type, b.linkUrl]);
 
-  const typeLabels: Record<string, string> = {
-    section: "Раздел",
-    note: "Заметка",
-    link: "Ссылка",
-    photo: "Фото",
-    video: "Видео",
-    music: "Музыка",
-    map: "Карта",
-    social: "Соцсеть",
-  };
+  // const typeLabels: Record<string, string> = {
+  //   section: "Раздел",
+  //   note: "Заметка",
+  //   link: "Ссылка",
+  //   photo: "Фото",
+  //   video: "Видео",
+  //   music: "Музыка",
+  //   map: "Карта",
+  //   social: "Соцсеть",
+  // };
 
-  const typeColors: Record<string, string> = {
-    section: "#0f172a",
-    note: "#6366f1",
-    link: "#8b5cf6",
-    photo: "#ec4899",
-    video: "#ef4444",
-    music: "#10b981",
-    map: "#06b6d4",
-    social: "#f59e0b",
-  };
+  // const typeColors: Record<string, string> = {
+  //   section: "#0f172a",
+  //   note: "#6366f1",
+  //   link: "#8b5cf6",
+  //   photo: "#ec4899",
+  //   video: "#ef4444",
+  //   music: "#10b981",
+  //   map: "#06b6d4",
+  //   social: "#f59e0b",
+  // };
 
   const previewTileSize = 64;
   const socialIconSize = 48;
@@ -203,12 +203,11 @@ export default function BlockCard({
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-start",
             gap: 12,
             position: "absolute",
             top: 12,
             left: 12,
-            right: 12,
             zIndex: 3,
             opacity: 0,
             visibility: "hidden",
@@ -216,7 +215,7 @@ export default function BlockCard({
             pointerEvents: "auto",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span
               style={{
                 fontSize: 11,
@@ -232,24 +231,30 @@ export default function BlockCard({
             >
               {typeLabels[b.type] || b.type}
             </span>
-          </div>
+          </div> */}
           {onDelete && (
             <button
               onClick={onDelete}
               onPointerDown={stopControlEvent}
+              aria-label="Удалить блок"
               style={{
-                padding: "6px 12px",
-                fontSize: 12,
-                fontWeight: 500,
+                padding: 0,
+                width: 28,
+                height: 28,
+                fontSize: 14,
                 color: "#dc2626",
-                background: "transparent",
-                border: "1px solid transparent",
-                borderRadius: "8px",
+                background: "rgba(255,255,255,0.9)",
+                border: "1px solid #e2e8f0",
+                borderRadius: "50%",
                 cursor: "pointer",
                 transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
               }}
             >
-              Удалить
+              🗑️
             </button>
           )}
         </div>

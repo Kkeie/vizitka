@@ -1,15 +1,12 @@
 import React from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { type User } from "../api";
 
 export default function Navbar({ user, onLogout }: { user: User | null; onLogout: () => void }) {
   const uname = user?.profile?.username || user?.username;
   const [toast, setToast] = React.useState<string | null>(null);
   const [isMobile, setIsMobile] = React.useState(false);
-  const location = useLocation();
   const navigate = useNavigate();
-  const isEditor = location.pathname === "/editor";
-  const isPublic = location.pathname.startsWith("/public/") || location.pathname.startsWith("/u/");
 
   React.useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -41,9 +38,9 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
     <div className="topbar">
       <div className="container" style={{ paddingTop: 18, paddingBottom: 18 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, position: "relative" }}>
-          {/* Логотип слева */}
+          {/* Логотип – ведёт в редактор, если пользователь авторизован, иначе на главную */}
           <Link 
-            to="/" 
+            to={uname ? "/editor" : "/"} 
             style={{ 
               fontWeight: 800, 
               fontSize: 22,
@@ -58,7 +55,7 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
             Bento
           </Link>
           
-          {/* Табы и кнопка по центру */}
+          {/* Кнопка скопировать ссылку – появляется только для авторизованных */}
           {uname && (
             <div style={{ 
               position: "absolute", 
@@ -70,45 +67,6 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
               flexWrap: "wrap",
               justifyContent: "center"
             }}>
-              {/* Табы Редактор/Превью */}
-              <div style={{ display: "flex", gap: 4, background: "var(--accent)", borderRadius: "var(--radius-sm)", padding: 4 }}>
-                <button
-                  onClick={() => navigate("/editor")}
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background: isEditor ? "var(--primary)" : "transparent",
-                    color: isEditor ? "white" : "var(--text)",
-                    border: "none",
-                    borderRadius: "var(--radius-sm)",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    whiteSpace: "nowrap"
-                  }}
-                >
-                  Редактор
-                </button>
-                <button
-                  onClick={() => navigate(`/public/${uname}`)}
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: 13,
-                    fontWeight: 600,
-                    background: isPublic ? "var(--primary)" : "transparent",
-                    color: isPublic ? "white" : "var(--text)",
-                    border: "none",
-                    borderRadius: "var(--radius-sm)",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                    whiteSpace: "nowrap"
-                  }}
-                >
-                  Превью
-                </button>
-              </div>
-              
-              {/* Кнопка скопировать ссылку */}
               <button
                 onClick={copyPublic}
                 className="btn btn-ghost"

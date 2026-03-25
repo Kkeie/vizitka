@@ -1,4 +1,3 @@
-// src/components/SortableBlockCard.tsx
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -10,7 +9,7 @@ interface SortableBlockCardProps {
   block: Block;
   onDelete?: () => void;
   onUpdate?: (partial: Partial<Block>) => void;
-  gridSize?: BlockGridSize | null;
+  gridSize?: BlockGridSize | null ;
   gridColumns: number;
   cellSize: number | null;
   gridGap: number;
@@ -38,6 +37,8 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   const resolvedGridSize = getResolvedGridSize(block, gridSize, gridColumns);
   const resolvedRowSpan = getGridRowSpan(block, resolvedGridSize, cellSize, gridGap);
   const isSection = block.type === 'section';
+
+  const [isHovered, setIsHovered] = React.useState(false);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -123,6 +124,8 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
       className={`bento-grid-item ${isDragging ? 'dragging' : ''}`.trim()}
       {...attributes}
       {...listeners}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <BlockCard
         b={block}
@@ -130,7 +133,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
         onUpdate={onUpdate}
         isDragPreview={isDragging}
       />
-      {onGridSizeChange && !isDragging && !isSection && (
+      {onGridSizeChange && !isDragging && !isSection && isHovered && (
         <>
           {handles.map((handle) => (
             <div
