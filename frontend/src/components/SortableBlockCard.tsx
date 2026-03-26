@@ -356,6 +356,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
         style={style}
         onPointerDownCapture={handlePointerDownCapture}
         data-drag-item=""
+        data-block-id={block.id}
         className={`bento-grid-item ${isDragging ? 'dragging' : ''}`.trim()}
         {...attributes}
         {...listeners}

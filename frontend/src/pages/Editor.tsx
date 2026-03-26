@@ -21,6 +21,7 @@ import { SortableBlockCard } from "../components/SortableBlockCard";
 import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
 import SocialMediaForm, { type SocialSubmitItem } from "../components/SocialMediaForm";
+import InlineInputCard from "../components/InlineInputCard";
 import { formatPhoneNumber } from "../utils/phone";
 import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
@@ -103,6 +104,13 @@ export default function Editor() {
   const [showQr, setShowQr] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
 
+  // State для инлайн-карточки ввода (ссылка, видео, музыка)
+  const [inlineInput, setInlineInput] = useState<{
+    type: 'link' | 'video' | 'music';
+    buttonRect: DOMRect;
+  } | null>(null);
+  const bottomBarRef = useRef<HTMLDivElement>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { 
       activationConstraint: { delay: 100, tolerance: 5 },
@@ -111,7 +119,6 @@ export default function Editor() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
 
   // Если мы не на странице /editor, не делаем редирект
   if (location.pathname !== "/editor") {
@@ -382,12 +389,120 @@ export default function Editor() {
     });
   }
 
-  function handleAddBlockClick(type: BlockType) {
-    setModalType(type);
-    setModalOpen(true);
-  }
+  // Для заголовков и заметок создаём пустой блок сразу и ставим фокус
+  const createEmptyBlock = async (type: BlockType, initialData: Partial<Block> = {}) => {
+    try {
+      const newBlock = await createBlock({ type, ...initialData } as any);
+      setBlocks(prev => [...prev, newBlock]);
+      if (!layout) return;
+      const newLayout = { ...layout };
+      (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
+        const ordered = flattenLayoutIds(newLayout[bp]);
+        newLayout[bp] = [[...ordered, newBlock.id]];
+      });
+      setLayout(newLayout);
+      saveLayout(newLayout);
+
+      // Фокусируемся на элементе с задержкой и повторными попытками
+      const targetId = newBlock.id;
+      const focusOnBlock = () => {
+        const el = document.querySelector(`[data-block-id="${targetId}"]`);
+        if (!el) return false;
+
+        if (type === 'section') {
+          const input = el.querySelector('input');
+          if (input) {
+            input.focus();
+            return true;
+          }
+        } else if (type === 'note') {
+          const editable = el.querySelector('[contenteditable="true"]');
+          if (editable && editable instanceof HTMLElement) {
+            editable.focus();
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(editable);
+            range.collapse(false);
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+            return true;
+          }
+        }
+        return false;
+      };
+
+      // Пробуем сразу
+      if (focusOnBlock()) return;
+
+      // Если не получилось, пробуем несколько раз с интервалом
+      let attempts = 0;
+      const interval = setInterval(() => {
+        if (focusOnBlock() || attempts >= 20) {
+          clearInterval(interval);
+        }
+        attempts++;
+      }, 100);
+    } catch (e) {
+      console.error(e);
+      setToast("Не удалось создать блок");
+    }
+  };
+
+  // Для ссылок, видео, музыки – открываем инлайн-карточку над кнопкой
+  const handleAddWithInline = (type: 'link' | 'video' | 'music', buttonElement: HTMLElement) => {
+    const rect = buttonElement.getBoundingClientRect();
+    setInlineInput({
+      type,
+      buttonRect: rect,
+    });
+  };
+
+  const handleInlineSubmit = async (value: string) => {
+    if (!inlineInput) return;
+    const { type } = inlineInput;
+    let blockData: Partial<Block> = { type };
+    if (type === 'link') {
+      blockData.linkUrl = value;
+    } else if (type === 'video') {
+      blockData.videoUrl = value;
+    } else if (type === 'music') {
+      blockData.musicEmbed = value;
+    }
+    try {
+      const newBlock = await createBlock(blockData as any);
+      setBlocks(prev => [...prev, newBlock]);
+      if (!layout) return;
+      const newLayout = { ...layout };
+      (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
+        const ordered = flattenLayoutIds(newLayout[bp]);
+        newLayout[bp] = [[...ordered, newBlock.id]];
+      });
+      setLayout(newLayout);
+      saveLayout(newLayout);
+    } catch (e) {
+      console.error(e);
+      setToast("Не удалось создать блок");
+    }
+    setInlineInput(null);
+  };
+
+  // Остальные типы (соцсети, фото, карта) остаются в модалке
+  const handleAddBlockClick = (type: BlockType) => {
+    if (type === 'section') {
+      createEmptyBlock('section', { note: '' });
+    } else if (type === 'note') {
+      createEmptyBlock('note', { note: '' });
+    } else if (type === 'link' || type === 'video' || type === 'music') {
+      const btn = document.querySelector(`[data-add-type="${type}"]`) as HTMLElement;
+      if (btn) handleAddWithInline(type, btn);
+    } else {
+      setModalType(type);
+      setModalOpen(true);
+    }
+  };
 
   async function handleBlockCreated(newBlock: Block) {
+    // Раньше использовалась для модалки, сейчас не нужна, но оставим для совместимости
     if (!layout) return;
     const newLayout = { ...layout };
     (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
@@ -431,7 +546,6 @@ export default function Editor() {
       throw e;
     }
   }
-
 
   // Редирект на страницу входа, если пользователь не авторизован
   if (isAuthorized === false) {
@@ -781,20 +895,23 @@ export default function Editor() {
         </div>
 
         {/* Bottom Navigation Bar - Block Selection */}
-        <div style={{
-          position: "fixed",
-          bottom: 20,
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-md)",
-          padding: "12px 20px",
-          zIndex: 1000,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-          maxWidth: "calc(100% - 40px)",
-          width: "fit-content",
-        }}>
+        <div
+          ref={bottomBarRef}
+          style={{
+            position: "fixed",
+            bottom: 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+            padding: "12px 20px",
+            zIndex: 1000,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+            maxWidth: "calc(100% - 40px)",
+            width: "fit-content",
+          }}
+        >
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
             {[
               { type: "section" as BlockType, label: "Заголовок", icon: "📑" },
@@ -808,6 +925,7 @@ export default function Editor() {
             ].map(({ type, label, icon }) => (
               <button
                 key={type}
+                data-add-type={type}
                 onClick={() => handleAddBlockClick(type)}
                 style={{
                   display: "flex",
@@ -840,7 +958,7 @@ export default function Editor() {
         </div>
       </div>
 
-      {/* Block Modal */}
+      {/* Block Modal (для соцсетей, фото, карты) */}
       {modalType && (
         <BlockModal
           type={modalType}
@@ -850,6 +968,35 @@ export default function Editor() {
             setModalType(null);
           }}
           onSubmit={handleBlockSubmit}
+        />
+      )}
+
+      {/* Инлайн-карточка для ссылок, видео, музыки */}
+      {inlineInput && (
+        <InlineInputCard
+          buttonRect={inlineInput.buttonRect}
+          onSubmit={handleInlineSubmit}
+          onCancel={() => setInlineInput(null)}
+          placeholder={
+            inlineInput.type === 'link'
+              ? 'https://example.com'
+              : inlineInput.type === 'video'
+              ? 'https://youtu.be/... или https://vk.com/video...'
+              : 'https://music.yandex.ru/... или embed-код'
+          }
+          buttonText="Добавить"
+          type={inlineInput.type === 'link' ? 'url' : 'text'}
+          validate={(val) => {
+            if (inlineInput.type === 'link') {
+              try {
+                new URL(val);
+                return true;
+              } catch {
+                return false;
+              }
+            }
+            return val.trim().length > 0;
+          }}
         />
       )}
 
