@@ -7,6 +7,7 @@ import BlockCard, { Block } from './BlockCard';
 import { clampGridSize, getGridRowSpan, getResolvedGridSize } from '../lib/block-grid';
 import SizeMenu from './SizeMenu';
 import TextStyleMenu from './TextStyleMenu';
+import SearchInputCard from './SearchInputCard';
 
 interface SortableBlockCardProps {
   block: Block;
@@ -41,6 +42,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   const resolvedRowSpan = getGridRowSpan(block, resolvedGridSize, cellSize, gridGap);
   const isSection = block.type === 'section';
   const isNote = block.type === 'note';
+  const isMap = block.type === 'map';
 
   const [isHovered, setIsHovered] = React.useState(false);
   const [isMenuVisible, setIsMenuVisible] = React.useState(false);
@@ -51,6 +53,36 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   const [isTextMenuVisible, setIsTextMenuVisible] = React.useState(false);
   const textMenuRef = React.useRef<HTMLDivElement>(null);
   const [textMenuPosition, setTextMenuPosition] = React.useState<{ top: number; left: number; cardWidth: number } | null>(null);
+
+  const [isSearchActive, setIsSearchActive] = React.useState(false);
+  const [searchPosition, setSearchPosition] = React.useState<{ top: number; left: number } | null>(null);
+
+  // Закрываем все меню при скролле #root
+  React.useEffect(() => {
+    const root = document.getElementById('root');
+    if (!root) return;
+
+    const handleScroll = () => {
+      if (isMenuVisible) setIsMenuVisible(false);
+      if (isTextMenuVisible) setIsTextMenuVisible(false);
+      if (isSearchActive) setIsSearchActive(false);
+    };
+    root.addEventListener('scroll', handleScroll);
+    return () => root.removeEventListener('scroll', handleScroll);
+  }, [isMenuVisible, isTextMenuVisible, isSearchActive]);
+
+  // При открытии поиска вычисляем позицию под меню
+  React.useEffect(() => {
+    if (isSearchActive && menuRef.current && menuPosition) {
+      const menuHeight = menuRef.current.clientHeight;
+      setSearchPosition({
+        top: menuPosition.top + menuHeight + 4,
+        left: menuPosition.left,
+      });
+    } else {
+      setSearchPosition(null);
+    }
+  }, [isSearchActive, menuPosition]);
 
   const updateMenuPosition = React.useCallback(() => {
     if (!cardRef.current) return;
@@ -72,27 +104,17 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     });
   }, []);
 
-  // Обновляем позицию при скролле и ресайзе, если меню видимо
+  // Обновляем позиции при открытии меню (один раз)
   React.useEffect(() => {
-    if (!isMenuVisible) return;
-    updateMenuPosition();
-    window.addEventListener('scroll', updateMenuPosition);
-    window.addEventListener('resize', updateMenuPosition);
-    return () => {
-      window.removeEventListener('scroll', updateMenuPosition);
-      window.removeEventListener('resize', updateMenuPosition);
-    };
+    if (isMenuVisible) {
+      updateMenuPosition();
+    }
   }, [isMenuVisible, updateMenuPosition]);
 
   React.useEffect(() => {
-    if (!isTextMenuVisible) return;
-    updateTextMenuPosition();
-    window.addEventListener('scroll', updateTextMenuPosition);
-    window.addEventListener('resize', updateTextMenuPosition);
-    return () => {
-      window.removeEventListener('scroll', updateTextMenuPosition);
-      window.removeEventListener('resize', updateTextMenuPosition);
-    };
+    if (isTextMenuVisible) {
+      updateTextMenuPosition();
+    }
   }, [isTextMenuVisible, updateTextMenuPosition]);
 
   React.useEffect(() => {
@@ -116,32 +138,33 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   };
 
   const handleCardMouseLeave = (e: React.MouseEvent) => {
+    // Если активен поиск, не скрываем меню
+    if (isSearchActive) return;
+
     const relatedTarget = e.relatedTarget as Node;
-    if (menuRef.current && menuRef.current.contains(relatedTarget)) {
-      return;
-    }
-    if (textMenuRef.current && textMenuRef.current.contains(relatedTarget)) {
-      return;
-    }
+    if (menuRef.current && menuRef.current.contains(relatedTarget)) return;
+    if (textMenuRef.current && textMenuRef.current.contains(relatedTarget)) return;
     setIsHovered(false);
     setIsMenuVisible(false);
     setIsTextMenuVisible(false);
   };
 
   const handleMenuMouseLeave = (e: React.MouseEvent) => {
+    // Если активен поиск, не скрываем меню
+    if (isSearchActive) return;
+
     const relatedTarget = e.relatedTarget as Node;
-    if (cardRef.current && cardRef.current.contains(relatedTarget)) {
-      return;
-    }
+    if (cardRef.current && cardRef.current.contains(relatedTarget)) return;
     setIsMenuVisible(false);
     setIsHovered(false);
   };
 
   const handleTextMenuMouseLeave = (e: React.MouseEvent) => {
+    // Если активен поиск, не скрываем меню
+    if (isSearchActive) return;
+
     const relatedTarget = e.relatedTarget as Node;
-    if (cardRef.current && cardRef.current.contains(relatedTarget)) {
-      return;
-    }
+    if (cardRef.current && cardRef.current.contains(relatedTarget)) return;
     setIsTextMenuVisible(false);
     setIsHovered(false);
   };
@@ -160,6 +183,18 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     updateTextMenuPosition();
     setIsTextMenuVisible(true);
   };
+
+  const handleOpenMap = React.useCallback(() => {
+    if (block.mapLat != null && block.mapLng != null) {
+      const url = `https://yandex.ru/maps/?pt=${block.mapLng},${block.mapLat}&z=14`;
+      window.open(url, '_blank');
+    }
+  }, [block.mapLat, block.mapLng]);
+
+  const handleMapSelect = React.useCallback((lat: number, lng: number) => {
+    onUpdate?.({ mapLat: lat, mapLng: lng });
+    setIsSearchActive(false);
+  }, [onUpdate]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -250,137 +285,219 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     { key: 'sw', cursor: 'nesw-resize', style: { bottom: -4, left: -4, width: 16, height: 16 } },
   ] as const;
 
+  const ExpandIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 8V5a2 2 0 0 1 2-2h3" />
+      <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+      <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+      <path d="M21 16v3a2 2 0 0 1-2 2h-3" />
+    </svg>
+  );
+
+  const SearchIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+
+  const mapExtraButtons = isMap ? (
+    <>
+      <button
+        onClick={handleOpenMap}
+        onPointerDown={(e) => e.stopPropagation()}
+        style={{
+          width: 28,
+          height: 28,
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 4,
+          color: '#fff',
+          transition: 'all 0.2s ease',
+        }}
+        title="Открыть карту"
+      >
+        <ExpandIcon />
+      </button>
+      <button
+        onClick={() => setIsSearchActive(prev => !prev)}
+        onPointerDown={(e) => e.stopPropagation()}
+        style={{
+          width: 28,
+          height: 28,
+          background: isSearchActive ? '#fff' : '#000',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 4,
+          color: isSearchActive ? '#000' : '#fff',
+          transition: 'all 0.2s ease',
+        }}
+        title="Поиск по карте"
+      >
+        <SearchIcon />
+      </button>
+    </>
+  ) : null;
+
   return (
-    <div
-      ref={(node) => {
-        setNodeRef(node);
-        (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
-      }}
-      style={style}
-      onPointerDownCapture={handlePointerDownCapture}
-      data-drag-item=""
-      className={`bento-grid-item ${isDragging ? 'dragging' : ''}`.trim()}
-      {...attributes}
-      {...listeners}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleCardMouseLeave}
-      onKeyDown={handleKeyDown}
-    >
-      <BlockCard
-        b={block}
-        onDelete={onDelete}
-        onUpdate={onUpdate}
-        isDragPreview={isDragging}
-      />
+    <>
+      <div
+        ref={(node) => {
+          setNodeRef(node);
+          (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        }}
+        style={style}
+        onPointerDownCapture={handlePointerDownCapture}
+        data-drag-item=""
+        className={`bento-grid-item ${isDragging ? 'dragging' : ''}`.trim()}
+        {...attributes}
+        {...listeners}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleCardMouseLeave}
+        onKeyDown={handleKeyDown}
+      >
+        <BlockCard
+          b={block}
+          onDelete={onDelete}
+          onUpdate={onUpdate}
+          isDragPreview={isDragging}
+        />
 
-      {onDelete && isHovered && !isDragging && (
-        <button
-          onClick={onDelete}
-          onPointerDown={(e) => e.stopPropagation()}
-          aria-label="Удалить блок"
-          style={{
-            position: 'absolute',
-            top: 4,
-            left: 4,
-            zIndex: 4,
-            padding: 0,
-            width: 20,
-            height: 20,
-            fontSize: 10,
-            color: '#000000',
-            background: '#ffffff',
-            border: '1px solid #e2e8f0',
-            borderRadius: '50%',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          }}
-        >
-          🗑️
-        </button>
-      )}
+        {onDelete && isHovered && !isDragging && (
+          <button
+            onClick={onDelete}
+            onPointerDown={(e) => e.stopPropagation()}
+            aria-label="Удалить блок"
+            style={{
+              position: 'absolute',
+              top: 4,
+              left: 4,
+              zIndex: 4,
+              padding: 0,
+              width: 20,
+              height: 20,
+              fontSize: 10,
+              color: '#000000',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            }}
+          >
+            🗑️
+          </button>
+        )}
 
-      {onGridSizeChange && !isDragging && !isSection && isHovered && (
-        <>
-          {handles.map((handle) => (
-            <div
-              key={handle.key}
-              role="presentation"
-              title="Тяните handle, чтобы изменить размер карточки по сетке. Двойной клик сбросит размер."
-              onPointerDown={startResize(handle.key)}
-              onDoubleClick={() => onGridSizeChange(null)}
-              style={{
-                position: 'absolute',
-                zIndex: 4,
-                cursor: handle.cursor,
-                touchAction: 'none',
-                ...handle.style,
-              }}
-            >
+        {onGridSizeChange && !isDragging && !isSection && isHovered && (
+          <>
+            {handles.map((handle) => (
               <div
+                key={handle.key}
+                role="presentation"
+                title="Тяните handle, чтобы изменить размер карточки по сетке. Двойной клик сбросит размер."
+                onPointerDown={startResize(handle.key)}
+                onDoubleClick={() => onGridSizeChange(null)}
                 style={{
-                  width: '100%',
-                  height: '100%',
-                  borderRadius: 999,
-                  background: handle.key.length === 2 ? 'var(--border)' : 'rgba(229,229,229,0.85)',
-                  opacity: 0.8,
+                  position: 'absolute',
+                  zIndex: 4,
+                  cursor: handle.cursor,
+                  touchAction: 'none',
+                  ...handle.style,
                 }}
-              />
-            </div>
-          ))}
-        </>
-      )}
+              >
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 999,
+                    background: handle.key.length === 2 ? 'var(--border)' : 'rgba(229,229,229,0.85)',
+                    opacity: 0.8,
+                  }}
+                />
+              </div>
+            ))}
+          </>
+        )}
 
-      {isMenuVisible && onGridSizeChange && !isSection && menuPosition && createPortal(
-        <div
-          ref={menuRef}
-          style={{
-            position: 'absolute',
-            top: menuPosition.top,
-            left: menuPosition.left,
-            transform: 'translateX(-50%)',
-            zIndex: 10000,
-            maxWidth: menuPosition.cardWidth,
-            width: 'auto',
-          }}
-          onMouseEnter={() => setIsMenuVisible(true)}
-          onMouseLeave={handleMenuMouseLeave}
-        >
-          <SizeMenu
-            onSelect={handleSizeSelect}
-            currentSize={resolvedGridSize}
-            maxCols={gridColumns}
-            showStyleButton={isNote}
-            onStyleClick={handleStyleMenuOpen}
-          />
-        </div>,
-        document.body
-      )}
+        {isMenuVisible && onGridSizeChange && !isSection && menuPosition && createPortal(
+          <div
+            ref={menuRef}
+            style={{
+              position: 'absolute',
+              top: menuPosition.top,
+              left: menuPosition.left,
+              transform: 'translateX(-50%)',
+              zIndex: 10000,
+              maxWidth: menuPosition.cardWidth,
+              width: 'auto',
+            }}
+            onMouseEnter={() => setIsMenuVisible(true)}
+            onMouseLeave={handleMenuMouseLeave}
+          >
+            <SizeMenu
+              onSelect={handleSizeSelect}
+              currentSize={resolvedGridSize}
+              maxCols={gridColumns}
+              showStyleButton={isNote}
+              onStyleClick={handleStyleMenuOpen}
+              extraButtons={mapExtraButtons}
+            />
+          </div>,
+          document.body
+        )}
 
-      {isNote && onUpdate && isTextMenuVisible && textMenuPosition && createPortal(
-        <div
-          ref={textMenuRef}
-          style={{
-            position: 'absolute',
-            top: textMenuPosition.top,
-            left: textMenuPosition.left,
-            transform: 'translateX(-50%)',
-            zIndex: 10001,
-            maxWidth: textMenuPosition.cardWidth,
-            width: 'auto',
-          }}
-          onMouseEnter={() => setIsTextMenuVisible(true)}
-          onMouseLeave={handleTextMenuMouseLeave}
-        >
-          <TextStyleMenu
-            currentStyle={block.noteStyle || {}}
-            onStyleChange={handleTextStyleChange}
-          />
-        </div>,
-        document.body
+        {isNote && onUpdate && isTextMenuVisible && textMenuPosition && createPortal(
+          <div
+            ref={textMenuRef}
+            style={{
+              position: 'absolute',
+              top: textMenuPosition.top,
+              left: textMenuPosition.left,
+              transform: 'translateX(-50%)',
+              zIndex: 10001,
+              maxWidth: textMenuPosition.cardWidth,
+              width: 'auto',
+            }}
+            onMouseEnter={() => setIsTextMenuVisible(true)}
+            onMouseLeave={handleTextMenuMouseLeave}
+          >
+            <TextStyleMenu
+              currentStyle={block.noteStyle || {}}
+              onStyleChange={handleTextStyleChange}
+            />
+          </div>,
+          document.body
+        )}
+      </div>
+
+      {isSearchActive && searchPosition && block.mapLat != null && block.mapLng != null && (
+        createPortal(
+          <SearchInputCard
+            initialLat={block.mapLat}
+            initialLng={block.mapLng}
+            onSelect={handleMapSelect}
+            style={{
+              position: 'absolute',
+              top: searchPosition.top,
+              left: searchPosition.left,
+              transform: 'translateX(-50%)',
+              zIndex: 10002,
+            }}
+          />,
+          document.body
+        )
       )}
-    </div>
+    </>
   );
 };

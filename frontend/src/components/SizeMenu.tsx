@@ -7,6 +7,7 @@ interface SizeMenuProps {
   maxCols: number;
   showStyleButton?: boolean;
   onStyleClick?: () => void;
+  extraButtons?: React.ReactNode; // ← новый проп
 }
 
 const PRESETS: Array<{ cols: number; rows: number }> = [
@@ -17,14 +18,14 @@ const PRESETS: Array<{ cols: number; rows: number }> = [
 ];
 
 const SizeMenu = React.forwardRef<HTMLDivElement, SizeMenuProps>(
-  ({ onSelect, currentSize, maxCols, showStyleButton = false, onStyleClick }, ref) => {
+  ({ onSelect, currentSize, maxCols, showStyleButton = false, onStyleClick, extraButtons }, ref) => {
     const validPresets = PRESETS.filter(p => p.cols <= maxCols);
     const isActive = (cols: number, rows: number) =>
       currentSize.colSpan === cols && currentSize.rowSpan === rows;
 
-    const cellSize = 8;      // размер одной ячейки в пикселях
-    const gap = 2;           // зазор между ячейками внутри иконки
-    const borderWidth = 1.5; // жирность границы (px)
+    const cellSize = 8;
+    const gap = 2;
+    const borderWidth = 1.5;
 
     return (
       <div
@@ -80,6 +81,14 @@ const SizeMenu = React.forwardRef<HTMLDivElement, SizeMenuProps>(
             </button>
           );
         })}
+
+        {extraButtons && (
+          <>
+            <div style={{ width: 1, height: 20, background: '#444', margin: '0 4px' }} />
+            {extraButtons}
+          </>
+        )}
+
         {showStyleButton && onStyleClick && (
           <>
             <div style={{ width: 1, height: 20, background: '#444', margin: '0 4px' }} />

@@ -182,6 +182,7 @@ body{
   font-feature-settings: "kern" 1;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  overflow-y: hidden;
   width: 100%;
   display: block;
 }
@@ -697,8 +698,10 @@ p {
 /* Дополнительные стили для Render - предотвращение обрезки */
 #root {
   width: 100%;
+  height: 100%;
   max-width: 100%;
   overflow-x: hidden;
+  overflow-y: auto;
   position: relative;
   box-sizing: border-box;
   margin: 0;
@@ -719,6 +722,7 @@ html {
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
+  overflow-y: hidden;
   margin: 0 !important;
   padding: 0 !important;
 }
