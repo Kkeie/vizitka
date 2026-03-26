@@ -14,7 +14,7 @@ export const SECTION_BLOCK_HEIGHT = 88;
 
 const DEFAULT_SIZES: Record<BlockType, BlockGridSize> = {
   section: { colSpan: GRID_COLUMNS.desktop, rowSpan: 1 },
-  note: { colSpan: 2, rowSpan: 2 },
+  note: { colSpan: 1, rowSpan: 1 },
   link: { colSpan: 2, rowSpan: 1 },
   photo: { colSpan: 2, rowSpan: 2 },
   video: { colSpan: 2, rowSpan: 2 },
