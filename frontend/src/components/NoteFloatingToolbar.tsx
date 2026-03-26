@@ -31,31 +31,25 @@ const LINK = (
   </svg>
 );
 
-const toolbarStyle: React.CSSProperties = {
-  position: "fixed",
-  background: "#0a0a0a",
-  borderRadius: 12,
-  padding: "8px 10px",
-  display: "flex",
-  alignItems: "center",
-  gap: 4,
-  boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
-  zIndex: 10000,
-  animation: "noteToolbarFadeIn 0.15s ease",
-};
-
 const btnStyle: React.CSSProperties = {
-  width: 36,
-  height: 36,
+  width: 28,
+  height: 28,
+  minWidth: 28,
+  minHeight: 28,
+  maxWidth: 28,
+  maxHeight: 28,
+  padding: 0,
+  margin: 0,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   background: "transparent",
   border: "none",
-  borderRadius: 8,
+  borderRadius: 4,
   cursor: "pointer",
   color: "#fff",
   transition: "background 0.15s",
+  boxSizing: "border-box",
 };
 
 export type InlineFormatType = "bold" | "italic" | "foreColor";
@@ -76,7 +70,6 @@ export default function NoteFloatingToolbar({
   onLinkClick,
 }: NoteFloatingToolbarProps) {
   const align = noteStyle?.align || "left";
-
   const toolbarRef = React.useRef<HTMLDivElement>(null);
   const [position, setPosition] = React.useState({ top: rect.bottom + 8, left: rect.left });
 
@@ -102,9 +95,19 @@ export default function NoteFloatingToolbar({
       ref={toolbarRef}
       className="note-floating-toolbar"
       style={{
-        ...toolbarStyle,
+        position: "fixed",
         top: position.top,
         left: position.left,
+        background: "#1a1a1a",
+        borderRadius: 6,
+        padding: "4px",
+        display: "flex",
+        flexWrap: "wrap",
+        justifyContent: "center",
+        gap: "4px",
+        alignItems: "center",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+        zIndex: 10000,
       }}
       onMouseDown={(e) => {
         if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).tagName === "BUTTON") {
@@ -112,12 +115,12 @@ export default function NoteFloatingToolbar({
         }
       }}
     >
-      {/* Выравнивание */}
       <button
         type="button"
         title="По левому краю"
         style={{ ...btnStyle, color: align === "left" ? "#fff" : "rgba(255,255,255,0.7)" }}
         onClick={() => onAlignChange("left")}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {ALIGN_LEFT}
       </button>
@@ -126,6 +129,7 @@ export default function NoteFloatingToolbar({
         title="По центру"
         style={{ ...btnStyle, color: align === "center" ? "#fff" : "rgba(255,255,255,0.7)" }}
         onClick={() => onAlignChange("center")}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {ALIGN_CENTER}
       </button>
@@ -134,20 +138,39 @@ export default function NoteFloatingToolbar({
         title="По правому краю"
         style={{ ...btnStyle, color: align === "right" ? "#fff" : "rgba(255,255,255,0.7)" }}
         onClick={() => onAlignChange("right")}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {ALIGN_RIGHT}
       </button>
-      <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.25)", margin: "0 4px" }} />
-      {/* Жирный / Курсив — применяется только к выделению */}
-      <button type="button" title="Жирный" style={btnStyle} onClick={() => onInlineFormat("bold")}>
+
+      <div style={{ width: 1, height: 20, background: "#444", margin: "0 4px" }} />
+
+      <button
+        type="button"
+        title="Жирный"
+        style={btnStyle}
+        onClick={() => onInlineFormat("bold")}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         {BOLD}
       </button>
-      <button type="button" title="Курсив" style={btnStyle} onClick={() => onInlineFormat("italic")}>
+      <button
+        type="button"
+        title="Курсив"
+        style={btnStyle}
+        onClick={() => onInlineFormat("italic")}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         {ITALIC}
       </button>
-      {/* Цвет текста — только выделенная часть */}
-      <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.25)", margin: "0 4px" }} />
-      <label title="Цвет текста" style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+
+      <div style={{ width: 1, height: 20, background: "#444", margin: "0 4px" }} />
+
+      <label
+        title="Цвет текста"
+        style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         <input
           type="color"
           defaultValue="#0a0a0a"
@@ -157,29 +180,27 @@ export default function NoteFloatingToolbar({
             height: 28,
             padding: 0,
             border: "2px solid rgba(255,255,255,0.5)",
-            borderRadius: 8,
+            borderRadius: 4,
             cursor: "pointer",
             background: "transparent",
           }}
         />
       </label>
+
       {onLinkClick && (
         <>
-          <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.25)", margin: "0 4px" }} />
-          <button type="button" title="Ссылка" style={btnStyle} onClick={onLinkClick}>
+          <div style={{ width: 1, height: 20, background: "#444", margin: "0 4px" }} />
+          <button
+            type="button"
+            title="Ссылка"
+            style={btnStyle}
+            onClick={onLinkClick}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             {LINK}
           </button>
         </>
       )}
-      <style>{`
-        @keyframes noteToolbarFadeIn {
-          from { opacity: 0; transform: translateY(-4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .note-floating-toolbar button:hover {
-          background: rgba(255,255,255,0.15);
-        }
-      `}</style>
     </div>
   );
 }

@@ -123,27 +123,27 @@ export default function BlockCard({
     }
   }, [b.type, b.linkUrl]);
 
-  const typeLabels: Record<string, string> = {
-    section: "Раздел",
-    note: "Заметка",
-    link: "Ссылка",
-    photo: "Фото",
-    video: "Видео",
-    music: "Музыка",
-    map: "Карта",
-    social: "Соцсеть",
-  };
+  // const typeLabels: Record<string, string> = {
+  //   section: "Раздел",
+  //   note: "Заметка",
+  //   link: "Ссылка",
+  //   photo: "Фото",
+  //   video: "Видео",
+  //   music: "Музыка",
+  //   map: "Карта",
+  //   social: "Соцсеть",
+  // };
 
-  const typeColors: Record<string, string> = {
-    section: "#0f172a",
-    note: "#6366f1",
-    link: "#8b5cf6",
-    photo: "#ec4899",
-    video: "#ef4444",
-    music: "#10b981",
-    map: "#06b6d4",
-    social: "#f59e0b",
-  };
+  // const typeColors: Record<string, string> = {
+  //   section: "#0f172a",
+  //   note: "#6366f1",
+  //   link: "#8b5cf6",
+  //   photo: "#ec4899",
+  //   video: "#ef4444",
+  //   music: "#10b981",
+  //   map: "#06b6d4",
+  //   social: "#f59e0b",
+  // };
 
   const previewTileSize = 64;
   const socialIconSize = 48;
@@ -197,63 +197,6 @@ export default function BlockCard({
         }
       }}
     >
-      {showEditorHeader && (
-        <div
-          className="card-edit-header"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            position: "absolute",
-            top: 12,
-            left: 12,
-            right: 12,
-            zIndex: 3,
-            opacity: 0,
-            visibility: "hidden",
-            transition: "opacity 0.2s ease, visibility 0.2s ease",
-            pointerEvents: "auto",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.8px",
-                color: typeColors[b.type] || "var(--muted)",
-                padding: "6px 12px",
-                borderRadius: "8px",
-                background: `${typeColors[b.type] || "var(--muted)"}10`,
-                border: `1px solid ${typeColors[b.type] || "var(--muted)"}30`,
-              }}
-            >
-              {typeLabels[b.type] || b.type}
-            </span>
-          </div>
-          {onDelete && (
-            <button
-              onClick={onDelete}
-              onPointerDown={stopControlEvent}
-              style={{
-                padding: "6px 12px",
-                fontSize: 12,
-                fontWeight: 500,
-                color: "#dc2626",
-                background: "transparent",
-                border: "1px solid transparent",
-                borderRadius: "8px",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-            >
-              Удалить
-            </button>
-          )}
-        </div>
-      )}
 
       <div style={{ flex: 1, position: "relative", zIndex: 0, minHeight: 0, overflow: "hidden" }}>
         {isSection && (
@@ -402,6 +345,11 @@ export default function BlockCard({
                     if (saveNoteDebounceRef.current) clearTimeout(saveNoteDebounceRef.current);
                     saveNoteDebounceRef.current = setTimeout(saveNoteContent, 800);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.stopPropagation();
+                    }
+                  }}
                   style={{
                     whiteSpace: "pre-wrap",
                     lineHeight: 1.7,
@@ -410,6 +358,7 @@ export default function BlockCard({
                     overflowWrap: "break-word",
                     outline: "none",
                     minHeight: 24,
+                    cursor: "text",
                     ...textCss,
                   }}
                 />
@@ -441,19 +390,15 @@ export default function BlockCard({
                   {b.note ?? ""}
                 </div>
               )}
-              {editable &&
-                selectionRect &&
-                createPortal(
-                  <NoteFloatingToolbar
-                    rect={selectionRect}
-                    noteStyle={ns}
-                    onInlineFormat={applyInlineFormat}
-                    onAlignChange={(align) => {
-                      onUpdate?.({ noteStyle: { ...ns, align } });
-                    }}
-                  />,
-                  document.body
-                )}
+              {editable && selectionRect && createPortal(
+                <NoteFloatingToolbar
+                  rect={selectionRect}
+                  noteStyle={ns}
+                  onInlineFormat={applyInlineFormat}
+                  onAlignChange={(align) => onUpdate?.({ noteStyle: { ...ns, align } })}
+                />,
+                document.body
+              )}
             </div>
           );
         })()}
