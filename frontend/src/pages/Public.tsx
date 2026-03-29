@@ -4,7 +4,15 @@ import { getPublic, getImageUrl, type Block, type BlockSizes, type Layout } from
 import BlockCard from "../components/BlockCard";
 import { useBreakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
-import { BENTO_ROW_UNIT, GRID_COLUMNS, flattenLayoutIds, getGridRowSpan, getResolvedGridSize } from "../lib/block-grid";
+import {
+  BENTO_ROW_UNIT,
+  GRID_COLUMNS,
+  assignSparseAnchorsForBreakpoint,
+  flattenLayoutIds,
+  getGridRowSpan,
+  getResolvedGridSize,
+  sortBlockIdsByDesktopVisualOrder,
+} from "../lib/block-grid";
 
 // Системные маршруты, которые не должны обрабатываться как username
 // Примечание: "public" удален из списка, так как теперь мы используем маршрут /public/:username
@@ -196,15 +204,36 @@ export default function PublicPage() {
       });
   }, [cleanUsername]);
 
-  const orderedIds = state.layout?.[breakpoint]
+  const orderedIdsRaw = state.layout?.[breakpoint]
     ? flattenLayoutIds(state.layout[breakpoint])
     : state.blocks.map((block) => block.id);
+
+  const orderedIds = React.useMemo(() => {
+    if (breakpoint === "mobile" || breakpoint === "tablet") {
+      return sortBlockIdsByDesktopVisualOrder(orderedIdsRaw, state.blockSizes);
+    }
+    return orderedIdsRaw;
+  }, [breakpoint, orderedIdsRaw.join(","), state.blockSizes]);
+
   const gridColumns = GRID_COLUMNS[breakpoint];
   const gridGap = breakpoint === "mobile" ? 12 : 16;
-  const hasSectionBlocks = state.blocks.some((block) => block.type === "section");
   const { gridRef, cellSize } = useBentoGridMetrics(gridColumns, gridGap, {
     maxCellSize: breakpoint === "mobile" ? 100 : undefined,
   });
+
+  const effectiveSizes = React.useMemo(
+    () =>
+      assignSparseAnchorsForBreakpoint(
+        orderedIds,
+        state.blocks,
+        state.blockSizes,
+        breakpoint,
+        gridColumns,
+        cellSize,
+        gridGap,
+      ),
+    [orderedIds.join(","), state.blocks, state.blockSizes, breakpoint, gridColumns, cellSize, gridGap],
+  );
 
   if (state.loading) {
     return (
@@ -337,7 +366,7 @@ export default function PublicPage() {
           <div style={{ minWidth: 0, width: "100%" }}>
             <div
               ref={gridRef}
-              className="bento-grid"
+              className="bento-grid bento-grid--public-fit"
               style={{
                 display: 'grid',
                 gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
@@ -347,23 +376,28 @@ export default function PublicPage() {
                 ['--bento-row-unit' as string]: `${BENTO_ROW_UNIT}px`,
                 gap: `${gridGap}px`,
                 gridAutoRows: `${BENTO_ROW_UNIT}px`,
-                gridAutoFlow: hasSectionBlocks ? 'row' : 'dense',
+                gridAutoFlow: 'row',
               }}
             >
               {orderedIds.map(blockId => {
                 const block = state.blocks.find(b => b.id === blockId);
                 if (!block) return null;
 
-                const gridSize = getResolvedGridSize(block, state.blockSizes[block.id], gridColumns);
+                const gridSize = getResolvedGridSize(block, effectiveSizes[block.id], gridColumns);
                 const resolvedRowSpan = getGridRowSpan(block, gridSize, cellSize, gridGap);
+                const anchor = effectiveSizes[block.id]?.anchorsByBreakpoint?.[breakpoint];
 
                 return (
                   <div
                     key={block.id}
                     className="bento-grid-item"
                     style={{
-                      gridColumn: `span ${gridSize.colSpan}`,
-                      gridRow: `span ${resolvedRowSpan}`,
+                      gridColumn: anchor
+                        ? `${anchor.gridColumnStart} / span ${gridSize.colSpan}`
+                        : `span ${gridSize.colSpan}`,
+                      gridRow: anchor
+                        ? `${anchor.gridRowStart} / span ${resolvedRowSpan}`
+                        : `span ${resolvedRowSpan}`,
                       minWidth: 0,
                       minHeight: 0,
                     }}

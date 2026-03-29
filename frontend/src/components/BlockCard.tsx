@@ -29,11 +29,14 @@ export default function BlockCard({
   onDelete,
   onUpdate,
   isDragPreview,
+  sortableProps,
 }: {
   b: Block;
   onDelete?: () => void;
   onUpdate?: (partial: Partial<Block>) => void;
   isDragPreview?: boolean;
+  /** Слушатели dnd-kit только на карточке, не на родителе с ручками ресайза */
+  sortableProps?: React.HTMLAttributes<HTMLDivElement>;
 }) {
   const [isVideoPlaying, setIsVideoPlaying] = React.useState(false);
   const [linkMetadata, setLinkMetadata] = React.useState<{ title?: string; description?: string; image?: string } | null>(null);
@@ -178,6 +181,7 @@ export default function BlockCard({
       ref={revealRef}
       className="card"
       style={cardStyle}
+      {...sortableProps}
       onMouseEnter={(e) => {
         if (showEditorHeader) {
           const header = e.currentTarget.querySelector(".card-edit-header") as HTMLElement | null;
