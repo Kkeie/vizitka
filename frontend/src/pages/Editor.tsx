@@ -10,6 +10,7 @@ import {
   publicUrl, 
   qrUrlForPublic,
   type Block, 
+  type BlockGridAnchor,
   type BlockGridSize,
   type Profile, 
   type BlockType,
@@ -31,12 +32,14 @@ import {
   GRID_COLUMNS,
   assignSparseAnchorsForBreakpoint,
   clampGridSize,
+  clampGridAnchor,
   clientPointToGridAnchor,
   flattenLayoutIds,
+  getGridRowSpan,
   getResolvedGridSize,
+  liftAnchorUpWithinColumn,
   resolveAnchorOverlaps,
   sanitizeBlockSizes,
-  stripAnchorsForBreakpoint,
 } from "../lib/block-grid";
 
 // dnd-kit imports
@@ -59,8 +62,8 @@ import {
 import {
   arrayMove,
   SortableContext,
-  rectSortingStrategy,
   sortableKeyboardCoordinates,
+  type SortingStrategy,
 } from '@dnd-kit/sortable';
 
 import "../styles/drag-reorder.css";
@@ -123,6 +126,17 @@ type DebouncedFn<T extends (...args: any[]) => void> = ((...args: Parameters<T>)
   cancel: () => void;
 };
 
+type PendingBlockReveal = {
+  id: number;
+  focusTarget?: "section" | "note" | null;
+};
+
+type DragPreview = {
+  anchor: BlockGridAnchor;
+  colSpan: number;
+  gridRowSpan: number;
+};
+
 function debounce<T extends (...args: any[]) => void>(fn: T, wait = 500): DebouncedFn<T> {
   let timeoutId: number | undefined;
 
@@ -178,6 +192,9 @@ export default function Editor() {
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
   );
   const [activeId, setActiveId] = useState<number | null>(null);
+  const [pendingBlockReveal, setPendingBlockReveal] = useState<PendingBlockReveal | null>(null);
+  const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
+  const isPointerDragRef = useRef(false);
   const lastPointerRef = useRef({ x: 0, y: 0 });
 
   /** Всегда обновляем — dnd-kit считает коллизии до commit setActiveId после DragStart */
@@ -393,6 +410,7 @@ export default function Editor() {
   const currentGridColumns = GRID_COLUMNS[breakpoint];
   const currentGridGap = 16;
   const { gridRef, cellSize } = useBentoGridMetrics(currentGridColumns, currentGridGap);
+  const bentoSortingStrategy = useMemo<SortingStrategy>(() => () => null, []);
 
   /**
    * dnd-kit передаёт pointerCoordinates как activation+translate — при скролле/оверлее это может
@@ -485,6 +503,158 @@ export default function Editor() {
     };
   }, [saveLayout, saveBlockSizes]);
 
+  const revealBlock = useCallback((
+    el: HTMLElement,
+    pending: PendingBlockReveal,
+    behavior: ScrollBehavior,
+  ) => {
+    el.scrollIntoView({
+      behavior,
+      block: "center",
+      inline: "nearest",
+    });
+
+    if (pending.focusTarget === "section") {
+      const input = el.querySelector<HTMLInputElement>("input");
+      if (!input) return false;
+      input.focus({ preventScroll: true });
+      return true;
+    }
+
+    if (pending.focusTarget === "note") {
+      const editable = el.querySelector<HTMLElement>('[contenteditable="true"]');
+      if (!editable) return false;
+      editable.focus({ preventScroll: true });
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.selectNodeContents(editable);
+      range.collapse(false);
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      return true;
+    }
+
+    return true;
+  }, []);
+
+  useEffect(() => {
+    if (!pendingBlockReveal) return;
+
+    let attempts = 0;
+    let stablePasses = 0;
+    let lastTop: number | null = null;
+    let cancelled = false;
+    let timeoutId: number | undefined;
+    let rafId1 = 0;
+    let rafId2 = 0;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const clearPending = () => {
+      setPendingBlockReveal((current) =>
+        current?.id === pendingBlockReveal.id ? null : current,
+      );
+    };
+
+    const scheduleRetry = () => {
+      timeoutId = window.setTimeout(() => {
+        rafId1 = window.requestAnimationFrame(tryReveal);
+      }, 90);
+    };
+
+    const tryReveal = () => {
+      if (cancelled) return;
+
+      const el = document.querySelector<HTMLElement>(`[data-block-id="${pendingBlockReveal.id}"]`);
+      if (!el) {
+        if (attempts >= 20) {
+          clearPending();
+          return;
+        }
+
+        attempts += 1;
+        scheduleRetry();
+        return;
+      }
+
+      const behavior: ScrollBehavior =
+        prefersReducedMotion || attempts > 0 ? "auto" : "smooth";
+
+      if (!revealBlock(el, pendingBlockReveal, behavior)) {
+        if (attempts >= 20) {
+          clearPending();
+          return;
+        }
+
+        attempts += 1;
+        scheduleRetry();
+        return;
+      }
+
+      if (pendingBlockReveal.focusTarget) {
+        clearPending();
+        return;
+      }
+
+      const nextTop = Math.round(el.getBoundingClientRect().top);
+      if (lastTop !== null && Math.abs(nextTop - lastTop) <= 1) {
+        stablePasses += 1;
+      } else {
+        stablePasses = 0;
+      }
+      lastTop = nextTop;
+
+      if (stablePasses >= 2 || attempts >= 8) {
+        clearPending();
+        return;
+      }
+
+      attempts += 1;
+      scheduleRetry();
+    };
+
+    rafId1 = window.requestAnimationFrame(() => {
+      rafId2 = window.requestAnimationFrame(tryReveal);
+    });
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(rafId1);
+      window.cancelAnimationFrame(rafId2);
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [pendingBlockReveal, revealBlock]);
+
+  const appendCreatedBlocks = useCallback(
+    (
+      createdBlocks: Block[],
+      options: { focusTarget?: PendingBlockReveal["focusTarget"] } = {},
+    ) => {
+      if (createdBlocks.length === 0) return;
+
+      setBlocks((prev) => [...prev, ...createdBlocks]);
+
+      if (layout) {
+        const newLayout = { ...layout };
+        const newIds = createdBlocks.map((block) => block.id);
+        (Object.keys(newLayout) as Breakpoint[]).forEach((bp) => {
+          const ordered = flattenLayoutIds(newLayout[bp]);
+          newLayout[bp] = [[...ordered, ...newIds]];
+        });
+        setLayout(newLayout);
+        saveLayout(newLayout);
+      }
+
+      const targetBlock = createdBlocks[createdBlocks.length - 1];
+      setPendingBlockReveal({
+        id: targetBlock.id,
+        focusTarget: options.focusTarget ?? null,
+      });
+    },
+    [layout, saveLayout],
+  );
+
   const orderKey = currentOrder.join(",");
   const blockIdsKey = blocks.map((b) => b.id).join(",");
 
@@ -522,10 +692,115 @@ export default function Editor() {
     canvasPadDesiredRef.current = editorCanvasPadBottom;
     setActiveId(event.active.id as number);
     const e = event.activatorEvent as PointerEvent;
-    if (e?.clientX != null) {
+    isPointerDragRef.current = e?.clientX != null && e?.clientY != null;
+    if (isPointerDragRef.current) {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
     }
   };
+
+  const updateDragPreview = useCallback(
+    (draggedId: number, pointer: { x: number; y: number }) => {
+      const gridEl = gridRef.current;
+      if (
+        !gridEl ||
+        !pointerInExtendedGrid(
+          pointer.x,
+          pointer.y,
+          gridEl,
+          editorCanvasPadBottom,
+          canvasPadDesiredRef.current,
+        )
+      ) {
+        setDragPreview((prev) => (prev == null ? prev : null));
+        return;
+      }
+
+      const block = blocks.find((candidate) => candidate.id === draggedId);
+      if (!block) {
+        setDragPreview((prev) => (prev == null ? prev : null));
+        return;
+      }
+
+      const gridSize = getResolvedGridSize(block, blockSizes[draggedId], currentGridColumns);
+      const gridRowSpan = getGridRowSpan(
+        block,
+        gridSize,
+        cellSize,
+        currentGridGap,
+        BENTO_ROW_UNIT,
+      );
+      const rawAnchor = clientPointToGridAnchor(
+        pointer.x,
+        pointer.y,
+        gridEl,
+        currentGridColumns,
+        cellSize,
+        currentGridGap,
+        BENTO_ROW_UNIT,
+        gridSize.colSpan,
+      );
+
+      const previewSizes: BlockSizes = {
+        ...blockSizes,
+        [draggedId]: {
+          ...clampGridSize(
+            {
+              ...(blockSizes[draggedId] ?? {}),
+              colSpan: gridSize.colSpan,
+              rowSpan: gridSize.rowSpan,
+            },
+            currentGridColumns,
+          ),
+          anchorsByBreakpoint: {
+            ...(blockSizes[draggedId]?.anchorsByBreakpoint ?? {}),
+            [breakpoint]: rawAnchor,
+          },
+        },
+      };
+
+      const liftedAnchor =
+        liftAnchorUpWithinColumn(
+          currentOrder,
+          blocks,
+          previewSizes,
+          draggedId,
+          breakpoint,
+          currentGridColumns,
+          cellSize,
+          currentGridGap,
+          BENTO_ROW_UNIT,
+        ) ?? rawAnchor;
+
+      setDragPreview((prev) => {
+        if (
+          prev &&
+          prev.colSpan === gridSize.colSpan &&
+          prev.gridRowSpan === gridRowSpan &&
+          prev.anchor.gridColumnStart === liftedAnchor.gridColumnStart &&
+          prev.anchor.gridRowStart === liftedAnchor.gridRowStart
+        ) {
+          return prev;
+        }
+
+        return {
+          anchor: liftedAnchor,
+          colSpan: gridSize.colSpan,
+          gridRowSpan,
+        };
+      });
+    },
+    [
+      blockSizes,
+      blocks,
+      breakpoint,
+      cellSize,
+      currentGridColumns,
+      currentGridGap,
+      currentOrder,
+      editorCanvasPadBottom,
+      gridRef,
+    ],
+  );
 
   const handleDragMove = (_event: DragMoveEvent) => {
     if (typeof _event.active.id !== "number") return;
@@ -548,30 +823,36 @@ export default function Editor() {
     const delta = Math.max(6, Math.round(DRAG_BOTTOM_EXPAND_STEP * (0.4 + depth * 0.6)));
     addCanvasPadDelta(delta);
     window.scrollBy({ top: Math.min(delta, 28), left: 0, behavior: "auto" });
+
+    if (isPointerDragRef.current) {
+      updateDragPreview(_event.active.id as number, lastPointerRef.current);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
+    setDragPreview(null);
     if (!layout) return;
 
     const draggedId = active.id as number;
 
     const gridEl = gridRef.current;
     const pointer = lastPointerRef.current;
-    const dropOnGridSurface =
-      over?.id === GRID_SURFACE_ID ||
-      (!over &&
-        gridEl &&
-        pointerInExtendedGrid(
-          pointer.x,
-          pointer.y,
-          gridEl,
-          editorCanvasPadBottom,
-          canvasPadDesiredRef.current,
-        ));
+    const dropInsideGrid =
+      Boolean(isPointerDragRef.current) &&
+      Boolean(gridEl) &&
+      pointerInExtendedGrid(
+        pointer.x,
+        pointer.y,
+        gridEl!,
+        editorCanvasPadBottom,
+        canvasPadDesiredRef.current,
+      );
 
-    if (dropOnGridSurface) {
+    isPointerDragRef.current = false;
+
+    if (dropInsideGrid) {
       if (!gridEl) return;
 
       const block = blocks.find((b) => b.id === draggedId);
@@ -604,6 +885,28 @@ export default function Editor() {
             },
           },
         };
+        const liftedAnchor = liftAnchorUpWithinColumn(
+          currentOrder,
+          blocks,
+          next,
+          draggedId,
+          breakpoint,
+          currentGridColumns,
+          cellSize,
+          currentGridGap,
+          BENTO_ROW_UNIT,
+        );
+
+        if (liftedAnchor) {
+          next[draggedId] = {
+            ...next[draggedId],
+            anchorsByBreakpoint: {
+              ...(next[draggedId]?.anchorsByBreakpoint ?? {}),
+              [breakpoint]: liftedAnchor,
+            },
+          };
+        }
+
         let merged = assignSparseAnchorsForBreakpoint(
           currentOrder,
           blocks,
@@ -648,21 +951,6 @@ export default function Editor() {
     const newLayout = { ...layout, [breakpoint]: [nextOrder] };
     setLayout(newLayout);
     saveLayout(newLayout);
-
-    setBlockSizes((prev) => {
-      const cleared = stripAnchorsForBreakpoint(prev, breakpoint);
-      const assigned = assignSparseAnchorsForBreakpoint(
-        nextOrder,
-        blocks,
-        cleared,
-        breakpoint,
-        currentGridColumns,
-        cellSize,
-        currentGridGap,
-      );
-      saveBlockSizes(assigned);
-      return assigned;
-    });
   };
 
   async function saveProfile(e: React.FormEvent) {
@@ -725,7 +1013,11 @@ export default function Editor() {
     }
   }
 
-  function handleBlockDimensionsChange(id: number, nextDimensions: BlockGridSize | null) {
+  function handleBlockDimensionsChange(
+    id: number,
+    nextDimensions: BlockGridSize | null,
+    options: { reveal?: boolean } = {},
+  ) {
     setBlockSizes((prev) => {
       const next = { ...prev };
 
@@ -736,13 +1028,25 @@ export default function Editor() {
       }
 
       const prevEntry = prev[id] ?? {};
+      const clampedDimensions = clampGridSize(nextDimensions, currentGridColumns);
+      const mergedAnchors = {
+        ...(prevEntry.anchorsByBreakpoint ?? {}),
+        ...(clampedDimensions.anchorsByBreakpoint ?? {}),
+      };
+      const currentAnchor = mergedAnchors[breakpoint];
+
+      if (currentAnchor) {
+        mergedAnchors[breakpoint] = clampGridAnchor(
+          currentAnchor,
+          currentGridColumns,
+          clampedDimensions.colSpan,
+        );
+      }
+
       next[id] = {
-        colSpan: nextDimensions.colSpan,
-        rowSpan: nextDimensions.rowSpan,
-        anchorsByBreakpoint: {
-          ...(prevEntry.anchorsByBreakpoint ?? {}),
-          ...(nextDimensions.anchorsByBreakpoint ?? {}),
-        },
+        colSpan: clampedDimensions.colSpan,
+        rowSpan: clampedDimensions.rowSpan,
+        ...(Object.keys(mergedAnchors).length > 0 ? { anchorsByBreakpoint: mergedAnchors } : {}),
       };
 
       let merged = assignSparseAnchorsForBreakpoint(
@@ -768,61 +1072,19 @@ export default function Editor() {
       saveBlockSizes(merged);
       return merged;
     });
+
+    if (options.reveal) {
+      setPendingBlockReveal({ id, focusTarget: null });
+    }
   }
 
   // Для заголовков и заметок создаём пустой блок сразу и ставим фокус
   const createEmptyBlock = async (type: BlockType, initialData: Partial<Block> = {}) => {
     try {
       const newBlock = await createBlock({ type, ...initialData } as any);
-      setBlocks(prev => [...prev, newBlock]);
-      if (!layout) return;
-      const newLayout = { ...layout };
-      (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
-        const ordered = flattenLayoutIds(newLayout[bp]);
-        newLayout[bp] = [[...ordered, newBlock.id]];
+      appendCreatedBlocks([newBlock], {
+        focusTarget: type === "section" || type === "note" ? type : null,
       });
-      setLayout(newLayout);
-      saveLayout(newLayout);
-
-      // Фокусируемся на элементе с задержкой и повторными попытками
-      const targetId = newBlock.id;
-      const focusOnBlock = () => {
-        const el = document.querySelector(`[data-block-id="${targetId}"]`);
-        if (!el) return false;
-
-        if (type === 'section') {
-          const input = el.querySelector('input');
-          if (input) {
-            input.focus();
-            return true;
-          }
-        } else if (type === 'note') {
-          const editable = el.querySelector('[contenteditable="true"]');
-          if (editable && editable instanceof HTMLElement) {
-            editable.focus();
-            const range = document.createRange();
-            const sel = window.getSelection();
-            range.selectNodeContents(editable);
-            range.collapse(false);
-            sel?.removeAllRanges();
-            sel?.addRange(range);
-            return true;
-          }
-        }
-        return false;
-      };
-
-      // Пробуем сразу
-      if (focusOnBlock()) return;
-
-      // Если не получилось, пробуем несколько раз с интервалом
-      let attempts = 0;
-      const interval = setInterval(() => {
-        if (focusOnBlock() || attempts >= 20) {
-          clearInterval(interval);
-        }
-        attempts++;
-      }, 100);
     } catch (e) {
       console.error(e);
       setToast("Не удалось создать блок");
@@ -851,15 +1113,7 @@ export default function Editor() {
     }
     try {
       const newBlock = await createBlock(blockData as any);
-      setBlocks(prev => [...prev, newBlock]);
-      if (!layout) return;
-      const newLayout = { ...layout };
-      (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
-        const ordered = flattenLayoutIds(newLayout[bp]);
-        newLayout[bp] = [[...ordered, newBlock.id]];
-      });
-      setLayout(newLayout);
-      saveLayout(newLayout);
+      appendCreatedBlocks([newBlock]);
     } catch (e) {
       console.error(e);
       setToast("Не удалось создать блок");
@@ -883,16 +1137,7 @@ export default function Editor() {
   };
 
   async function handleBlockCreated(newBlock: Block) {
-    // Раньше использовалась для модалки, сейчас не нужна, но оставим для совместимости
-    if (!layout) return;
-    const newLayout = { ...layout };
-    (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
-      const ordered = flattenLayoutIds(newLayout[bp]);
-      newLayout[bp] = [[...ordered, newBlock.id]];
-    });
-    setLayout(newLayout);
-    saveLayout(newLayout);
-    setBlocks(prev => [...prev, newBlock]);
+    appendCreatedBlocks([newBlock]);
   }
 
   async function handleBlockSubmit(data: Partial<Block>) {
@@ -910,17 +1155,7 @@ export default function Editor() {
       const createdBlocks = await Promise.all(
         blocksData.map(blockData => createBlock(blockData as any))
       );
-      setBlocks(prev => [...prev, ...createdBlocks]);
-
-      if (!layout) return;
-      const newLayout = { ...layout };
-      const newIds = createdBlocks.map(b => b.id);
-      (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
-        const ordered = flattenLayoutIds(newLayout[bp]);
-        newLayout[bp] = [[...ordered, ...newIds]];
-      });
-      setLayout(newLayout);
-      saveLayout(newLayout);
+      appendCreatedBlocks(createdBlocks);
     } catch (e) {
       alert("Не удалось создать блоки");
       console.error(e);
@@ -1234,7 +1469,11 @@ export default function Editor() {
                 }}
                 onDragStart={handleDragStart}
                 onDragMove={handleDragMove}
-                onDragCancel={() => setActiveId(null)}
+                onDragCancel={() => {
+                  isPointerDragRef.current = false;
+                  setActiveId(null);
+                  setDragPreview(null);
+                }}
                 onDragEnd={handleDragEnd}
               >
                 <BentoGridDropSurface
@@ -1250,11 +1489,12 @@ export default function Editor() {
                     gap: `${currentGridGap}px`,
                     gridAutoRows: `${BENTO_ROW_UNIT}px`,
                     gridAutoFlow: 'row',
+                    position: 'relative',
                     paddingBottom: editorCanvasPadBottom,
                     boxSizing: 'border-box',
                   }}
                 >
-                  <SortableContext items={currentOrder} strategy={rectSortingStrategy}>
+                  <SortableContext items={currentOrder} strategy={bentoSortingStrategy}>
                     {currentOrder.map(blockId => {
                       const block = blocks.find(b => b.id === blockId);
                       return block ? (
@@ -1273,6 +1513,33 @@ export default function Editor() {
                       ) : null;
                     })}
                   </SortableContext>
+                  {dragPreview && cellSize ? (
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position: "absolute",
+                        left:
+                          (dragPreview.anchor.gridColumnStart - 1) *
+                          (cellSize + currentGridGap),
+                        top:
+                          (dragPreview.anchor.gridRowStart - 1) *
+                          (BENTO_ROW_UNIT + currentGridGap),
+                        width:
+                          dragPreview.colSpan * cellSize +
+                          Math.max(0, dragPreview.colSpan - 1) * currentGridGap,
+                        height:
+                          dragPreview.gridRowSpan * BENTO_ROW_UNIT +
+                          Math.max(0, dragPreview.gridRowSpan - 1) * currentGridGap,
+                        borderRadius: "var(--radius-md)",
+                        border: "2px dashed rgba(15, 23, 42, 0.28)",
+                        background:
+                          "linear-gradient(135deg, rgba(15,23,42,0.08), rgba(15,23,42,0.02))",
+                        boxSizing: "border-box",
+                        pointerEvents: "none",
+                        zIndex: 5,
+                      }}
+                    />
+                  ) : null}
                 </BentoGridDropSurface>
 
                 <DragOverlay>

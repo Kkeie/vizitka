@@ -17,7 +17,7 @@ interface SortableBlockCardProps {
   gridColumns: number;
   cellSize: number | null;
   gridGap: number;
-  onGridSizeChange?: (size: BlockGridSize | null) => void;
+  onGridSizeChange?: (size: BlockGridSize | null, options?: { reveal?: boolean }) => void;
   /** Якорь в CSS Grid для текущего брейкпоинта (без него — только span, авто-расстановка) */
   gridAnchor?: BlockGridAnchor | null;
 }
@@ -174,7 +174,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   };
 
   const handleSizeSelect = (newSize: BlockGridSize) => {
-    onGridSizeChange?.(newSize);
+    onGridSizeChange?.(newSize, { reveal: true });
   };
 
   const handleTextStyleChange = (style: Partial<NoteTextStyle>) => {
@@ -221,8 +221,12 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     }
   };
 
+  const layoutTransform = transform
+    ? { ...transform, scaleX: 1, scaleY: 1 }
+    : null;
+
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Transform.toString(layoutTransform),
     transition,
     opacity: isDragging ? 0.5 : 1,
     cursor: isDragging ? 'grabbing' : 'grab',
