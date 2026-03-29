@@ -9,9 +9,19 @@ export type BlockDimensions = {
   aspectRatio: number;
 };
 
+/** Линии CSS Grid (1-based), микро-строки для row — как в редакторе */
+export type BlockGridAnchor = {
+  gridColumnStart: number;
+  gridRowStart: number;
+};
+
 export type BlockGridSize = {
   colSpan: number;
   rowSpan: number;
+  /** Якоря позиции по брейкпоинтам; без якоря слот считается sparse */
+  anchorsByBreakpoint?: Partial<
+    Record<"mobile" | "tablet" | "desktop", BlockGridAnchor>
+  >;
 };
 
 export type BlockSizes = Record<number, BlockGridSize>;

@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { BlockGridSize, NoteTextStyle } from '../api';
+import type { BlockGridAnchor, BlockGridSize, NoteTextStyle } from '../api';
 import BlockCard, { Block } from './BlockCard';
 import { clampGridSize, getGridRowSpan, getResolvedGridSize } from '../lib/block-grid';
 import SizeMenu from './SizeMenu';
@@ -18,6 +18,8 @@ interface SortableBlockCardProps {
   cellSize: number | null;
   gridGap: number;
   onGridSizeChange?: (size: BlockGridSize | null) => void;
+  /** Якорь в CSS Grid для текущего брейкпоинта (без него — только span, авто-расстановка) */
+  gridAnchor?: BlockGridAnchor | null;
 }
 
 export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
@@ -29,6 +31,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   cellSize,
   gridGap,
   onGridSizeChange,
+  gridAnchor,
 }) => {
   const {
     attributes,
@@ -56,6 +59,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
 
   const [isSearchActive, setIsSearchActive] = React.useState(false);
   const [searchPosition, setSearchPosition] = React.useState<{ top: number; left: number } | null>(null);
+  const [isResizing, setIsResizing] = React.useState(false);
 
   // Закрываем все меню при скролле #root
   React.useEffect(() => {
@@ -222,11 +226,22 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     transition,
     opacity: isDragging ? 0.5 : 1,
     cursor: isDragging ? 'grabbing' : 'grab',
-    gridColumn: `span ${resolvedGridSize.colSpan}`,
-    gridRow: `span ${resolvedRowSpan}`,
+    gridColumn: gridAnchor
+      ? `${gridAnchor.gridColumnStart} / span ${resolvedGridSize.colSpan}`
+      : `span ${resolvedGridSize.colSpan}`,
+    gridRow: gridAnchor
+      ? `${gridAnchor.gridRowStart} / span ${resolvedRowSpan}`
+      : `span ${resolvedRowSpan}`,
     position: 'relative' as const,
     minWidth: 0,
     minHeight: 0,
+    // Без dense соседние ячейки могут визуально заходить под ручки; поднимаем активную карточку
+    zIndex:
+      isDragging
+        ? 50
+        : isResizing || isHovered || isMenuVisible || isTextMenuVisible || isSearchActive
+          ? 20
+          : undefined,
   };
 
   const startResize =
@@ -237,6 +252,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
       event.stopPropagation();
       const grid = event.currentTarget.closest('.bento-grid') as HTMLElement | null;
       if (!grid) return;
+      setIsResizing(true);
       const computed = window.getComputedStyle(grid);
       const gap = parseFloat(computed.columnGap || computed.gap || '16') || 16;
       const cssCellSize = parseFloat(computed.getPropertyValue('--bento-cell-size'));
@@ -246,9 +262,14 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
       const startX = event.clientX;
       const startY = event.clientY;
       const startSize = resolvedGridSize;
-      const handlePointerMove = (moveEvent: PointerEvent) => {
-        const deltaCols = Math.round((moveEvent.clientX - startX) / step);
-        const deltaRows = Math.round((moveEvent.clientY - startY) / step);
+      const handleEl = event.currentTarget;
+      handleEl.setPointerCapture(event.pointerId);
+
+      const handlePointerMove = (moveEvent: Event) => {
+        const ev = moveEvent as PointerEvent;
+        if (ev.cancelable) ev.preventDefault();
+        const deltaCols = Math.round((ev.clientX - startX) / step);
+        const deltaRows = Math.round((ev.clientY - startY) / step);
         const nextSize = clampGridSize(
           {
             colSpan: direction.includes('e')
@@ -266,12 +287,22 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
         );
         onGridSizeChange(nextSize);
       };
-      const handlePointerUp = () => {
-        window.removeEventListener('pointermove', handlePointerMove);
+      const moveOpts: AddEventListenerOptions = { passive: false };
+      const handlePointerUp = (upEvent: Event) => {
+        const ev = upEvent as PointerEvent;
+        setIsResizing(false);
+        try {
+          handleEl.releasePointerCapture(ev.pointerId);
+        } catch {
+          /* already released */
+        }
+        window.removeEventListener('pointermove', handlePointerMove, moveOpts);
         window.removeEventListener('pointerup', handlePointerUp);
+        window.removeEventListener('pointercancel', handlePointerUp);
       };
-      window.addEventListener('pointermove', handlePointerMove);
+      window.addEventListener('pointermove', handlePointerMove, moveOpts);
       window.addEventListener('pointerup', handlePointerUp);
+      window.addEventListener('pointercancel', handlePointerUp);
     };
 
   const handles = [
@@ -358,8 +389,6 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
         data-drag-item=""
         data-block-id={block.id}
         className={`bento-grid-item ${isDragging ? 'dragging' : ''}`.trim()}
-        {...attributes}
-        {...listeners}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleCardMouseLeave}
         onKeyDown={handleKeyDown}
@@ -369,6 +398,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
           onDelete={onDelete}
           onUpdate={onUpdate}
           isDragPreview={isDragging}
+          sortableProps={{ ...attributes, ...(listeners ?? {}) }}
         />
 
         {onDelete && isHovered && !isDragging && (
@@ -405,15 +435,17 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
             {handles.map((handle) => (
               <div
                 key={handle.key}
+                className="bento-resize-handle"
                 role="presentation"
                 title="Тяните handle, чтобы изменить размер карточки по сетке. Двойной клик сбросит размер."
                 onPointerDown={startResize(handle.key)}
                 onDoubleClick={() => onGridSizeChange(null)}
                 style={{
                   position: 'absolute',
-                  zIndex: 4,
+                  zIndex: 40,
                   cursor: handle.cursor,
                   touchAction: 'none',
+                  pointerEvents: 'auto',
                   ...handle.style,
                 }}
               >

@@ -1,4 +1,4 @@
-import type { Block, BlockGridSize, BlockType } from "../api";
+import type { Block, BlockGridAnchor, BlockGridSize, BlockSizes, BlockType } from "../api";
 import type { Breakpoint } from "../hooks/useBreakpoint";
 
 export const GRID_COLUMNS: Record<Breakpoint, number> = {
@@ -43,12 +43,37 @@ export function flattenLayoutIds(columns?: number[][] | null): number[] {
   return ordered;
 }
 
+/**
+ * Для mobile/tablet sparse-расстановки: порядок в layout-массиве не совпадает с вертикалью на desktop.
+ * Сортируем по якорю desktop (строка, затем колонка), без якоря — сохраняем исходный порядок в списке.
+ */
+export function sortBlockIdsByDesktopVisualOrder(
+  orderedIds: number[],
+  blockSizes: BlockSizes,
+): number[] {
+  const index = new Map<number, number>();
+  orderedIds.forEach((id, i) => index.set(id, i));
+
+  return [...orderedIds].sort((idA, idB) => {
+    const a = blockSizes[idA]?.anchorsByBreakpoint?.desktop;
+    const b = blockSizes[idB]?.anchorsByBreakpoint?.desktop;
+    const ra = a?.gridRowStart ?? Number.POSITIVE_INFINITY;
+    const rb = b?.gridRowStart ?? Number.POSITIVE_INFINITY;
+    if (ra !== rb) return ra - rb;
+    const ca = a?.gridColumnStart ?? Number.POSITIVE_INFINITY;
+    const cb = b?.gridColumnStart ?? Number.POSITIVE_INFINITY;
+    if (ca !== cb) return ca - cb;
+    return (index.get(idA) ?? 0) - (index.get(idB) ?? 0);
+  });
+}
+
 export function clampGridSize(size: BlockGridSize, maxCols: number): BlockGridSize {
   const safeCols = Math.max(1, maxCols);
 
   return {
     colSpan: Math.max(1, Math.min(safeCols, Math.round(size.colSpan))),
     rowSpan: Math.max(1, Math.min(MAX_ROW_SPAN, Math.round(size.rowSpan))),
+    ...(size.anchorsByBreakpoint ? { anchorsByBreakpoint: size.anchorsByBreakpoint } : {}),
   };
 }
 
@@ -76,6 +101,52 @@ export function getResolvedGridSize(
   return clampGridSize(rawSize, maxCols);
 }
 
+/** Координаты курсора → якорь сетки (линии 1-based) для свободного переноса */
+export function clientPointToGridAnchor(
+  clientX: number,
+  clientY: number,
+  gridEl: HTMLElement,
+  gridColumns: number,
+  cellSize: number | null,
+  gap: number,
+  rowUnit: number,
+  colSpan: number,
+): BlockGridAnchor {
+  const rect = gridEl.getBoundingClientRect();
+  const relX = clientX - rect.left;
+  const relY = clientY - rect.top;
+  const cw =
+    cellSize && cellSize > 0
+      ? cellSize
+      : (rect.width - gap * (gridColumns - 1)) / gridColumns;
+
+  const strideX = cw + gap;
+  let col0 = Math.floor(Math.max(0, relX) / strideX);
+  const w = Math.min(colSpan, gridColumns);
+  col0 = Math.max(0, Math.min(gridColumns - w, col0));
+
+  const strideY = rowUnit + gap;
+  const rowMicro = Math.max(0, Math.floor(Math.max(0, relY) / strideY));
+
+  return clampAnchor(
+    { gridColumnStart: col0 + 1, gridRowStart: rowMicro + 1 },
+    gridColumns,
+    w,
+  );
+}
+
+function clampAnchor(
+  anchor: BlockGridAnchor,
+  gridColumns: number,
+  colSpan: number,
+): BlockGridAnchor {
+  const maxColStart = Math.max(1, gridColumns - colSpan + 1);
+  return {
+    gridColumnStart: Math.max(1, Math.min(maxColStart, anchor.gridColumnStart)),
+    gridRowStart: Math.max(1, anchor.gridRowStart),
+  };
+}
+
 export function sanitizeBlockSizes(
   rawBlockSizes: unknown,
   validBlockIds: number[],
@@ -101,10 +172,233 @@ export function sanitizeBlockSizes(
       return;
     }
 
-    sanitized[id] = clampGridSize({ colSpan, rowSpan }, GRID_COLUMNS.desktop);
+    const base = clampGridSize({ colSpan, rowSpan }, GRID_COLUMNS.desktop);
+    const rawAnchors = (candidate as { anchorsByBreakpoint?: unknown }).anchorsByBreakpoint;
+    let anchorsByBreakpoint: BlockGridSize["anchorsByBreakpoint"];
+    if (rawAnchors && typeof rawAnchors === "object") {
+      anchorsByBreakpoint = {};
+      (["mobile", "tablet", "desktop"] as const).forEach((bp) => {
+        const a = (rawAnchors as Record<string, unknown>)[bp];
+        if (a && typeof a === "object") {
+          const cs = Number((a as { gridColumnStart?: unknown }).gridColumnStart);
+          const rs = Number((a as { gridRowStart?: unknown }).gridRowStart);
+          if (Number.isFinite(cs) && Number.isFinite(rs)) {
+            const maxCols = GRID_COLUMNS[bp];
+            const w = base.colSpan;
+            anchorsByBreakpoint![bp] = clampAnchor(
+              { gridColumnStart: Math.round(cs), gridRowStart: Math.round(rs) },
+              maxCols,
+              w,
+            );
+          }
+        }
+      });
+    }
+    sanitized[id] =
+      anchorsByBreakpoint && Object.keys(anchorsByBreakpoint).length > 0
+        ? { ...base, anchorsByBreakpoint }
+        : base;
   });
 
   return sanitized;
+}
+
+function colsOverlap(
+  a: { c0: number; w: number },
+  b: { c0: number; w: number },
+): boolean {
+  return !(a.c0 + a.w <= b.c0 || b.c0 + b.w <= a.c0);
+}
+
+function rowsOverlap(
+  a: { r0: number; h: number },
+  b: { r0: number; h: number },
+): boolean {
+  return !(a.r0 + a.h <= b.r0 || b.r0 + b.h <= a.r0);
+}
+
+type Rect = { id: number; c0: number; r0: number; w: number; h: number };
+
+function buildRects(
+  orderedIds: number[],
+  blocks: Block[],
+  blockSizes: BlockSizes,
+  bp: Breakpoint,
+  gridColumns: number,
+  cellSize: number | null,
+  gap: number,
+  rowUnit: number,
+): Rect[] {
+  return orderedIds.map((id) => {
+    const block = blocks.find((b) => b.id === id)!;
+    const gs = getResolvedGridSize(block, blockSizes[id], gridColumns);
+    const h = getGridRowSpan(block, gs, cellSize, gap, rowUnit);
+    const w = gs.colSpan;
+    const anchor = blockSizes[id]?.anchorsByBreakpoint?.[bp];
+    const c0 = anchor ? anchor.gridColumnStart - 1 : 0;
+    const r0 = anchor ? anchor.gridRowStart - 1 : 0;
+    return { id, c0, r0, w, h };
+  });
+}
+
+/** Удалить якоря одного брейкпоинта (например перед полной пересборкой после drag) */
+export function stripAnchorsForBreakpoint(blockSizes: BlockSizes, bp: Breakpoint): BlockSizes {
+  const out: BlockSizes = { ...blockSizes };
+  for (const k of Object.keys(out)) {
+    const id = Number(k);
+    const e = out[id];
+    if (!e?.anchorsByBreakpoint?.[bp]) continue;
+    const { anchorsByBreakpoint: ab, ...restEntry } = e;
+    const { [bp]: _, ...rest } = ab;
+    out[id] = {
+      ...restEntry,
+      ...(Object.keys(rest).length > 0 ? { anchorsByBreakpoint: rest } : {}),
+    };
+  }
+  return out;
+}
+
+/** Размещение sparse без dense: первый по строкам свободный прямоугольник */
+export function assignSparseAnchorsForBreakpoint(
+  orderedIds: number[],
+  blocks: Block[],
+  blockSizes: BlockSizes,
+  bp: Breakpoint,
+  gridColumns: number,
+  cellSize: number | null,
+  gap: number,
+  rowUnit = BENTO_ROW_UNIT,
+  options?: { onlyMissing?: boolean },
+): BlockSizes {
+  const onlyMissing = options?.onlyMissing !== false;
+  const next: BlockSizes = { ...blockSizes };
+  const occupancy: boolean[][] = [];
+
+  const ensureRows = (rows: number) => {
+    while (occupancy.length < rows) {
+      occupancy.push(Array(gridColumns).fill(false));
+    }
+  };
+
+  const canPlace = (r0: number, c0: number, w: number, h: number) => {
+    ensureRows(r0 + h);
+    for (let dr = 0; dr < h; dr++) {
+      for (let dc = 0; dc < w; dc++) {
+        if (occupancy[r0 + dr][c0 + dc]) return false;
+      }
+    }
+    return true;
+  };
+
+  const mark = (r0: number, c0: number, w: number, h: number) => {
+    ensureRows(r0 + h);
+    for (let dr = 0; dr < h; dr++) {
+      for (let dc = 0; dc < w; dc++) {
+        occupancy[r0 + dr][c0 + dc] = true;
+      }
+    }
+  };
+
+  for (const id of orderedIds) {
+    const block = blocks.find((b) => b.id === id);
+    if (!block) continue;
+    const gs = getResolvedGridSize(block, next[id], gridColumns);
+    const h = getGridRowSpan(block, gs, cellSize, gap, rowUnit);
+    const w = Math.min(gs.colSpan, gridColumns);
+
+    if (onlyMissing) {
+      const ex = next[id]?.anchorsByBreakpoint?.[bp];
+      if (ex?.gridColumnStart != null && ex?.gridRowStart != null) {
+        const c = ex.gridColumnStart - 1;
+        const r = ex.gridRowStart - 1;
+        if (c >= 0 && c + w <= gridColumns && r >= 0) {
+          mark(r, c, w, h);
+        }
+        continue;
+      }
+    }
+
+    let placed = false;
+    for (let r = 0; !placed && r < 10000; r++) {
+      for (let c = 0; c <= gridColumns - w; c++) {
+        if (canPlace(r, c, w, h)) {
+          mark(r, c, w, h);
+          const prev = next[id] ?? { colSpan: gs.colSpan, rowSpan: gs.rowSpan };
+          const anchor = clampAnchor(
+            { gridColumnStart: c + 1, gridRowStart: r + 1 },
+            gridColumns,
+            w,
+          );
+          next[id] = {
+            ...clampGridSize({ ...prev, colSpan: gs.colSpan, rowSpan: gs.rowSpan }, gridColumns),
+            anchorsByBreakpoint: {
+              ...(prev.anchorsByBreakpoint ?? {}),
+              [bp]: anchor,
+            },
+          };
+          placed = true;
+          break;
+        }
+      }
+    }
+  }
+
+  return next;
+}
+
+/** После изменения размера: сдвигаем нижние блоки при пересечении, порядок в orderedIds — приоритет сверху */
+export function resolveAnchorOverlaps(
+  blockSizes: BlockSizes,
+  orderedIds: number[],
+  blocks: Block[],
+  bp: Breakpoint,
+  gridColumns: number,
+  cellSize: number | null,
+  gap: number,
+  rowUnit = BENTO_ROW_UNIT,
+): BlockSizes {
+  let next: BlockSizes = JSON.parse(JSON.stringify(blockSizes)) as BlockSizes;
+
+  for (let iter = 0; iter < 80; iter++) {
+    const rects = buildRects(orderedIds, blocks, next, bp, gridColumns, cellSize, gap, rowUnit);
+    let moved = false;
+
+    for (let i = 0; i < orderedIds.length; i++) {
+      for (let j = i + 1; j < orderedIds.length; j++) {
+        const A = rects[i];
+        const B = rects[j];
+        if (!colsOverlap(A, B) || !rowsOverlap(A, B)) continue;
+
+        const bottomLine = A.r0 + A.h;
+        const newRowStart = bottomLine + 1;
+        const idB = B.id;
+        const blockB = blocks.find((b) => b.id === idB)!;
+        const gsB = getResolvedGridSize(blockB, next[idB], gridColumns);
+        const anchorB = next[idB]?.anchorsByBreakpoint?.[bp];
+        const currentStart = anchorB?.gridRowStart ?? B.r0 + 1;
+        if (currentStart < newRowStart) {
+          const prev = next[idB] ?? { colSpan: gsB.colSpan, rowSpan: gsB.rowSpan };
+          const w = gsB.colSpan;
+          const colStart = anchorB?.gridColumnStart ?? B.c0 + 1;
+          next[idB] = {
+            ...clampGridSize({ ...prev, colSpan: gsB.colSpan, rowSpan: gsB.rowSpan }, gridColumns),
+            anchorsByBreakpoint: {
+              ...(prev.anchorsByBreakpoint ?? {}),
+              [bp]: clampAnchor(
+                { gridColumnStart: colStart, gridRowStart: newRowStart },
+                gridColumns,
+                w,
+              ),
+            },
+          };
+          moved = true;
+        }
+      }
+    }
+    if (!moved) break;
+  }
+
+  return next;
 }
 
 export function getBlockHeightPx(

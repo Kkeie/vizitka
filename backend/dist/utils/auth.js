@@ -3,7 +3,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.requireAuth = exports.signToken = exports.verifyPassword = exports.hashPassword = void 0;
+exports.hashPassword = hashPassword;
+exports.verifyPassword = verifyPassword;
+exports.signToken = signToken;
+exports.requireAuth = requireAuth;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const crypto_1 = __importDefault(require("crypto"));
 const JWT_ISSUER = "vizitka-backend";
@@ -42,7 +45,6 @@ async function hashPassword(password) {
     }));
     return `scrypt$${salt}$${derived.toString("hex")}`;
 }
-exports.hashPassword = hashPassword;
 async function verifyPassword(password, stored) {
     try {
         const [alg, salt, hashHex] = stored.split("$");
@@ -61,7 +63,6 @@ async function verifyPassword(password, stored) {
         return false;
     }
 }
-exports.verifyPassword = verifyPassword;
 // ===== JWT =====
 function signToken(payload) {
     return jsonwebtoken_1.default.sign(payload, getJwtSecret(), {
@@ -70,7 +71,6 @@ function signToken(payload) {
         issuer: JWT_ISSUER,
     });
 }
-exports.signToken = signToken;
 function requireAuth(req, res, next) {
     const h = req.headers.authorization || "";
     const token = h.startsWith("Bearer ") ? h.slice(7) : null;
@@ -100,4 +100,3 @@ function requireAuth(req, res, next) {
         return res.status(401).json({ error: "unauthorized" });
     }
 }
-exports.requireAuth = requireAuth;

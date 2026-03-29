@@ -485,6 +485,20 @@ a:hover{color:var(--primary-hover)}
   --bento-cell-size: 180px;
   --bento-row-unit: 8px;
   grid-auto-rows: var(--bento-row-unit);
+  /* Явно без dense: не уплотнять сетку и не «затягивать» блоки в пустые ячейки сверху */
+  grid-auto-flow: row;
+}
+
+/* Публичная визитка: высота сетки только под блоки, без лишней растяжки колонки */
+.public-page .bento-grid.bento-grid--public-fit {
+  height: fit-content;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Редактор: колонка с блоками не растягивается на всю высоту соседа */
+.editor-page .editor-blocks-column {
+  align-self: start;
 }
 .bento-grid-item{
   position: relative;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { 
   listBlocks, 
@@ -20,24 +20,41 @@ import Avatar from "../components/Avatar";
 import { SortableBlockCard } from "../components/SortableBlockCard";
 import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
+import MobileVisitPreviewModal from "../components/MobileVisitPreviewModal";
 import SocialMediaForm, { type SocialSubmitItem } from "../components/SocialMediaForm";
 import InlineInputCard from "../components/InlineInputCard";
 import { formatPhoneNumber } from "../utils/phone";
 import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
-import { BENTO_ROW_UNIT, GRID_COLUMNS, flattenLayoutIds, sanitizeBlockSizes } from "../lib/block-grid";
+import {
+  BENTO_ROW_UNIT,
+  GRID_COLUMNS,
+  assignSparseAnchorsForBreakpoint,
+  clampGridSize,
+  clientPointToGridAnchor,
+  flattenLayoutIds,
+  getResolvedGridSize,
+  resolveAnchorOverlaps,
+  sanitizeBlockSizes,
+  stripAnchorsForBreakpoint,
+} from "../lib/block-grid";
 
 // dnd-kit imports
 import {
   DndContext,
   DragOverlay,
+  MeasuringStrategy,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  pointerWithin,
+  useDroppable,
   useSensor,
   useSensors,
   DragStartEvent,
+  DragMoveEvent,
   DragEndEvent,
+  type CollisionDetection,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -47,6 +64,60 @@ import {
 } from '@dnd-kit/sortable';
 
 import "../styles/drag-reorder.css";
+
+/** Droppable сетки: сброс на «пустое» место без наезда на другую карточку */
+const GRID_SURFACE_ID = "bento-grid-surface" as const;
+
+/** Нижняя зона экрана при перетаскивании: растём вниз и чуть скроллим */
+const DRAG_BOTTOM_EDGE_PX = 110;
+const DRAG_BOTTOM_EXPAND_STEP = 14;
+
+function pointerInExtendedGrid(
+  clientX: number,
+  clientY: number,
+  gridEl: HTMLElement,
+  committedPadBottom: number,
+  desiredPadBottom: number,
+): boolean {
+  const r = gridEl.getBoundingClientRect();
+  const extra = Math.max(0, desiredPadBottom - committedPadBottom);
+  const bottom = r.bottom + extra;
+  return (
+    clientX >= r.left &&
+    clientX <= r.right &&
+    clientY >= r.top &&
+    clientY <= bottom
+  );
+}
+
+function BentoGridDropSurface({
+  gridRef,
+  className,
+  style,
+  children,
+}: {
+  gridRef: React.RefObject<HTMLDivElement | null>;
+  className?: string;
+  style: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({
+    id: GRID_SURFACE_ID,
+    data: { type: "grid-surface" },
+  });
+  const mergedRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      (gridRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      setNodeRef(node);
+    },
+    [gridRef, setNodeRef],
+  );
+  return (
+    <div ref={mergedRef} className={className} style={style}>
+      {children}
+    </div>
+  );
+}
 
 type DebouncedFn<T extends (...args: any[]) => void> = ((...args: Parameters<T>) => void) & {
   cancel: () => void;
@@ -102,7 +173,28 @@ export default function Editor() {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
+  );
   const [activeId, setActiveId] = useState<number | null>(null);
+  const lastPointerRef = useRef({ x: 0, y: 0 });
+
+  /** Всегда обновляем — dnd-kit считает коллизии до commit setActiveId после DragStart */
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    };
+    const onUp = (e: PointerEvent) => {
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    window.addEventListener("pointerup", onUp, { passive: true, capture: true });
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp, { capture: true });
+    };
+  }, []);
 
   // State для инлайн-карточки ввода (ссылка, видео, музыка)
   const [inlineInput, setInlineInput] = useState<{
@@ -110,6 +202,45 @@ export default function Editor() {
     buttonRect: DOMRect;
   } | null>(null);
   const bottomBarRef = useRef<HTMLDivElement>(null);
+  /** Синхронно с padding в state — для коллизий до следующего paint (иначе дроп не видит новую высоту) */
+  const canvasPadDesiredRef = useRef(0);
+  /** Нижний «холст» сетки (padding на самом .bento-grid, чтобы дроп и координаты совпадали) */
+  const [editorCanvasPadBottom, setEditorCanvasPadBottom] = useState(0);
+
+  const addCanvasPadDelta = useCallback((delta: number) => {
+    if (delta <= 0) return;
+    canvasPadDesiredRef.current += delta;
+    setEditorCanvasPadBottom(canvasPadDesiredRef.current);
+  }, []);
+
+  /** Колёсик только во время drag: холст растёт вместе со скроллом, иначе дроп не попадает в сетку */
+  useEffect(() => {
+    if (activeId == null) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) return;
+      if (e.deltaY <= 0) return;
+
+      const el = e.target as HTMLElement;
+      const scrollHost = el.closest(".card__content") as HTMLElement | null;
+      if (scrollHost) {
+        const oy = getComputedStyle(scrollHost).overflowY;
+        if (
+          (oy === "auto" || oy === "scroll") &&
+          scrollHost.scrollHeight > scrollHost.clientHeight + 1
+        ) {
+          const { scrollTop, scrollHeight, clientHeight } = scrollHost;
+          if (e.deltaY < 0 && scrollTop > 0) return;
+          if (e.deltaY > 0 && scrollTop + clientHeight < scrollHeight - 1) return;
+        }
+      }
+
+      addCanvasPadDelta(Math.min(120, Math.abs(e.deltaY)));
+    };
+
+    window.addEventListener("wheel", onWheel, { passive: true, capture: true });
+    return () => window.removeEventListener("wheel", onWheel, { capture: true });
+  }, [activeId, addCanvasPadDelta]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { 
@@ -124,6 +255,13 @@ export default function Editor() {
   if (location.pathname !== "/editor") {
     return null;
   }
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const onChange = () => setIsMobileViewport(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     // Проверяем наличие токена перед загрузкой данных
@@ -254,8 +392,65 @@ export default function Editor() {
 
   const currentGridColumns = GRID_COLUMNS[breakpoint];
   const currentGridGap = 16;
-  const hasSectionBlocks = blocks.some((block) => block.type === "section");
   const { gridRef, cellSize } = useBentoGridMetrics(currentGridColumns, currentGridGap);
+
+  /**
+   * dnd-kit передаёт pointerCoordinates как activation+translate — при скролле/оверлее это может
+   * расходиться с реальным clientX/Y. Всегда используем lastPointerRef (window pointermove).
+   * Ниж сетки расширяем на (desiredPad − committedPad) до paint.
+   */
+  const bentoGridCollisionDetection = useMemo<CollisionDetection>(
+    () => (args) => {
+      const { droppableContainers, pointerCoordinates: kitPointer } = args;
+      const pt = lastPointerRef.current;
+      const pointerCoordinates =
+        Number.isFinite(pt.x) && Number.isFinite(pt.y) ? { x: pt.x, y: pt.y } : kitPointer;
+      if (!pointerCoordinates) return [];
+
+      const argsWithPointer = { ...args, pointerCoordinates };
+
+      const blockContainers = droppableContainers.filter((c) => typeof c.id === "number");
+      const blockIntersections = pointerWithin({
+        ...argsWithPointer,
+        droppableContainers: blockContainers,
+      });
+      if (blockIntersections.length > 0) {
+        return closestCenter({
+          ...argsWithPointer,
+          droppableContainers: args.droppableContainers.filter((container) =>
+            blockIntersections.some((bc) => bc.id === container.id),
+          ),
+        });
+      }
+
+      const gridExtraBottom = Math.max(0, canvasPadDesiredRef.current - editorCanvasPadBottom);
+      const gridContainer = droppableContainers.find((c) => c.id === GRID_SURFACE_ID);
+      const gridEl = gridRef.current;
+      if (gridContainer && gridEl) {
+        const r = gridEl.getBoundingClientRect();
+        const effectiveBottom = r.bottom + gridExtraBottom;
+        const inGrid =
+          pointerCoordinates.x >= r.left &&
+          pointerCoordinates.x <= r.right &&
+          pointerCoordinates.y >= r.top &&
+          pointerCoordinates.y <= effectiveBottom;
+        if (inGrid) {
+          return [
+            {
+              id: GRID_SURFACE_ID,
+              data: {
+                droppableContainer: gridContainer,
+                value: 0,
+              },
+            },
+          ];
+        }
+      }
+
+      return [];
+    },
+    [editorCanvasPadBottom, gridRef],
+  );
 
   const saveLayout = useMemo(
     () =>
@@ -290,18 +485,159 @@ export default function Editor() {
     };
   }, [saveLayout, saveBlockSizes]);
 
+  const orderKey = currentOrder.join(",");
+  const blockIdsKey = blocks.map((b) => b.id).join(",");
+
+  useEffect(() => {
+    if (!cellSize || !layout || blocks.length === 0) return;
+    setBlockSizes((prev) => {
+      const needAnchor = currentOrder.some(
+        (id) => !prev[id]?.anchorsByBreakpoint?.[breakpoint],
+      );
+      if (!needAnchor) return prev;
+      const assigned = assignSparseAnchorsForBreakpoint(
+        currentOrder,
+        blocks,
+        prev,
+        breakpoint,
+        currentGridColumns,
+        cellSize,
+        currentGridGap,
+      );
+      saveBlockSizes(assigned);
+      return assigned;
+    });
+  }, [
+    cellSize,
+    breakpoint,
+    layout,
+    orderKey,
+    blockIdsKey,
+    currentGridColumns,
+    currentGridGap,
+    saveBlockSizes,
+  ]);
+
   const handleDragStart = (event: DragStartEvent) => {
+    canvasPadDesiredRef.current = editorCanvasPadBottom;
     setActiveId(event.active.id as number);
+    const e = event.activatorEvent as PointerEvent;
+    if (e?.clientX != null) {
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    }
+  };
+
+  const handleDragMove = (_event: DragMoveEvent) => {
+    if (typeof _event.active.id !== "number") return;
+    const y = lastPointerRef.current.y;
+    const gridEl = gridRef.current;
+    if (gridEl) {
+      const r = gridEl.getBoundingClientRect();
+      const lagBottom = Math.max(0, canvasPadDesiredRef.current - editorCanvasPadBottom);
+      const effectiveBottom = r.bottom + lagBottom;
+      const margin = 56;
+      if (y > effectiveBottom - margin) {
+        const extra = Math.min(72, Math.ceil((y - (effectiveBottom - margin)) * 0.45 + 10));
+        addCanvasPadDelta(extra);
+      }
+    }
+    const h = window.innerHeight;
+    const zoneStart = h - DRAG_BOTTOM_EDGE_PX;
+    if (y <= zoneStart) return;
+    const depth = Math.min(1, (y - zoneStart) / DRAG_BOTTOM_EDGE_PX);
+    const delta = Math.max(6, Math.round(DRAG_BOTTOM_EXPAND_STEP * (0.4 + depth * 0.6)));
+    addCanvasPadDelta(delta);
+    window.scrollBy({ top: Math.min(delta, 28), left: 0, behavior: "auto" });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
-    if (!over || !layout) return;
+    if (!layout) return;
 
-    const activeId = active.id as number;
+    const draggedId = active.id as number;
+
+    const gridEl = gridRef.current;
+    const pointer = lastPointerRef.current;
+    const dropOnGridSurface =
+      over?.id === GRID_SURFACE_ID ||
+      (!over &&
+        gridEl &&
+        pointerInExtendedGrid(
+          pointer.x,
+          pointer.y,
+          gridEl,
+          editorCanvasPadBottom,
+          canvasPadDesiredRef.current,
+        ));
+
+    if (dropOnGridSurface) {
+      if (!gridEl) return;
+
+      const block = blocks.find((b) => b.id === draggedId);
+      if (!block) return;
+
+      const gs = getResolvedGridSize(block, blockSizes[draggedId], currentGridColumns);
+      const anchor = clientPointToGridAnchor(
+        pointer.x,
+        pointer.y,
+        gridEl,
+        currentGridColumns,
+        cellSize,
+        currentGridGap,
+        BENTO_ROW_UNIT,
+        gs.colSpan,
+      );
+
+      setBlockSizes((prev) => {
+        const prevEntry = prev[draggedId] ?? {};
+        const next: BlockSizes = {
+          ...prev,
+          [draggedId]: {
+            ...clampGridSize(
+              { ...prevEntry, colSpan: gs.colSpan, rowSpan: gs.rowSpan },
+              currentGridColumns,
+            ),
+            anchorsByBreakpoint: {
+              ...(prevEntry.anchorsByBreakpoint ?? {}),
+              [breakpoint]: anchor,
+            },
+          },
+        };
+        let merged = assignSparseAnchorsForBreakpoint(
+          currentOrder,
+          blocks,
+          next,
+          breakpoint,
+          currentGridColumns,
+          cellSize,
+          currentGridGap,
+          BENTO_ROW_UNIT,
+          { onlyMissing: true },
+        );
+        merged = resolveAnchorOverlaps(
+          merged,
+          currentOrder,
+          blocks,
+          breakpoint,
+          currentGridColumns,
+          cellSize,
+          currentGridGap,
+        );
+        saveBlockSizes(merged);
+        return merged;
+      });
+      return;
+    }
+
+    if (!over) {
+      return;
+    }
+
+    if (typeof over.id !== "number") return;
+
     const overId = over.id as number;
-    const oldIndex = currentOrder.indexOf(activeId);
+    const oldIndex = currentOrder.indexOf(draggedId);
     const newIndex = currentOrder.indexOf(overId);
 
     if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
@@ -312,6 +648,21 @@ export default function Editor() {
     const newLayout = { ...layout, [breakpoint]: [nextOrder] };
     setLayout(newLayout);
     saveLayout(newLayout);
+
+    setBlockSizes((prev) => {
+      const cleared = stripAnchorsForBreakpoint(prev, breakpoint);
+      const assigned = assignSparseAnchorsForBreakpoint(
+        nextOrder,
+        blocks,
+        cleared,
+        breakpoint,
+        currentGridColumns,
+        cellSize,
+        currentGridGap,
+      );
+      saveBlockSizes(assigned);
+      return assigned;
+    });
   };
 
   async function saveProfile(e: React.FormEvent) {
@@ -375,17 +726,47 @@ export default function Editor() {
   }
 
   function handleBlockDimensionsChange(id: number, nextDimensions: BlockGridSize | null) {
-    setBlockSizes(prev => {
+    setBlockSizes((prev) => {
       const next = { ...prev };
 
       if (nextDimensions == null) {
         delete next[id];
-      } else {
-        next[id] = nextDimensions;
+        saveBlockSizes(next);
+        return next;
       }
 
-      saveBlockSizes(next);
-      return next;
+      const prevEntry = prev[id] ?? {};
+      next[id] = {
+        colSpan: nextDimensions.colSpan,
+        rowSpan: nextDimensions.rowSpan,
+        anchorsByBreakpoint: {
+          ...(prevEntry.anchorsByBreakpoint ?? {}),
+          ...(nextDimensions.anchorsByBreakpoint ?? {}),
+        },
+      };
+
+      let merged = assignSparseAnchorsForBreakpoint(
+        currentOrder,
+        blocks,
+        next,
+        breakpoint,
+        currentGridColumns,
+        cellSize,
+        currentGridGap,
+        BENTO_ROW_UNIT,
+        { onlyMissing: true },
+      );
+      merged = resolveAnchorOverlaps(
+        merged,
+        currentOrder,
+        blocks,
+        breakpoint,
+        currentGridColumns,
+        cellSize,
+        currentGridGap,
+      );
+      saveBlockSizes(merged);
+      return merged;
     });
   }
 
@@ -573,7 +954,7 @@ export default function Editor() {
   const totalBlocks = blocks.length;
 
   return (
-    <div className="page-bg min-h-screen">
+    <div className="page-bg min-h-screen editor-page">
       <div className="container" style={{ paddingTop: 40, paddingBottom: 100 }}>
         {/* Two Column Layout: Profile Left, Blocks Right */}
         <div className="two-column-layout" style={{ alignItems: "start" }}>
@@ -834,20 +1215,30 @@ export default function Editor() {
             <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }}></div>
           </div>
 
-          {/* Right Column: Blocks */}
-          <div style={{ minWidth: 0, width: "100%" }}>
+          {/* Right Column: Blocks — нижний отступ холста только на drag к низу экрана */}
+          <div
+            className="editor-blocks-column"
+            style={{
+              minWidth: 0,
+              width: "100%",
+            }}
+          >
             {totalBlocks === 0 ? (
               <SocialMediaForm onSubmit={handleSocialMediaSubmit} />
             ) : (
               <DndContext
                 sensors={sensors}
-                collisionDetection={closestCenter}
+                collisionDetection={bentoGridCollisionDetection}
+                measuring={{
+                  droppable: { strategy: MeasuringStrategy.Always },
+                }}
                 onDragStart={handleDragStart}
+                onDragMove={handleDragMove}
                 onDragCancel={() => setActiveId(null)}
                 onDragEnd={handleDragEnd}
               >
-                <div
-                  ref={gridRef}
+                <BentoGridDropSurface
+                  gridRef={gridRef}
                   className="bento-grid"
                   style={{
                     display: 'grid',
@@ -858,7 +1249,9 @@ export default function Editor() {
                     ['--bento-row-unit' as string]: `${BENTO_ROW_UNIT}px`,
                     gap: `${currentGridGap}px`,
                     gridAutoRows: `${BENTO_ROW_UNIT}px`,
-                    gridAutoFlow: hasSectionBlocks ? 'row' : 'dense',
+                    gridAutoFlow: 'row',
+                    paddingBottom: editorCanvasPadBottom,
+                    boxSizing: 'border-box',
                   }}
                 >
                   <SortableContext items={currentOrder} strategy={rectSortingStrategy}>
@@ -872,6 +1265,7 @@ export default function Editor() {
                           cellSize={cellSize}
                           gridGap={currentGridGap}
                           gridSize={blockSizes[block.id]}
+                          gridAnchor={blockSizes[block.id]?.anchorsByBreakpoint?.[breakpoint] ?? null}
                           onGridSizeChange={(dimensions) => handleBlockDimensionsChange(block.id, dimensions)}
                           onDelete={() => handleDeleteBlock(block.id)}
                           onUpdate={(partial) => handleUpdateBlock(block.id, partial)}
@@ -879,7 +1273,7 @@ export default function Editor() {
                       ) : null;
                     })}
                   </SortableContext>
-                </div>
+                </BentoGridDropSurface>
 
                 <DragOverlay>
                   {activeId ? (
@@ -954,6 +1348,44 @@ export default function Editor() {
                 <span style={{ fontSize: "11px", fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
               </button>
             ))}
+            <div
+              role="separator"
+              style={{
+                width: 1,
+                alignSelf: "stretch",
+                minHeight: 44,
+                background: "var(--border)",
+                margin: "0 6px",
+              }}
+            />
+            <button
+              type="button"
+              title="Превью визитки на телефоне"
+              aria-label="Превью визитки на телефоне"
+              onClick={() => setShowMobilePreview(true)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "3px",
+                padding: "6px 10px",
+                background: isMobileViewport ? "var(--accent)" : "transparent",
+                border: "none",
+                cursor: "pointer",
+                borderRadius: "var(--radius-sm)",
+                transition: "all 0.2s ease",
+                color: "var(--text)",
+                minWidth: isMobileViewport ? "72px" : "52px",
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+                <line x1="10" y1="17" x2="14" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <span style={{ fontSize: "11px", fontWeight: 600, lineHeight: 1.2 }}>
+                {isMobileViewport ? "Превью" : "Тел."}
+              </span>
+            </button>
           </div>
         </div>
       </div>
@@ -997,6 +1429,17 @@ export default function Editor() {
             }
             return val.trim().length > 0;
           }}
+        />
+      )}
+
+      {profile && layout && (
+        <MobileVisitPreviewModal
+          open={showMobilePreview}
+          onClose={() => setShowMobilePreview(false)}
+          profile={profile}
+          blocks={blocks}
+          layout={layout}
+          blockSizes={blockSizes}
         />
       )}
 
