@@ -179,6 +179,7 @@ export default function Editor() {
   );
   const [activeId, setActiveId] = useState<number | null>(null);
   const lastPointerRef = useRef({ x: 0, y: 0 });
+  const revealTimeoutsRef = useRef<number[]>([]);
 
   /** Всегда обновляем — dnd-kit считает коллизии до commit setActiveId после DragStart */
   useEffect(() => {
@@ -193,6 +194,13 @@ export default function Editor() {
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp, { capture: true });
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      revealTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      revealTimeoutsRef.current = [];
     };
   }, []);
 
@@ -770,35 +778,33 @@ export default function Editor() {
     });
   }
 
-  // Для заголовков и заметок создаём пустой блок сразу и ставим фокус
-  const createEmptyBlock = async (type: BlockType, initialData: Partial<Block> = {}) => {
-    try {
-      const newBlock = await createBlock({ type, ...initialData } as any);
-      setBlocks(prev => [...prev, newBlock]);
-      if (!layout) return;
-      const newLayout = { ...layout };
-      (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
-        const ordered = flattenLayoutIds(newLayout[bp]);
-        newLayout[bp] = [[...ordered, newBlock.id]];
-      });
-      setLayout(newLayout);
-      saveLayout(newLayout);
+  const revealCreatedBlock = useCallback(
+    (blockId: number, options?: { focusType?: BlockType }) => {
+      let attempts = 0;
+      let didScroll = false;
 
-      // Фокусируемся на элементе с задержкой и повторными попытками
-      const targetId = newBlock.id;
-      const focusOnBlock = () => {
-        const el = document.querySelector(`[data-block-id="${targetId}"]`);
+      const tryReveal = () => {
+        const el = document.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement | null;
         if (!el) return false;
 
-        if (type === 'section') {
-          const input = el.querySelector('input');
-          if (input) {
+        if (!didScroll) {
+          el.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+          didScroll = true;
+        }
+
+        if (options?.focusType === "section") {
+          const input = el.querySelector("input");
+          if (input instanceof HTMLInputElement) {
             input.focus();
+            input.select();
             return true;
           }
-        } else if (type === 'note') {
+          return false;
+        }
+
+        if (options?.focusType === "note") {
           const editable = el.querySelector('[contenteditable="true"]');
-          if (editable && editable instanceof HTMLElement) {
+          if (editable instanceof HTMLElement) {
             editable.focus();
             const range = document.createRange();
             const sel = window.getSelection();
@@ -808,21 +814,68 @@ export default function Editor() {
             sel?.addRange(range);
             return true;
           }
+          return false;
         }
-        return false;
+
+        return true;
       };
 
-      // Пробуем сразу
-      if (focusOnBlock()) return;
+      if (tryReveal()) return;
 
-      // Если не получилось, пробуем несколько раз с интервалом
-      let attempts = 0;
-      const interval = setInterval(() => {
-        if (focusOnBlock() || attempts >= 20) {
-          clearInterval(interval);
-        }
-        attempts++;
-      }, 100);
+      const scheduleRetry = () => {
+        const timeoutId = window.setTimeout(() => {
+          attempts += 1;
+          if (tryReveal() || attempts >= 20) {
+            return;
+          }
+          scheduleRetry();
+        }, 100);
+
+        revealTimeoutsRef.current.push(timeoutId);
+      };
+
+      scheduleRetry();
+    },
+    [],
+  );
+
+  const appendCreatedBlocks = useCallback(
+    (
+      createdBlocks: Block[],
+      options?: {
+        focusType?: BlockType;
+        scrollTargetId?: number;
+      },
+    ) => {
+      if (createdBlocks.length === 0) return;
+
+      const newIds = createdBlocks.map((block) => block.id);
+      setBlocks((prev) => [...prev, ...createdBlocks]);
+      setLayout((prev) => {
+        if (!prev) return prev;
+
+        const nextLayout = { ...prev };
+        (Object.keys(nextLayout) as Breakpoint[]).forEach((bp) => {
+          const ordered = flattenLayoutIds(nextLayout[bp]);
+          nextLayout[bp] = [[...ordered, ...newIds]];
+        });
+        saveLayout(nextLayout);
+        return nextLayout;
+      });
+
+      revealCreatedBlock(
+        options?.scrollTargetId ?? newIds[newIds.length - 1],
+        options?.focusType ? { focusType: options.focusType } : undefined,
+      );
+    },
+    [revealCreatedBlock, saveLayout],
+  );
+
+  // Для заголовков и заметок создаём пустой блок сразу и ставим фокус
+  const createEmptyBlock = async (type: BlockType, initialData: Partial<Block> = {}) => {
+    try {
+      const newBlock = await createBlock({ type, ...initialData } as any);
+      appendCreatedBlocks([newBlock], { focusType: type });
     } catch (e) {
       console.error(e);
       setToast("Не удалось создать блок");
@@ -851,20 +904,13 @@ export default function Editor() {
     }
     try {
       const newBlock = await createBlock(blockData as any);
-      setBlocks(prev => [...prev, newBlock]);
-      if (!layout) return;
-      const newLayout = { ...layout };
-      (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
-        const ordered = flattenLayoutIds(newLayout[bp]);
-        newLayout[bp] = [[...ordered, newBlock.id]];
-      });
-      setLayout(newLayout);
-      saveLayout(newLayout);
+      appendCreatedBlocks([newBlock]);
     } catch (e) {
       console.error(e);
       setToast("Не удалось создать блок");
+    } finally {
+      setInlineInput(null);
     }
-    setInlineInput(null);
   };
 
   // Остальные типы (соцсети, фото, карта) остаются в модалке
@@ -882,23 +928,10 @@ export default function Editor() {
     }
   };
 
-  async function handleBlockCreated(newBlock: Block) {
-    // Раньше использовалась для модалки, сейчас не нужна, но оставим для совместимости
-    if (!layout) return;
-    const newLayout = { ...layout };
-    (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
-      const ordered = flattenLayoutIds(newLayout[bp]);
-      newLayout[bp] = [[...ordered, newBlock.id]];
-    });
-    setLayout(newLayout);
-    saveLayout(newLayout);
-    setBlocks(prev => [...prev, newBlock]);
-  }
-
   async function handleBlockSubmit(data: Partial<Block>) {
     try {
       const newBlock = await createBlock(data as any);
-      await handleBlockCreated(newBlock);
+      appendCreatedBlocks([newBlock]);
     } catch (e) {
       alert("Не удалось создать блок");
       console.error(e);
@@ -910,17 +943,9 @@ export default function Editor() {
       const createdBlocks = await Promise.all(
         blocksData.map(blockData => createBlock(blockData as any))
       );
-      setBlocks(prev => [...prev, ...createdBlocks]);
-
-      if (!layout) return;
-      const newLayout = { ...layout };
-      const newIds = createdBlocks.map(b => b.id);
-      (Object.keys(newLayout) as Breakpoint[]).forEach(bp => {
-        const ordered = flattenLayoutIds(newLayout[bp]);
-        newLayout[bp] = [[...ordered, ...newIds]];
+      appendCreatedBlocks(createdBlocks, {
+        scrollTargetId: createdBlocks[0]?.id,
       });
-      setLayout(newLayout);
-      saveLayout(newLayout);
     } catch (e) {
       alert("Не удалось создать блоки");
       console.error(e);

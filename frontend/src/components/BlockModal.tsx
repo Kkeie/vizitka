@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { type BlockType } from "../api";
 import ImageUploader from "./ImageUploader";
 
@@ -42,11 +42,68 @@ interface BlockModalProps {
   onSubmit: (data: any) => void;
 }
 
+type AddressSuggestion = {
+  lat: number;
+  lng: number;
+  displayName: string;
+};
+
+type NominatimSearchResult = {
+  lat: string;
+  lon: string;
+  display_name?: string;
+};
+
+async function searchAddressSuggestions(
+  query: string,
+  limit: number,
+  signal?: AbortSignal,
+): Promise<AddressSuggestion[]> {
+  const response = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=${limit}&addressdetails=1&accept-language=ru`,
+    { signal },
+  );
+
+  if (!response.ok) {
+    throw new Error("address_search_failed");
+  }
+
+  const text = await response.text();
+  if (!text || text.trim().length === 0) {
+    return [];
+  }
+
+  let data: NominatimSearchResult[] = [];
+  try {
+    data = JSON.parse(text) as NominatimSearchResult[];
+  } catch {
+    console.error("[BlockModal] Failed to parse address suggestions:", text.substring(0, 200));
+    throw new Error("address_search_parse_failed");
+  }
+
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return data
+    .map((item) => ({
+      lat: parseFloat(item.lat),
+      lng: parseFloat(item.lon),
+      displayName: item.display_name || query,
+    }))
+    .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+}
+
 export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockModalProps) {
   const [formData, setFormData] = useState<any>({});
   const [searchAddress, setSearchAddress] = useState("");
   const [searching, setSearching] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
+  const [searchAddressError, setSearchAddressError] = useState<string | null>(null);
   const [mapInputType, setMapInputType] = useState<'address' | 'coordinates'>('address');
+  const skipNextSuggestionFetchRef = useRef(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -56,50 +113,94 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         setFormData({});
       }
       setSearchAddress("");
+      setSearching(false);
+      setLoadingSuggestions(false);
+      setAddressSuggestions([]);
+      setActiveSuggestionIndex(0);
+      setSearchAddressError(null);
       setMapInputType('address');
+      skipNextSuggestionFetchRef.current = false;
     }
   }, [isOpen, type]);
+
+  useEffect(() => {
+    if (!isOpen || type !== "map" || mapInputType !== "address") {
+      return;
+    }
+
+    if (skipNextSuggestionFetchRef.current) {
+      skipNextSuggestionFetchRef.current = false;
+      return;
+    }
+
+    const query = searchAddress.trim();
+    if (query.length < 3) {
+      setLoadingSuggestions(false);
+      setAddressSuggestions([]);
+      setActiveSuggestionIndex(0);
+      setSearchAddressError(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setLoadingSuggestions(true);
+      setSearchAddressError(null);
+      try {
+        const suggestions = await searchAddressSuggestions(query, 5, controller.signal);
+        if (controller.signal.aborted) return;
+        setAddressSuggestions(suggestions);
+        setActiveSuggestionIndex(0);
+        if (suggestions.length === 0) {
+          setSearchAddressError("Подсказки не найдены. Попробуйте уточнить адрес.");
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("Ошибка загрузки подсказок адреса:", error);
+        setAddressSuggestions([]);
+        setSearchAddressError("Не удалось загрузить подсказки. Можно выполнить поиск вручную.");
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingSuggestions(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeoutId);
+    };
+  }, [isOpen, mapInputType, searchAddress, type]);
+
+  const applyAddressSuggestion = (suggestion: AddressSuggestion) => {
+    skipNextSuggestionFetchRef.current = true;
+    setFormData((prev: any) => ({
+      ...prev,
+      mapLat: suggestion.lat,
+      mapLng: suggestion.lng,
+    }));
+    setSearchAddress(suggestion.displayName);
+    setAddressSuggestions([]);
+    setActiveSuggestionIndex(0);
+    setSearchAddressError(null);
+  };
 
 
   const handleGeocodeAddress = async () => {
     if (!searchAddress.trim()) return;
-    
+
+    const selectedSuggestion = addressSuggestions[activeSuggestionIndex] ?? addressSuggestions[0];
+    if (selectedSuggestion) {
+      applyAddressSuggestion(selectedSuggestion);
+      return;
+    }
+
     setSearching(true);
     try {
-      // Используем Nominatim (OpenStreetMap) для геокодинга (бесплатный)
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&limit=1&addressdetails=1&accept-language=ru`
-      );
-      
-      if (!response.ok) {
-        alert("Не удалось найти адрес. Попробуйте ввести координаты вручную или уточните адрес.");
-        return;
-      }
-      
-      const text = await response.text();
-      if (!text || text.trim().length === 0) {
-        alert("Не удалось найти адрес. Попробуйте ввести координаты вручную или уточните адрес.");
-        return;
-      }
-      
-      let data: Array<{ lat: string; lon: string; display_name?: string }> | null = null;
-      try {
-        data = JSON.parse(text) as Array<{ lat: string; lon: string; display_name?: string }>;
-      } catch {
-        console.error('[BlockModal] Failed to parse geocoding response:', text.substring(0, 200));
-        alert("Не удалось найти адрес. Попробуйте ввести координаты вручную или уточните адрес.");
-        return;
-      }
-      
-      if (data.length > 0) {
-        const { lat, lon, display_name } = data[0];
-        setFormData({
-          ...formData,
-          mapLat: parseFloat(lat),
-          mapLng: parseFloat(lon),
-        });
-        // Показываем найденный адрес
-        setSearchAddress(display_name || searchAddress);
+      const suggestions = await searchAddressSuggestions(searchAddress.trim(), 1);
+
+      if (suggestions.length > 0) {
+        applyAddressSuggestion(suggestions[0]);
       } else {
         alert(`Адрес не найден. Попробуйте:\n1. Уточнить адрес\n2. Или используйте поиск по координатам`);
       }
@@ -215,7 +316,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         break;
         
       case "map":
-        if (formData.mapLat && formData.mapLng) {
+        if (formData.mapLat != null && formData.mapLng != null) {
           submitData.mapLat = formData.mapLat;
           submitData.mapLng = formData.mapLng;
         } else {
@@ -230,6 +331,8 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
   };
 
   if (!isOpen) return null;
+
+  const hasMapCoordinates = formData.mapLat != null && formData.mapLng != null;
 
   const typeAccusative: Record<BlockType, string> = {
     section: "заголовок",
@@ -544,14 +647,38 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                   <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
                     Поиск по адресу
                   </label>
+                  <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 0, marginBottom: 8 }}>
+                    Начните вводить адрес и выберите подсказку из списка.
+                  </p>
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                     <input
                       className="input"
                       type="text"
                       placeholder="Введите адрес (например: Москва, Красная площадь)"
                       value={searchAddress}
-                      onChange={(e) => setSearchAddress(e.target.value)}
+                      onChange={(e) => {
+                        setSearchAddress(e.target.value);
+                        setActiveSuggestionIndex(0);
+                        setSearchAddressError(null);
+                      }}
                       onKeyDown={(e) => {
+                        if (e.key === "ArrowDown" && addressSuggestions.length > 0) {
+                          e.preventDefault();
+                          setActiveSuggestionIndex((prev) =>
+                            Math.min(prev + 1, addressSuggestions.length - 1),
+                          );
+                          return;
+                        }
+                        if (e.key === "ArrowUp" && addressSuggestions.length > 0) {
+                          e.preventDefault();
+                          setActiveSuggestionIndex((prev) => Math.max(prev - 1, 0));
+                          return;
+                        }
+                        if (e.key === "Escape") {
+                          setAddressSuggestions([]);
+                          setSearchAddressError(null);
+                          return;
+                        }
                         if (e.key === "Enter") {
                           e.preventDefault();
                           handleGeocodeAddress();
@@ -569,8 +696,64 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                       {searching ? "Поиск..." : "Найти"}
                     </button>
                   </div>
+
+                  {(loadingSuggestions || addressSuggestions.length > 0 || searchAddressError) && (
+                    <div
+                      style={{
+                        marginBottom: 12,
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-sm)",
+                        background: "var(--surface)",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {loadingSuggestions && (
+                        <div style={{ padding: "10px 12px", fontSize: 13, color: "var(--muted)" }}>
+                          Ищем подсказки...
+                        </div>
+                      )}
+
+                      {!loadingSuggestions && addressSuggestions.length > 0 && (
+                        <div style={{ maxHeight: 220, overflowY: "auto" }}>
+                          {addressSuggestions.map((suggestion, index) => {
+                            const isActive = index === activeSuggestionIndex;
+                            return (
+                              <button
+                                key={`${suggestion.lat}-${suggestion.lng}-${index}`}
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  applyAddressSuggestion(suggestion);
+                                }}
+                                style={{
+                                  width: "100%",
+                                  padding: "11px 12px",
+                                  border: "none",
+                                  borderTop: index === 0 ? "none" : "1px solid var(--border)",
+                                  background: isActive ? "var(--accent)" : "transparent",
+                                  color: "var(--text)",
+                                  textAlign: "left",
+                                  cursor: "pointer",
+                                  fontSize: 13,
+                                  lineHeight: 1.45,
+                                }}
+                              >
+                                {suggestion.displayName}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {!loadingSuggestions && addressSuggestions.length === 0 && searchAddressError && (
+                        <div style={{ padding: "10px 12px", fontSize: 13, color: "var(--muted)" }}>
+                          {searchAddressError}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   
-                  {formData.mapLat && formData.mapLng && (
+                  {hasMapCoordinates && (
                     <div style={{ marginTop: 16 }}>
                       <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
                         Найденные координаты:
@@ -585,7 +768,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                             type="number"
                             step="any"
                             value={formData.mapLat}
-                            onChange={(e) => setFormData({ ...formData, mapLat: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => setFormData({ ...formData, mapLat: e.target.value === "" ? undefined : parseFloat(e.target.value) })}
                             style={{ fontSize: 14 }}
                           />
                         </div>
@@ -598,7 +781,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                             type="number"
                             step="any"
                             value={formData.mapLng}
-                            onChange={(e) => setFormData({ ...formData, mapLng: parseFloat(e.target.value) || 0 })}
+                            onChange={(e) => setFormData({ ...formData, mapLng: e.target.value === "" ? undefined : parseFloat(e.target.value) })}
                             style={{ fontSize: 14 }}
                           />
                         </div>
@@ -662,7 +845,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         type="number"
                         step="any"
                         placeholder="55.751244"
-                        value={formData.mapLat || ""}
+                        value={formData.mapLat ?? ""}
                         onChange={(e) => setFormData({ ...formData, mapLat: e.target.value ? parseFloat(e.target.value) : undefined })}
                         style={{ fontSize: 14 }}
                       />
@@ -676,14 +859,14 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         type="number"
                         step="any"
                         placeholder="37.618423"
-                        value={formData.mapLng || ""}
+                        value={formData.mapLng ?? ""}
                         onChange={(e) => setFormData({ ...formData, mapLng: e.target.value ? parseFloat(e.target.value) : undefined })}
                         style={{ fontSize: 14 }}
                       />
                     </div>
                   </div>
                   
-                  {formData.mapLat && formData.mapLng && (
+                  {hasMapCoordinates && (
                     <>
                       {/* Превью карты через 2ГИС или Яндекс */}
                       <div style={{ marginTop: 16, borderRadius: "var(--radius-sm)", overflow: "hidden", border: "1px solid var(--border)" }}>
