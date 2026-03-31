@@ -42,18 +42,10 @@ interface BlockModalProps {
   onSubmit: (data: any) => void;
 }
 
-type MapSuggestion = {
-  lat: number;
-  lon: number;
-  display_name: string;
-};
-
 export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockModalProps) {
   const [formData, setFormData] = useState<any>({});
   const [searchAddress, setSearchAddress] = useState("");
   const [searching, setSearching] = useState(false);
-  const [addressSuggestions, setAddressSuggestions] = useState<MapSuggestion[]>([]);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [mapInputType, setMapInputType] = useState<'address' | 'coordinates'>('address');
 
   useEffect(() => {
@@ -64,93 +56,13 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         setFormData({});
       }
       setSearchAddress("");
-      setAddressSuggestions([]);
       setMapInputType('address');
     }
   }, [isOpen, type]);
 
-  useEffect(() => {
-    if (type !== "map" || mapInputType !== "address") {
-      setAddressSuggestions([]);
-      setLoadingSuggestions(false);
-      return;
-    }
-
-    const query = searchAddress.trim();
-    if (query.length < 3) {
-      setAddressSuggestions([]);
-      setLoadingSuggestions(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(async () => {
-      setLoadingSuggestions(true);
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&accept-language=ru`,
-          { signal: controller.signal },
-        );
-
-        if (!response.ok) {
-          setAddressSuggestions([]);
-          return;
-        }
-
-        const text = await response.text();
-        if (!text || text.trim().length === 0) {
-          setAddressSuggestions([]);
-          return;
-        }
-
-        const data = JSON.parse(text) as Array<{ lat: string; lon: string; display_name?: string }>;
-        if (!Array.isArray(data)) {
-          setAddressSuggestions([]);
-          return;
-        }
-
-        setAddressSuggestions(
-          data.map((item) => ({
-            lat: parseFloat(item.lat),
-            lon: parseFloat(item.lon),
-            display_name: item.display_name || query,
-          })),
-        );
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          console.error("Ошибка загрузки подсказок адреса:", error);
-          setAddressSuggestions([]);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoadingSuggestions(false);
-        }
-      }
-    }, 300);
-
-    return () => {
-      controller.abort();
-      window.clearTimeout(timeoutId);
-    };
-  }, [mapInputType, searchAddress, type]);
-
-  const applyMapSuggestion = (suggestion: MapSuggestion) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      mapLat: suggestion.lat,
-      mapLng: suggestion.lon,
-    }));
-    setSearchAddress(suggestion.display_name);
-    setAddressSuggestions([]);
-  };
 
   const handleGeocodeAddress = async () => {
     if (!searchAddress.trim()) return;
-
-    if (addressSuggestions.length > 0) {
-      applyMapSuggestion(addressSuggestions[0]);
-      return;
-    }
     
     setSearching(true);
     try {
@@ -181,14 +93,13 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
       
       if (data.length > 0) {
         const { lat, lon, display_name } = data[0];
-        setFormData((prev: any) => ({
-          ...prev,
+        setFormData({
+          ...formData,
           mapLat: parseFloat(lat),
           mapLng: parseFloat(lon),
-        }));
+        });
         // Показываем найденный адрес
         setSearchAddress(display_name || searchAddress);
-        setAddressSuggestions([]);
       } else {
         alert(`Адрес не найден. Попробуйте:\n1. Уточнить адрес\n2. Или используйте поиск по координатам`);
       }
@@ -634,70 +545,20 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                     Поиск по адресу
                   </label>
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                    <div style={{ position: "relative", flex: 1 }}>
-                      <input
-                        className="input"
-                        type="text"
-                        placeholder="Введите адрес (например: Москва, Красная площадь)"
-                        value={searchAddress}
-                        onChange={(e) => setSearchAddress(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleGeocodeAddress();
-                          }
-                        }}
-                        style={{ fontSize: 15, width: "100%" }}
-                        autoComplete="off"
-                      />
-                      {(loadingSuggestions || addressSuggestions.length > 0) && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "calc(100% + 6px)",
-                            left: 0,
-                            right: 0,
-                            background: "var(--surface)",
-                            border: "1px solid var(--border)",
-                            borderRadius: "var(--radius-sm)",
-                            boxShadow: "var(--shadow-lg)",
-                            overflow: "hidden",
-                            zIndex: 20,
-                          }}
-                        >
-                          {loadingSuggestions && (
-                            <div style={{ padding: "10px 12px", fontSize: 13, color: "var(--muted)" }}>
-                              Ищем адреса...
-                            </div>
-                          )}
-                          {!loadingSuggestions &&
-                            addressSuggestions.map((suggestion, index) => (
-                              <button
-                                key={`${suggestion.lat}-${suggestion.lon}-${index}`}
-                                type="button"
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  applyMapSuggestion(suggestion);
-                                }}
-                                style={{
-                                  width: "100%",
-                                  textAlign: "left",
-                                  padding: "10px 12px",
-                                  background: "transparent",
-                                  border: "none",
-                                  borderTop: index > 0 ? "1px solid var(--border)" : "none",
-                                  cursor: "pointer",
-                                  fontSize: 13,
-                                  color: "var(--text)",
-                                  lineHeight: 1.45,
-                                }}
-                              >
-                                {suggestion.display_name}
-                              </button>
-                            ))}
-                        </div>
-                      )}
-                    </div>
+                    <input
+                      className="input"
+                      type="text"
+                      placeholder="Введите адрес (например: Москва, Красная площадь)"
+                      value={searchAddress}
+                      onChange={(e) => setSearchAddress(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleGeocodeAddress();
+                        }
+                      }}
+                      style={{ fontSize: 15, flex: 1 }}
+                    />
                     <button
                       type="button"
                       onClick={handleGeocodeAddress}
