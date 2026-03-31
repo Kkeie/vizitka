@@ -125,27 +125,17 @@ export function clientPointToGridAnchor(
   const w = Math.min(colSpan, gridColumns);
   col0 = Math.max(0, Math.min(gridColumns - w, col0));
 
-  const cellRowSpan = getGridRowSpan(
-    { type: "note" },
-    { colSpan: 1, rowSpan: 1 },
-    cellSize,
-    gap,
-    rowUnit,
-  );
-  const strideY = cellRowSpan * (rowUnit + gap);
-  const rowCell = Math.max(0, Math.floor(Math.max(0, relY) / strideY));
+  const strideY = rowUnit + gap;
+  const rowMicro = Math.max(0, Math.floor(Math.max(0, relY) / strideY));
 
   return clampAnchor(
-    {
-      gridColumnStart: col0 + 1,
-      gridRowStart: rowCell * cellRowSpan + 1,
-    },
+    { gridColumnStart: col0 + 1, gridRowStart: rowMicro + 1 },
     gridColumns,
     w,
   );
 }
 
-export function clampGridAnchor(
+function clampAnchor(
   anchor: BlockGridAnchor,
   gridColumns: number,
   colSpan: number,
@@ -155,14 +145,6 @@ export function clampGridAnchor(
     gridColumnStart: Math.max(1, Math.min(maxColStart, anchor.gridColumnStart)),
     gridRowStart: Math.max(1, anchor.gridRowStart),
   };
-}
-
-function clampAnchor(
-  anchor: BlockGridAnchor,
-  gridColumns: number,
-  colSpan: number,
-): BlockGridAnchor {
-  return clampGridAnchor(anchor, gridColumns, colSpan);
 }
 
 export function sanitizeBlockSizes(
@@ -419,70 +401,6 @@ export function resolveAnchorOverlaps(
   return next;
 }
 
-export function liftAnchorUpWithinColumn(
-  orderedIds: number[],
-  blocks: Block[],
-  blockSizes: BlockSizes,
-  movingId: number,
-  bp: Breakpoint,
-  gridColumns: number,
-  cellSize: number | null,
-  gap: number,
-  rowUnit = BENTO_ROW_UNIT,
-): BlockGridAnchor | null {
-  const movingBlock = blocks.find((block) => block.id === movingId);
-  const currentAnchor = blockSizes[movingId]?.anchorsByBreakpoint?.[bp];
-
-  if (!movingBlock || !currentAnchor) {
-    return currentAnchor ?? null;
-  }
-
-  const resolvedSize = getResolvedGridSize(movingBlock, blockSizes[movingId], gridColumns);
-  const w = resolvedSize.colSpan;
-  const h = getGridRowSpan(movingBlock, resolvedSize, cellSize, gap, rowUnit);
-  const cellRowSpan = getGridRowSpan(
-    { type: "note" },
-    { colSpan: 1, rowSpan: 1 },
-    cellSize,
-    gap,
-    rowUnit,
-  );
-  const colStart = clampGridAnchor(currentAnchor, gridColumns, w).gridColumnStart;
-  const c0 = colStart - 1;
-
-  const otherRects = buildRects(
-    orderedIds.filter((id) => id !== movingId),
-    blocks,
-    blockSizes,
-    bp,
-    gridColumns,
-    cellSize,
-    gap,
-    rowUnit,
-  );
-
-  const collidesAtRow = (gridRowStart: number) =>
-    otherRects.some((rect) => {
-      const colsIntersect = !(c0 + w <= rect.c0 || rect.c0 + rect.w <= c0);
-      const rowsIntersect =
-        !(gridRowStart - 1 + h <= rect.r0 || rect.r0 + rect.h <= gridRowStart - 1);
-      return colsIntersect && rowsIntersect;
-    });
-
-  let gridRowStart =
-    Math.floor((Math.max(1, currentAnchor.gridRowStart) - 1) / cellRowSpan) * cellRowSpan + 1;
-
-  while (gridRowStart > 1 && !collidesAtRow(gridRowStart - cellRowSpan)) {
-    gridRowStart -= cellRowSpan;
-  }
-
-  return clampGridAnchor(
-    { gridColumnStart: colStart, gridRowStart },
-    gridColumns,
-    w,
-  );
-}
-
 export function getBlockHeightPx(
   block: Pick<Block, "type">,
   gridSize: BlockGridSize,
@@ -497,15 +415,6 @@ export function getBlockHeightPx(
   return gridSize.rowSpan * safeCellSize + Math.max(0, gridSize.rowSpan - 1) * gap;
 }
 
-function getBaseCellGridRowSpan(
-  cellSize: number | null,
-  gap: number,
-  rowUnit: number,
-): number {
-  const safeCellSize = cellSize && cellSize > 0 ? cellSize : DEFAULT_BENTO_CELL_SIZE;
-  return Math.max(1, Math.ceil((safeCellSize + gap) / (rowUnit + gap)));
-}
-
 export function getGridRowSpan(
   block: Pick<Block, "type">,
   gridSize: BlockGridSize,
@@ -513,9 +422,6 @@ export function getGridRowSpan(
   gap: number,
   rowUnit = BENTO_ROW_UNIT,
 ): number {
-  if (block.type === "section") {
-    return Math.max(1, Math.ceil((SECTION_BLOCK_HEIGHT + gap) / (rowUnit + gap)));
-  }
-
-  return getBaseCellGridRowSpan(cellSize, gap, rowUnit) * Math.max(1, gridSize.rowSpan);
+  const blockHeight = getBlockHeightPx(block, gridSize, cellSize, gap);
+  return Math.max(1, Math.ceil((blockHeight + gap) / (rowUnit + gap)));
 }
