@@ -26,6 +26,7 @@ import InlineInputCard from "../components/InlineInputCard";
 import { formatPhoneNumber } from "../utils/phone";
 import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
+import { getSocialInfo } from '../lib/social-preview';
 import {
   BENTO_ROW_UNIT,
   GRID_COLUMNS,
@@ -894,23 +895,50 @@ export default function Editor() {
   const handleInlineSubmit = async (value: string) => {
     if (!inlineInput) return;
     const { type } = inlineInput;
-    let blockData: Partial<Block> = { type };
+    
     if (type === 'link') {
-      blockData.linkUrl = value;
+      const socialInfo = getSocialInfo(value);
+      // Если ссылка распознана как соцсеть, создаём social блок
+      if (socialInfo.platform !== 'other') {
+        try {
+          const newBlock = await createBlock({ 
+            type: 'social', 
+            socialType: socialInfo.platform,  // будет 'twitter', 'linkedin' и т.д.
+            socialUrl: value,
+          } as any);
+          appendCreatedBlocks([newBlock]);
+        } catch (e) {
+          console.error(e);
+          setToast("Не удалось создать блок соцсети");
+        }
+      } else {
+        // Обычная ссылка
+        try {
+          const newBlock = await createBlock({ type: 'link', linkUrl: value } as any);
+          appendCreatedBlocks([newBlock]);
+        } catch (e) {
+          console.error(e);
+          setToast("Не удалось создать блок");
+        }
+      }
     } else if (type === 'video') {
-      blockData.videoUrl = value;
+      try {
+        const newBlock = await createBlock({ type: 'video', videoUrl: value } as any);
+        appendCreatedBlocks([newBlock]);
+      } catch (e) {
+        console.error(e);
+        setToast("Не удалось создать блок");
+      }
     } else if (type === 'music') {
-      blockData.musicEmbed = value;
+      try {
+        const newBlock = await createBlock({ type: 'music', musicEmbed: value } as any);
+        appendCreatedBlocks([newBlock]);
+      } catch (e) {
+        console.error(e);
+        setToast("Не удалось создать блок");
+      }
     }
-    try {
-      const newBlock = await createBlock(blockData as any);
-      appendCreatedBlocks([newBlock]);
-    } catch (e) {
-      console.error(e);
-      setToast("Не удалось создать блок");
-    } finally {
-      setInlineInput(null);
-    }
+    setInlineInput(null);
   };
 
   // Остальные типы (соцсети, фото, карта) остаются в модалке
@@ -1305,6 +1333,7 @@ export default function Editor() {
                     <BlockCard 
                       b={blocks.find(b => b.id === activeId)!}
                       isDragPreview
+                      colSpan={1}
                     />
                   ) : null}
                 </DragOverlay>

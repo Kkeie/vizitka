@@ -373,7 +373,7 @@ export default function MobileVisitPreviewModal({
                               minHeight: 0,
                             }}
                           >
-                            <BlockCard b={block} />
+                            <BlockCard b={block} colSpan={gridSize.colSpan} />
                           </div>
                         );
                       })}

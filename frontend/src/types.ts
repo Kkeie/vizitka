@@ -11,7 +11,7 @@ export interface Block {
   musicEmbed?: string;
   mapLat?: number;
   mapLng?: number;
-  socialType?: 'telegram' | 'vk' | 'instagram';
+  socialType?: "telegram" | "vk" | "instagram" | "twitter" | "linkedin" | "github" | "youtube" | "dribbble" | "behance" | null;
   socialUrl?: string;
 }
 

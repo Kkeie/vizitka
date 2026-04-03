@@ -71,7 +71,7 @@ export type Block = {
   musicEmbed?: string | null;
   mapLat?: number | null;
   mapLng?: number | null;
-  socialType?: "telegram" | "vk" | "instagram" | null;
+  socialType?: "telegram" | "vk" | "instagram" | "twitter" | "linkedin" | "github" | "youtube" | "dribbble" | "behance" | null;
   socialUrl?: string | null;
 };
 
