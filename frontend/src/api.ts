@@ -117,42 +117,20 @@ if (import.meta.env.PROD) {
 export function getImageUrl(url: string | null | undefined): string {
   if (!url) return '';
   
-  // Если в URL уже есть /uploads/, всегда используем относительный путь,
-  // чтобы ходить через тот же origin (nginx фронтенда в Docker)
-  const uploadsIndex = url.indexOf('/uploads/');
-  if (uploadsIndex !== -1) {
-    return url.slice(uploadsIndex);
-  }
-  
-  // Если это уже полный URL (http/https), стараемся нормализовать localhost-URL для Docker, иначе возвращаем как есть
+  // Если это уже полный URL (http/https) – возвращаем как есть
   if (url.startsWith('http://') || url.startsWith('https://')) {
-    try {
-      const parsed = new URL(url);
-      // Если ссылка указывает на localhost, приводим протокол/порт к текущему origin
-      if (parsed.hostname === 'localhost') {
-        const current = window.location.origin;
-        return `${current}${parsed.pathname}${parsed.search}${parsed.hash}`;
-      }
-    } catch {
-      // если что-то пошло не так при парсинге, просто вернём исходный url
-      return url;
-    }
     return url;
   }
   
-  // Если это относительный путь (начинается с /), формируем полный URL
-  if (url.startsWith('/')) {
-    // В production используем BACKEND_BASE_URL, в dev - текущий домен
-    if (BACKEND_BASE_URL && import.meta.env.PROD) {
-      const fullUrl = `${BACKEND_BASE_URL}${url}`;
-      console.log('[API] getImageUrl:', { input: url, output: fullUrl });
-      return fullUrl;
+  // Если относительный путь /uploads/... – в production добавляем BACKEND_BASE_URL
+  if (url.startsWith('/uploads/')) {
+    if (import.meta.env.PROD && BACKEND_BASE_URL) {
+      return `${BACKEND_BASE_URL}${url}`;
     }
-    // В dev режиме относительные пути работают через прокси
-    return url;
+    return url; // для dev (прокси работает)
   }
   
-  // Иначе возвращаем как есть (может быть data URL или другой формат)
+  // Прочие случаи (data: URL и т.д.)
   return url;
 }
 
