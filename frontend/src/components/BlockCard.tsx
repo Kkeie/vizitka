@@ -153,7 +153,7 @@ export default function BlockCard({
   const playButtonSize = 72;
 
   const cardStyle: React.CSSProperties = {
-    padding: isSection ? "0 28px" : "16px",
+    padding: isSection ? "0 28px" : (b.type === "photo" ? "0" : "16px"),
     position: "relative",
     transition: isDragPreview ? "none" : "all 0.2s ease",
     display: "flex",
