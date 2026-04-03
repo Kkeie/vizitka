@@ -21,16 +21,16 @@ const SOCIAL_OPTIONS: Array<{
   placeholder: string;
   inputPrefix: string;
   isSocialBlock: boolean;
-  socialType?: "telegram" | "vk" | "instagram";
+  socialType?: "telegram" | "vk" | "instagram" | "twitter" | "linkedin" | "github" | "youtube" | "dribbble" | "behance" | null;
   accentColor?: string;
 }> = [
-  { id: "twitter", name: "Twitter", icon: <TwitterIcon />, urlPrefix: "https://twitter.com/", placeholder: "@username или ссылка", inputPrefix: "@", isSocialBlock: false, accentColor: "#1DA1F2" },
+  { id: "twitter", name: "Twitter", icon: <TwitterIcon />, urlPrefix: "https://twitter.com/", placeholder: "@username или ссылка", inputPrefix: "@", isSocialBlock: true, socialType: "twitter", accentColor: "#1DA1F2" },
   { id: "instagram", name: "Instagram", icon: <InstagramIcon />, urlPrefix: "https://instagram.com/", placeholder: "username или https://instagram.com/...", inputPrefix: "@", isSocialBlock: true, socialType: "instagram", accentColor: "#E1306C" },
-  { id: "linkedin", name: "LinkedIn", icon: <LinkedInIcon />, urlPrefix: "https://linkedin.com/in/", placeholder: "username или ссылка", inputPrefix: "linkedin.com/in/", isSocialBlock: false, accentColor: "#0A66C2" },
-  { id: "github", name: "GitHub", icon: <GitHubIcon />, urlPrefix: "https://github.com/", placeholder: "@username или ссылка", inputPrefix: "github.com/", isSocialBlock: false, accentColor: "#333" },
-  { id: "youtube", name: "YouTube", icon: <YouTubeIcon />, urlPrefix: "https://youtube.com/", placeholder: "@channel или ссылка", inputPrefix: "youtube.com/", isSocialBlock: false, accentColor: "#FF0000" },
-  { id: "dribbble", name: "Dribbble", icon: <DribbbleIcon />, urlPrefix: "https://dribbble.com/", placeholder: "username или ссылка", inputPrefix: "dribbble.com/", isSocialBlock: false, accentColor: "#EA4C89" },
-  { id: "behance", name: "Behance", icon: <BehanceIcon />, urlPrefix: "https://behance.net/", placeholder: "username или ссылка", inputPrefix: "behance.net/", isSocialBlock: false, accentColor: "#1769FF" },
+  { id: "linkedin", name: "LinkedIn", icon: <LinkedInIcon />, urlPrefix: "https://linkedin.com/in/", placeholder: "username или ссылка", inputPrefix: "linkedin.com/in/", isSocialBlock: true, socialType: "linkedin", accentColor: "#0A66C2" },
+  { id: "github", name: "GitHub", icon: <GitHubIcon />, urlPrefix: "https://github.com/", placeholder: "@username или ссылка", inputPrefix: "github.com/", isSocialBlock: true, socialType: "github", accentColor: "#333" },
+  { id: "youtube", name: "YouTube", icon: <YouTubeIcon />, urlPrefix: "https://youtube.com/", placeholder: "@channel или ссылка", inputPrefix: "youtube.com/", isSocialBlock: true, socialType: "youtube", accentColor: "#FF0000" },
+  { id: "dribbble", name: "Dribbble", icon: <DribbbleIcon />, urlPrefix: "https://dribbble.com/", placeholder: "username или ссылка", inputPrefix: "dribbble.com/", isSocialBlock: true, socialType: "dribbble", accentColor: "#EA4C89" },
+  { id: "behance", name: "Behance", icon: <BehanceIcon />, urlPrefix: "https://behance.net/", placeholder: "username или ссылка", inputPrefix: "behance.net/", isSocialBlock: true, socialType: "behance", accentColor: "#1769FF" },
   { id: "telegram", name: "Telegram", icon: <TelegramIcon />, urlPrefix: "https://t.me/", placeholder: "username или https://t.me/...", inputPrefix: "@", isSocialBlock: true, socialType: "telegram", accentColor: "#0088cc" },
   { id: "vk", name: "VK", icon: <VKIcon />, urlPrefix: "https://vk.com/", placeholder: "username или https://vk.com/...", inputPrefix: "vk.com/", isSocialBlock: true, socialType: "vk", accentColor: "#0077FF" },
 ];

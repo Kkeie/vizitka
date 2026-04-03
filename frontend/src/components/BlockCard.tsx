@@ -2,7 +2,11 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { useReveal } from "../hooks/useReveal";
 import { extractYouTubeId, toYouTubeEmbed, extractVKVideoId, toVKVideoEmbed, classifyMusic } from "../lib/embed";
-import { detectSocialType, extractTelegramInfo, extractInstagramUsername } from "../lib/social-preview";
+import { getSocialInfo } from '../lib/social-preview';
+import { 
+  TwitterIcon, InstagramIcon, LinkedInIcon, GitHubIcon, 
+  YouTubeIcon, DribbbleIcon, BehanceIcon, TelegramIcon, VKIcon 
+} from './SocialIcons';
 import { getLinkMetadata, getImageUrl } from "../api";
 import type { NoteTextStyle } from "../api";
 import { noteStyleToTextCss } from "../lib/noteStyle";
@@ -20,7 +24,7 @@ export type Block = {
   musicEmbed?: string | null;
   mapLat?: number | null;
   mapLng?: number | null;
-  socialType?: "telegram" | "vk" | "instagram" | null;
+  socialType?: "telegram" | "vk" | "instagram" | "twitter" | "linkedin" | "github" | "youtube" | "dribbble" | "behance" | null;
   socialUrl?: string | null;
 };
 
@@ -107,17 +111,16 @@ export default function BlockCard({
 
   React.useEffect(() => {
     if (b.type === "link" && b.linkUrl) {
-      const socialType = detectSocialType(b.linkUrl);
+      const socialInfo = getSocialInfo(b.linkUrl);
+      // Для поддерживаемых соцсетей метаданные не нужны
+      if (socialInfo.platform !== 'other') {
+        setLinkMetadata(null);
+        setLoadingMetadata(false);
+        return;
+      }
       setLoadingMetadata(true);
       setLinkMetadata(null);
-
-      let urlToFetch = b.linkUrl;
-      if (socialType === "instagram" && !urlToFetch.includes("instagram.com")) {
-        const username = extractInstagramUsername(b.linkUrl) || b.linkUrl.replace(/^@/, "").replace(/^https?:\/\//, "");
-        urlToFetch = `https://www.instagram.com/${username}/`;
-      }
-
-      getLinkMetadata(urlToFetch)
+      getLinkMetadata(b.linkUrl)
         .then((data) => setLinkMetadata(data))
         .catch((err) => console.log("Failed to fetch metadata:", err))
         .finally(() => setLoadingMetadata(false));
@@ -148,8 +151,8 @@ export default function BlockCard({
   //   social: "#f59e0b",
   // };
 
-  const previewTileSize = 64;
-  const socialIconSize = 48;
+  const socialIconSize = 56;  // единый размер для всех соцсетей
+  const previewTileSize = 64; // для обычных ссылок (не соцсетей)
   const playButtonSize = 72;
 
   const cardStyle: React.CSSProperties = {
@@ -408,77 +411,58 @@ export default function BlockCard({
         })()}
 
         {b.type === "link" && b.linkUrl && (() => {
-          const socialType = detectSocialType(b.linkUrl);
-          const telegramInfo = extractTelegramInfo(b.linkUrl);
-          const instagramUsername = extractInstagramUsername(b.linkUrl);
+          const socialInfo = getSocialInfo(b.linkUrl);
+          const isSupported = socialInfo.platform !== 'other';
 
+          if (isSupported) {
+            let IconComponent = null;
+            switch (socialInfo.platform) {
+              case 'telegram': IconComponent = TelegramIcon; break;
+              case 'instagram': IconComponent = InstagramIcon; break;
+              case 'vk': IconComponent = VKIcon; break;
+              case 'twitter': IconComponent = TwitterIcon; break;
+              case 'linkedin': IconComponent = LinkedInIcon; break;
+              case 'github': IconComponent = GitHubIcon; break;
+              case 'youtube': IconComponent = YouTubeIcon; break;
+              case 'dribbble': IconComponent = DribbbleIcon; break;
+              case 'behance': IconComponent = BehanceIcon; break;
+            }
+            return (
+              <a href={b.linkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block', ...scrollableContentStyle }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: socialIconSize, height: socialIconSize, borderRadius: '12px', background: socialInfo.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {IconComponent && <IconComponent width={32} height={32} fill="white" />}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)', marginBottom: 4 }}>{socialInfo.name}</div>
+                    {socialInfo.username && <div style={{ fontSize: 14, color: 'var(--muted)' }}>{socialInfo.username}</div>}
+                  </div>
+                </div>
+              </a>
+            );
+          }
+
+          // Обычная ссылка (не соцсеть) – существующий код с метаданными
           return (
-            <a
-              href={b.linkUrl}
-              target="_blank"
-              rel="noreferrer"
-              style={{ textDecoration: "none", color: "inherit", display: "block", ...scrollableContentStyle }}
-            >
-              {socialType === "telegram" && telegramInfo ? (
-                <div style={{ cursor: "pointer" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                    {linkMetadata?.image ? (
-                      <img
-                        src={linkMetadata.image}
-                        alt=""
-                        style={{ width: previewTileSize, height: previewTileSize, borderRadius: "12px", objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    ) : (
-                      <div style={{ width: previewTileSize, height: previewTileSize, borderRadius: "12px", background: "linear-gradient(135deg, #0088cc 0%, #229ED9 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z" /></svg>
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text)", marginBottom: 4, wordBreak: "break-word" }}>
-                        {linkMetadata?.title || (telegramInfo.type === "channel" ? "Telegram Канал" : "Telegram Пользователь")}
-                      </div>
-                      <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, wordBreak: "break-word" }}>{telegramInfo.username}</div>
-                      {linkMetadata?.description && <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5, wordBreak: "break-word" }}>{linkMetadata.description}</div>}
-                    </div>
-                  </div>
+            <div style={{ cursor: "pointer", ...scrollableContentStyle }}>
+              {loadingMetadata ? (
+                <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-sm)", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  Загрузка...
                 </div>
-              ) : socialType === "instagram" && instagramUsername ? (
-                <div style={{ cursor: "pointer" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                    {linkMetadata?.image ? (
-                      <img
-                        src={linkMetadata.image}
-                        alt=""
-                        style={{ width: previewTileSize, height: previewTileSize, borderRadius: "12px", objectFit: "cover", flexShrink: 0, border: "1px solid var(--border)" }}
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
-                    ) : (
-                      <div style={{ width: previewTileSize, height: previewTileSize, borderRadius: "12px", background: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" /></svg>
-                      </div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text)", marginBottom: 4, wordBreak: "break-word" }}>{linkMetadata?.title || "Instagram"}</div>
-                      <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, wordBreak: "break-word" }}>{instagramUsername}</div>
-                      {linkMetadata?.description && <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5, wordBreak: "break-word" }}>{linkMetadata.description}</div>}
-                    </div>
-                  </div>
-                </div>
+              ) : linkMetadata?.image ? (
+                <img src={linkMetadata.image} alt="" style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-sm)", objectFit: "cover", marginBottom: 12, border: "1px solid var(--border)" }} />
               ) : (
-                <div style={{ cursor: "pointer", ...scrollableContentStyle }}>
-                  {linkMetadata?.image ? (
-                    <img src={linkMetadata.image} alt="" style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-sm)", objectFit: "cover", marginBottom: 12, border: "1px solid var(--border)" }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  ) : (
-                    <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, color: "var(--muted)", fontSize: 13, padding: 12, textAlign: "center" }}>
-                      {loadingMetadata ? "Загрузка превью..." : safeDomain(b.linkUrl)}
-                    </div>
-                  )}
-                  <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 8, color: "var(--text)", lineHeight: 1.4 }}>{linkMetadata?.title || safeDomain(b.linkUrl)}</div>
-                  <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 8, lineHeight: 1.5 }}>{linkMetadata?.description || b.linkUrl}</div>
+                <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, color: "var(--muted)", fontSize: 13, padding: 12, textAlign: "center" }}>
+                  {safeDomain(b.linkUrl)}
                 </div>
               )}
-            </a>
+              <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 8, color: "var(--text)", lineHeight: 1.4 }}>
+                {linkMetadata?.title || safeDomain(b.linkUrl)}
+              </div>
+              <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 8, lineHeight: 1.5 }}>
+                {linkMetadata?.description || b.linkUrl}
+              </div>
+            </div>
           );
         })()}
 
@@ -541,25 +525,78 @@ export default function BlockCard({
           </div>
         )}
 
-        {b.type === "social" && b.socialType && b.socialUrl && (
-          <a href={b.socialUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none", color: "inherit", display: "block", cursor: "pointer", ...scrollableContentStyle }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-              {b.socialType === "telegram" && <div style={{ width: socialIconSize, height: socialIconSize, borderRadius: "12px", background: "linear-gradient(135deg, #0088cc 0%, #229ED9 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.295-.6.295-.002 0-.003 0-.005 0l.213-3.054 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.135-.954l11.566-4.458c.538-.196 1.006.128.832.941z" /></svg></div>}
-              {b.socialType === "vk" && <div style={{ width: socialIconSize, height: socialIconSize, borderRadius: "12px", background: "linear-gradient(135deg, #0077FF 0%, #4680C2 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M21.546 7.135c.143-.466 0-.814-.68-.814h-2.244c-.57 0-.83.3-.972.63 0 0-1.14 2.784-2.752 4.592-.52.51-.757.68-1.045.68-.143 0-.35-.17-.35-.66V7.135c0-.57-.16-.815-.63-.815H9.35c-.35 0-.56.26-.56.5 0 .52.78.63.86 2.06v3.3c0 .72-.13.83-.42.83-.76 0-2.6-2.8-3.7-6-.22-.63-.44-.88-1.02-.88H2.26c-.64 0-.77.3-.77.63 0 .59.76 3.5 3.55 7.35 1.87 2.64 4.5 3.9 6.89 3.9 1.43 0 1.61-.32 1.61-.88v-2.03c0-.65.14-.78.6-.78.34 0 .93.17 2.3 1.5 1.58 1.58 1.84 2.28 2.73 2.28h2.24c.64 0 .97-.32.78-.95-.21-.64-1.0-1.57-2.03-2.67-.56-.66-1.4-1.37-1.66-1.77-.35-.45-.25-.65 0-1.05 0 0 2.94-4.14 3.25-5.54z" /></svg></div>}
-              {b.socialType === "instagram" && <div style={{ width: socialIconSize, height: socialIconSize, borderRadius: "12px", background: "linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" /></svg></div>}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text)", marginBottom: 4, wordBreak: "break-word" }}>
-                  {b.socialType === "telegram" && "Telegram"}
-                  {b.socialType === "vk" && "ВКонтакте"}
-                  {b.socialType === "instagram" && "Instagram"}
+        {b.type === "social" && b.socialType && b.socialUrl && (() => {
+          let IconComponent = null;
+          let gradient = '';
+          let name = '';
+          const platform = b.socialType;
+          
+          switch (platform) {
+            case 'telegram':
+              IconComponent = TelegramIcon;
+              gradient = 'linear-gradient(135deg, #0088cc 0%, #229ED9 100%)';
+              name = 'Telegram';
+              break;
+            case 'instagram':
+              IconComponent = InstagramIcon;
+              gradient = 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)';
+              name = 'Instagram';
+              break;
+            case 'vk':
+              IconComponent = VKIcon;
+              gradient = 'linear-gradient(135deg, #0077FF 0%, #4680C2 100%)';
+              name = 'VK';
+              break;
+            case 'twitter':
+              IconComponent = TwitterIcon;
+              gradient = 'linear-gradient(135deg, #1DA1F2 0%, #0d8de4 100%)';
+              name = 'Twitter';
+              break;
+            case 'linkedin':
+              IconComponent = LinkedInIcon;
+              gradient = 'linear-gradient(135deg, #0A66C2 0%, #0a5aa5 100%)';
+              name = 'LinkedIn';
+              break;
+            case 'github':
+              IconComponent = GitHubIcon;
+              gradient = 'linear-gradient(135deg, #333 0%, #24292e 100%)';
+              name = 'GitHub';
+              break;
+            case 'youtube':
+              IconComponent = YouTubeIcon;
+              gradient = 'linear-gradient(135deg, #FF0000 0%, #cc0000 100%)';
+              name = 'YouTube';
+              break;
+            case 'dribbble':
+              IconComponent = DribbbleIcon;
+              gradient = 'linear-gradient(135deg, #EA4C89 0%, #d33a72 100%)';
+              name = 'Dribbble';
+              break;
+            case 'behance':
+              IconComponent = BehanceIcon;
+              gradient = 'linear-gradient(135deg, #1769FF 0%, #0f5be5 100%)';
+              name = 'Behance';
+              break;
+            default:
+              return null;
+          }
+          
+          const username = b.socialUrl.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/^t\.me\//, '').replace(/^vk\.com\//, '').replace(/^instagram\.com\//, '').replace(/^twitter\.com\//, '').replace(/^linkedin\.com\/in\//, '').replace(/^github\.com\//, '').replace(/^youtube\.com\/@/, '').replace(/^dribbble\.com\//, '').replace(/^behance\.net\//, '');
+          
+          return (
+            <a href={b.socialUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block', ...scrollableContentStyle }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: socialIconSize, height: socialIconSize, borderRadius: '12px', background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {IconComponent && <IconComponent width={32} height={32} fill="white" />}
                 </div>
-                <div style={{ fontSize: 14, color: "var(--muted)", wordBreak: "break-word" }}>
-                  {b.socialUrl.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/^t\.me\//, "").replace(/^vk\.com\//, "").replace(/^instagram\.com\//, "")}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)', marginBottom: 4 }}>{name}</div>
+                  <div style={{ fontSize: 14, color: 'var(--muted)' }}>{username || 'Профиль'}</div>
                 </div>
               </div>
-            </div>
-          </a>
-        )}
+            </a>
+          );
+        })()}
       </div>
 
     </div>
