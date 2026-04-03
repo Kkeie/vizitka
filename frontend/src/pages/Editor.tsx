@@ -1333,6 +1333,7 @@ export default function Editor() {
                     <BlockCard 
                       b={blocks.find(b => b.id === activeId)!}
                       isDragPreview
+                      colSpan={1}
                     />
                   ) : null}
                 </DragOverlay>

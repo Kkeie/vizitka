@@ -34,6 +34,7 @@ export default function BlockCard({
   onUpdate,
   isDragPreview,
   sortableProps,
+  colSpan,   
 }: {
   b: Block;
   onDelete?: () => void;
@@ -41,6 +42,7 @@ export default function BlockCard({
   isDragPreview?: boolean;
   /** Слушатели dnd-kit только на карточке, не на родителе с ручками ресайза */
   sortableProps?: React.HTMLAttributes<HTMLDivElement>;
+  colSpan?: number;  
 }) {
   const [isVideoPlaying, setIsVideoPlaying] = React.useState(false);
   const [linkMetadata, setLinkMetadata] = React.useState<{ title?: string; description?: string; image?: string } | null>(null);
@@ -583,10 +585,27 @@ export default function BlockCard({
           
           const username = b.socialUrl.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/^t\.me\//, '').replace(/^vk\.com\//, '').replace(/^instagram\.com\//, '').replace(/^twitter\.com\//, '').replace(/^linkedin\.com\/in\//, '').replace(/^github\.com\//, '').replace(/^youtube\.com\/@/, '').replace(/^dribbble\.com\//, '').replace(/^behance\.net\//, '');
           
+          const isVertical = colSpan === 1;
+          
           return (
             <a href={b.socialUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block', ...scrollableContentStyle }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: socialIconSize, height: socialIconSize, borderRadius: '12px', background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: isVertical ? 'column' : 'row',
+                alignItems: isVertical ? 'flex-start' : 'center',
+                gap: 12
+              }}>
+                <div style={{ 
+                  width: socialIconSize, 
+                  height: socialIconSize, 
+                  borderRadius: '12px', 
+                  background: gradient, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  flexShrink: 0,
+                  margin: isVertical ? 0 : undefined
+                }}>
                   {IconComponent && <IconComponent width={32} height={32} fill="white" />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
