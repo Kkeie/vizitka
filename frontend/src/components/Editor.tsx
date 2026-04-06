@@ -15,9 +15,7 @@ function getToken() {
   if (t) return t;
   const legacy = localStorage.getItem("token");
   if (legacy) {
-    sessionStorage.setItem("token", legacy);
     localStorage.removeItem("token");
-    return legacy;
   }
   return "";
 }
