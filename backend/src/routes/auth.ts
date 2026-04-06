@@ -36,25 +36,32 @@ router.post("/register", async (req, res) => {
     // Создаем пользователя и профиль в транзакции
     const insertUser = db.prepare("INSERT INTO User (email, passwordHash) VALUES (?, ?)");
     const insertProfile = db.prepare("INSERT INTO Profile (username, name, userId) VALUES (?, ?, ?)");
+    const selectUser = db.prepare("SELECT createdAt FROM User WHERE id = ?");
     
     const transaction = db.transaction(() => {
       const userResult = insertUser.run(`${uname}@local`, passwordHash);
       const userId = userResult.lastInsertRowid as number;
       const profileResult = insertProfile.run(uname, uname, userId);
       const profileId = profileResult.lastInsertRowid as number;
+      const user = selectUser.get(userId) as { createdAt: string };
       
       return {
         userId,
         profileId,
         username: uname,
-        createdAt: new Date().toISOString(),
+        createdAt: user.createdAt,
       };
     });
 
     const result = transaction();
     console.log("[REGISTER] Success:", { userId: result.userId, username: uname });
 
-    const token = signToken({ id: result.userId, username: uname });
+    const token = signToken({
+      id: result.userId,
+      username: uname,
+      userCreatedAt: result.createdAt,
+      passwordHash,
+    });
     res.json({
       token,
       user: {
@@ -100,7 +107,12 @@ router.post("/login", async (req, res) => {
     const ok = await verifyPassword(password, profile.passwordHash);
     if (!ok) return res.status(401).json({ error: "invalid_credentials" });
 
-    const token = signToken({ id: profile.userId, username: uname });
+    const token = signToken({
+      id: profile.userId,
+      username: uname,
+      userCreatedAt: profile.userCreatedAt,
+      passwordHash: profile.passwordHash,
+    });
     res.json({
       token,
       user: {

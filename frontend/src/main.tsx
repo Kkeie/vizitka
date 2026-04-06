@@ -10,21 +10,47 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Editor from "./pages/Editor";
 import Public from "./pages/Public";
-import { me, setToken, type User } from "./api";
+import { getToken, me, setToken, subscribeAuthToken, type User } from "./api";
 
 function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
 
 
   React.useEffect(() => {
-    (async () => {
+    let alive = true;
+
+    const loadCurrentUser = async () => {
+      const requestToken = getToken();
+      if (!requestToken) {
+        setUser(null);
+        return;
+      }
+
       try {
         const u = await me();
-        setUser(u);
+        if (alive && getToken() === requestToken) {
+          setUser(u);
+        }
       } catch {
-        setUser(null);
+        if (alive && getToken() === requestToken) {
+          setUser(null);
+        }
       }
-    })();
+    };
+
+    loadCurrentUser();
+    const unsubscribe = subscribeAuthToken((nextToken) => {
+      if (!nextToken) {
+        setUser(null);
+        return;
+      }
+      loadCurrentUser();
+    });
+
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
   }, []);
 
   // Prevent accidental navigation when user drags an image/file onto the page

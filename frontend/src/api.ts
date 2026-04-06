@@ -156,6 +156,21 @@ let token: string | null = sessionStorage.getItem("token");
 if (localStorage.getItem("token")) {
   localStorage.removeItem("token");
 }
+const authTokenListeners = new Set<(token: string | null) => void>();
+
+export function getToken(): string | null {
+  if (localStorage.getItem("token")) {
+    localStorage.removeItem("token");
+  }
+  token = sessionStorage.getItem("token");
+  return token;
+}
+
+export function subscribeAuthToken(listener: (token: string | null) => void): () => void {
+  authTokenListeners.add(listener);
+  return () => authTokenListeners.delete(listener);
+}
+
 export function setToken(t: string | null) {
   token = t;
   if (t) {
@@ -164,11 +179,18 @@ export function setToken(t: string | null) {
     sessionStorage.removeItem("token");
   }
   localStorage.removeItem("token");
+  authTokenListeners.forEach((listener) => listener(token));
 }
 export function authHeaders(): Record<string, string> {
   // Keep in-memory token synced with current tab sessionStorage state.
-  token = sessionStorage.getItem("token");
+  token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function clearTokenIfUnauthorized(response: Response) {
+  if (response.status === 401) {
+    setToken(null);
+  }
 }
 
 function looksLikeHtmlDocument(text: string): boolean {
@@ -214,6 +236,7 @@ interface ApiError {
 
 // Auth
 export async function register(username: string, password: string): Promise<{ token: string; user: User }> {
+  setToken(null);
   const url = `${API}/auth/register`;
   console.log('[API] Register request to:', url);
 
@@ -240,10 +263,15 @@ export async function register(username: string, password: string): Promise<{ to
   }
 
   const data = await safeJsonParse<{ token: string; user: User }>(r);
+  if (!data.token || !data.user) {
+    setToken(null);
+    throw new Error("invalid_auth_response");
+  }
   setToken(data.token);
   return data;
 }
 export async function login(username: string, password: string): Promise<{ token: string; user: User }> {
+  setToken(null);
   const r = await fetch(`${API}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -254,12 +282,19 @@ export async function login(username: string, password: string): Promise<{ token
     throw new Error(errorData.error || errorData.message || "login_failed");
   }
   const data = await safeJsonParse<{ token: string; user: User }>(r);
+  if (!data.token || !data.user) {
+    setToken(null);
+    throw new Error("invalid_auth_response");
+  }
   setToken(data.token);
   return data;
 }
 export async function me(): Promise<User> {
   const r = await fetch(`${API}/user/me`, { headers: authHeaders(), cache: "no-store" });
-  if (!r.ok) throw new Error("unauthorized");
+  if (!r.ok) {
+    clearTokenIfUnauthorized(r);
+    throw new Error("unauthorized");
+  }
   return safeJsonParse<User>(r);
 }
 
@@ -273,6 +308,7 @@ export async function getProfile(): Promise<Profile> {
   console.log('[API] getProfile response:', { status: r.status, statusText: r.statusText, ok: r.ok });
   
   if (!r.ok) {
+    clearTokenIfUnauthorized(r);
     const errorText = await r.text().catch(() => '');
     console.error('[API] getProfile error:', errorText);
     throw new Error(r.status === 401 ? "unauthorized" : "profile_load_failed");
@@ -286,6 +322,7 @@ export async function updateProfile(p: Partial<Profile>): Promise<Profile> {
     body: JSON.stringify(p),
   });
   if (!r.ok) {
+    clearTokenIfUnauthorized(r);
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     throw new Error(errorData.error || errorData.message || "profile_update_failed");
   }
@@ -304,6 +341,7 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
   });
 
   if (!r.ok) {
+    clearTokenIfUnauthorized(r);
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     if (r.status === 413) {
       throw new Error('Файл слишком большой. Максимальный размер: 50MB');
@@ -324,6 +362,7 @@ export async function listBlocks(): Promise<Block[]> {
   console.log('[API] listBlocks response:', { status: r.status, statusText: r.statusText, ok: r.ok });
   
   if (!r.ok) {
+    clearTokenIfUnauthorized(r);
     const errorText = await r.text().catch(() => '');
     console.error('[API] listBlocks error:', errorText);
     throw new Error(r.status === 401 ? "unauthorized" : "load_blocks_failed");
@@ -337,6 +376,7 @@ export async function createBlock(partial: Partial<Block> & { type: BlockType; s
     body: JSON.stringify(partial),
   });
   if (!r.ok) {
+    clearTokenIfUnauthorized(r);
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     throw new Error(errorData.error || errorData.message || "create_block_failed");
   }
@@ -349,6 +389,7 @@ export async function updateBlock(id: number, partial: Partial<Block>): Promise<
     body: JSON.stringify(partial),
   });
   if (!r.ok) {
+    clearTokenIfUnauthorized(r);
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     throw new Error(errorData.error || errorData.message || "update_block_failed");
   }
@@ -357,6 +398,7 @@ export async function updateBlock(id: number, partial: Partial<Block>): Promise<
 export async function deleteBlock(id: number): Promise<void> {
   const r = await fetch(`${API}/blocks/${id}`, { method: "DELETE", headers: authHeaders() });
   if (!r.ok) {
+    clearTokenIfUnauthorized(r);
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     throw new Error(errorData.error || errorData.message || "delete_block_failed");
   }
@@ -372,6 +414,7 @@ export async function reorderBlocks(items: { id: number; sort: number }[]): Prom
   const text = await r.text();
   
   if (!r.ok) {
+    clearTokenIfUnauthorized(r);
     let errorData: ApiError;
     try {
       errorData = text ? JSON.parse(text) as ApiError : {};

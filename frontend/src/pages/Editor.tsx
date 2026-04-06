@@ -15,6 +15,8 @@ import {
   type BlockType,
   type BlockSizes,
   type Layout,
+  getToken,
+  setToken,
 } from "../api";
 import Avatar from "../components/Avatar";
 import { SortableBlockCard } from "../components/SortableBlockCard";
@@ -274,10 +276,9 @@ export default function Editor() {
 
   useEffect(() => {
     // Проверяем наличие токена перед загрузкой данных
-    const token = sessionStorage.getItem("token");
+    const token = getToken();
     if (!token) {
-      // Убираем старый токен, если остался в localStorage
-      localStorage.removeItem("token");
+      setToken(null);
       setIsAuthorized(false);
       setLoading(false);
       return;
@@ -319,14 +320,13 @@ export default function Editor() {
 
       // Если ошибка авторизации, перенаправляем на страницу входа
       if (errorMessage === "unauthorized" || errorMessage === "user_not_found") {
-        const token = sessionStorage.getItem("token");
+        const token = getToken();
         if (!token) {
           setIsAuthorized(false);
           return;
         }
         // Токен недействителен
-        sessionStorage.removeItem("token");
-        localStorage.removeItem("token");
+        setToken(null);
         setIsAuthorized(false);
         return;
       }

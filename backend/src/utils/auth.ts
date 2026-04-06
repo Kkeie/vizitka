@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { db } from "./db";
 
 const JWT_ISSUER = "vizitka-backend";
 
@@ -60,16 +61,42 @@ export async function verifyPassword(password: string, stored: string): Promise<
 }
 
 // ===== JWT =====
-export function signToken(payload: { id: number; username: string }) {
-  return jwt.sign(payload, getJwtSecret(), {
+function buildAuthBinding(userId: number, userCreatedAt: string, passwordHash: string): string {
+  return crypto
+    .createHmac("sha256", getJwtSecret())
+    .update(`${userId}:${userCreatedAt}:${passwordHash}`)
+    .digest("base64url");
+}
+
+function safeStringEqual(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return leftBuffer.length === rightBuffer.length && crypto.timingSafeEqual(leftBuffer as any, rightBuffer as any);
+}
+
+export function signToken(payload: { id: number; username: string; userCreatedAt: string; passwordHash: string }) {
+  const { passwordHash, ...tokenPayload } = payload;
+  return jwt.sign({
+    ...tokenPayload,
+    authBinding: buildAuthBinding(payload.id, payload.userCreatedAt, passwordHash),
+  }, getJwtSecret(), {
     expiresIn: "30d",
     algorithm: "HS256",
     issuer: JWT_ISSUER,
   });
 }
 
-export type AuthedUser = { id: number; username: string };
+export type AuthedUser = { id: number; username: string; userCreatedAt: string };
 export type AuthedRequest = Request & { user?: AuthedUser };
+
+function getTokenBoundUser(id: number, userCreatedAt: string) {
+  return db.prepare(`
+    SELECT u.id, u.createdAt, u.passwordHash, p.username
+    FROM User u
+    LEFT JOIN Profile p ON p.userId = u.id
+    WHERE u.id = ? AND u.createdAt = ?
+  `).get(id, userCreatedAt) as { id: number; createdAt: string; passwordHash: string; username: string | null } | undefined;
+}
 
 export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   const h = req.headers.authorization || "";
@@ -90,12 +117,21 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
 
     const id = Number(decoded.id);
     const username = String(decoded.username || "").trim().toLowerCase();
-    if (!Number.isInteger(id) || id <= 0 || username.length < 1) {
+    const userCreatedAt = String(decoded.userCreatedAt || "");
+    const authBinding = String(decoded.authBinding || "");
+    if (!Number.isInteger(id) || id <= 0 || username.length < 1 || userCreatedAt.length < 1 || authBinding.length < 1) {
       return res.status(401).json({ error: "unauthorized" });
     }
 
-    req.user = { id, username };
-    console.log(`[AUTH] Authenticated user ${decoded.id} (${decoded.username}) for ${req.method} ${req.path}`);
+    const user = getTokenBoundUser(id, userCreatedAt);
+    const expectedAuthBinding = user ? buildAuthBinding(user.id, user.createdAt, user.passwordHash) : "";
+    if (!user || !safeStringEqual(authBinding, expectedAuthBinding)) {
+      return res.status(401).json({ error: "unauthorized" });
+    }
+
+    const currentUsername = String(user.username || username).trim().toLowerCase();
+    req.user = { id, username: currentUsername, userCreatedAt };
+    console.log(`[AUTH] Authenticated user ${id} (${currentUsername}) for ${req.method} ${req.path}`);
     next();
   } catch (err) {
     console.log(`[AUTH] Invalid token for ${req.method} ${req.path}:`, err);

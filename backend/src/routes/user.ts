@@ -17,7 +17,7 @@ router.get("/me", requireAuth, async (req: AuthedRequest, res) => {
     
     res.json({
       id: user.id,
-      username: req.user!.username,
+      username: user.username || req.user!.username,
       createdAt: user.createdAt,
       profile: user.profileId ? {
         id: user.profileId,
