@@ -7,6 +7,8 @@ RUN npm config set registry "$NPM_REGISTRY" \
   && npm config set progress false \
   && npm config set fund false \
   && npm config set audit false
+ARG VITE_BACKEND_API_URL=/api
+ENV VITE_BACKEND_API_URL=$VITE_BACKEND_API_URL
 
 COPY package.json ./
 RUN npm install --no-audit --no-fund --legacy-peer-deps --cache /root/.npm \

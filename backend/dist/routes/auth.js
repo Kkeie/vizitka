@@ -35,21 +35,28 @@ router.post("/register", async (req, res) => {
         // Создаем пользователя и профиль в транзакции
         const insertUser = db_1.db.prepare("INSERT INTO User (email, passwordHash) VALUES (?, ?)");
         const insertProfile = db_1.db.prepare("INSERT INTO Profile (username, name, userId) VALUES (?, ?, ?)");
+        const selectUser = db_1.db.prepare("SELECT createdAt FROM User WHERE id = ?");
         const transaction = db_1.db.transaction(() => {
             const userResult = insertUser.run(`${uname}@local`, passwordHash);
             const userId = userResult.lastInsertRowid;
             const profileResult = insertProfile.run(uname, uname, userId);
             const profileId = profileResult.lastInsertRowid;
+            const user = selectUser.get(userId);
             return {
                 userId,
                 profileId,
                 username: uname,
-                createdAt: new Date().toISOString(),
+                createdAt: user.createdAt,
             };
         });
         const result = transaction();
         console.log("[REGISTER] Success:", { userId: result.userId, username: uname });
-        const token = (0, auth_1.signToken)({ id: result.userId, username: uname });
+        const token = (0, auth_1.signToken)({
+            id: result.userId,
+            username: uname,
+            userCreatedAt: result.createdAt,
+            passwordHash,
+        });
         res.json({
             token,
             user: {
@@ -94,7 +101,12 @@ router.post("/login", async (req, res) => {
         const ok = await (0, auth_1.verifyPassword)(password, profile.passwordHash);
         if (!ok)
             return res.status(401).json({ error: "invalid_credentials" });
-        const token = (0, auth_1.signToken)({ id: profile.userId, username: uname });
+        const token = (0, auth_1.signToken)({
+            id: profile.userId,
+            username: uname,
+            userCreatedAt: profile.userCreatedAt,
+            passwordHash: profile.passwordHash,
+        });
         res.json({
             token,
             user: {
