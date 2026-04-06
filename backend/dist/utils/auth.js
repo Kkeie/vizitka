@@ -9,6 +9,7 @@ exports.signToken = signToken;
 exports.requireAuth = requireAuth;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const crypto_1 = __importDefault(require("crypto"));
+const db_1 = require("./db");
 const JWT_ISSUER = "vizitka-backend";
 let cachedJwtSecret = null;
 function getJwtSecret() {
@@ -64,12 +65,35 @@ async function verifyPassword(password, stored) {
     }
 }
 // ===== JWT =====
+function buildAuthBinding(userId, userCreatedAt, passwordHash) {
+    return crypto_1.default
+        .createHmac("sha256", getJwtSecret())
+        .update(`${userId}:${userCreatedAt}:${passwordHash}`)
+        .digest("base64url");
+}
+function safeStringEqual(left, right) {
+    const leftBuffer = Buffer.from(left);
+    const rightBuffer = Buffer.from(right);
+    return leftBuffer.length === rightBuffer.length && crypto_1.default.timingSafeEqual(leftBuffer, rightBuffer);
+}
 function signToken(payload) {
-    return jsonwebtoken_1.default.sign(payload, getJwtSecret(), {
+    const { passwordHash, ...tokenPayload } = payload;
+    return jsonwebtoken_1.default.sign({
+        ...tokenPayload,
+        authBinding: buildAuthBinding(payload.id, payload.userCreatedAt, passwordHash),
+    }, getJwtSecret(), {
         expiresIn: "30d",
         algorithm: "HS256",
         issuer: JWT_ISSUER,
     });
+}
+function getTokenBoundUser(id, userCreatedAt) {
+    return db_1.db.prepare(`
+    SELECT u.id, u.createdAt, u.passwordHash, p.username
+    FROM User u
+    LEFT JOIN Profile p ON p.userId = u.id
+    WHERE u.id = ? AND u.createdAt = ?
+  `).get(id, userCreatedAt);
 }
 function requireAuth(req, res, next) {
     const h = req.headers.authorization || "";
@@ -88,11 +112,19 @@ function requireAuth(req, res, next) {
         }
         const id = Number(decoded.id);
         const username = String(decoded.username || "").trim().toLowerCase();
-        if (!Number.isInteger(id) || id <= 0 || username.length < 1) {
+        const userCreatedAt = String(decoded.userCreatedAt || "");
+        const authBinding = String(decoded.authBinding || "");
+        if (!Number.isInteger(id) || id <= 0 || username.length < 1 || userCreatedAt.length < 1 || authBinding.length < 1) {
             return res.status(401).json({ error: "unauthorized" });
         }
-        req.user = { id, username };
-        console.log(`[AUTH] Authenticated user ${decoded.id} (${decoded.username}) for ${req.method} ${req.path}`);
+        const user = getTokenBoundUser(id, userCreatedAt);
+        const expectedAuthBinding = user ? buildAuthBinding(user.id, user.createdAt, user.passwordHash) : "";
+        if (!user || !safeStringEqual(authBinding, expectedAuthBinding)) {
+            return res.status(401).json({ error: "unauthorized" });
+        }
+        const currentUsername = String(user.username || username).trim().toLowerCase();
+        req.user = { id, username: currentUsername, userCreatedAt };
+        console.log(`[AUTH] Authenticated user ${id} (${currentUsername}) for ${req.method} ${req.path}`);
         next();
     }
     catch (err) {

@@ -1,4 +1,4 @@
-FROM node:20-bullseye-slim AS deps
+FROM node:20-bullseye-slim AS base
 WORKDIR /app
 
 # Опционально: зеркало npm-реестра (передайте через build-arg)
@@ -8,33 +8,40 @@ RUN npm config set registry "$NPM_REGISTRY" \
   && npm config set fund false \
   && npm config set audit false
 
-COPY package.json package-lock.json* ./
-# Устанавливаем зависимости (без lock-файла используем install)
-RUN npm install --no-audit --no-fund --cache /root/.npm \
+FROM base AS deps
+
+# better-sqlite3 использует native addon. Prebuild обычно скачивается, но
+# build toolchain нужен как fallback для стабильной Docker-сборки.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund --cache /root/.npm \
   && npm cache verify
 
 # --- build ---
-FROM node:20-bullseye-slim AS build
-WORKDIR /app
-
-COPY --from=deps /app/node_modules ./node_modules
+FROM deps AS build
 COPY package.json ./package.json          
 COPY tsconfig.json ./tsconfig.json
 COPY src ./src
 RUN npm run build                        
 
+FROM deps AS prod-deps
+RUN npm prune --omit=dev
+
 # --- runtime ---
-FROM node:20-bullseye-slim AS runtime
-WORKDIR /app
+FROM base AS runtime
 
 ENV NODE_ENV=production
 ENV DATABASE_PATH=/app/data/db.sqlite
+ENV UPLOAD_DIR=/app/uploads
 
 # package.json нужен для корректной работы некоторых инструментов (версии и т.п.)
 COPY package.json ./package.json
 
-# готовые node_modules (prod) и сборки
-COPY --from=deps /app/node_modules ./node_modules
+# готовые production node_modules и сборка
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 
 # стартовый скрипт
