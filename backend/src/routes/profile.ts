@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { db } from "../utils/db";
 import { requireAuth, type AuthedRequest } from "../utils/auth";
+import { findAvailableUsernames } from "../utils/usernameGenerator"
+import { RESERVED_USERNAMES } from "../constants";
 
 const router = Router();
 router.use(requireAuth);
@@ -95,6 +97,11 @@ router.patch("/", async (req: AuthedRequest, res) => {
     
     if (normalized.length < 3) {
       return res.status(400).json({ error: "username_too_short", message: "Username must be at least 3 characters" });
+    }
+
+    if (RESERVED_USERNAMES.includes(normalized)) {
+      const suggestions = await findAvailableUsernames(db, normalized, 10);
+      return res.status(400).json({ error: "username_taken", suggestions });
     }
     
     // Проверка уникальности
