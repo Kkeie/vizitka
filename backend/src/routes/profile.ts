@@ -85,20 +85,28 @@ router.patch("/", async (req: AuthedRequest, res) => {
     return res.status(401).json({ error: "user_not_found", message: "User does not exist in database" });
   }
   
-  // если меняем username — проверить уникальность
-  if (username !== undefined) {
-    const exists = db.prepare("SELECT id, userId FROM Profile WHERE username = ?").get(username) as any;
-    if (exists && exists.userId !== userId) return res.status(400).json({ error: "username_taken" });
-  }
-  
   // Строим UPDATE запрос динамически
   const updates: string[] = [];
   const values: any[] = [];
   
+  // Обработка username с нормализацией
   if (username !== undefined) {
+    const normalized = username.trim().toLowerCase();
+    
+    if (normalized.length < 3) {
+      return res.status(400).json({ error: "username_too_short", message: "Username must be at least 3 characters" });
+    }
+    
+    // Проверка уникальности
+    const exists = db.prepare("SELECT id, userId FROM Profile WHERE username = ?").get(normalized) as any;
+    if (exists && exists.userId !== userId) {
+      return res.status(400).json({ error: "username_taken", message: "Username already taken" });
+    }
+    
     updates.push("username = ?");
-    values.push(username);
+    values.push(normalized);
   }
+  
   if (name !== undefined) {
     updates.push("name = ?");
     values.push(name);
