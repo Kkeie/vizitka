@@ -1,3 +1,5 @@
+import { RESERVED_USERNAMES } from "../constants";
+
 // Транслитерация кириллицы в латиницу (простая)
 function transliterate(text: string): string {
   const map: Record<string, string> = {
@@ -122,6 +124,10 @@ export async function findAvailableUsernames(
   // Поочерёдно проверяем каждого кандидата
   for (const candidate of candidates) {
     if (available.length >= maxSuggestions) break;
+
+    // Пропускаем зарезервированные имена
+    if (RESERVED_USERNAMES.includes(candidate)) continue;
+
     // Проверяем существование в БД
     const exists = db.prepare("SELECT 1 FROM Profile WHERE username = ?").get(candidate);
     if (!exists) {
@@ -134,8 +140,10 @@ export async function findAvailableUsernames(
     let counter = 1;
     while (available.length < maxSuggestions && counter < 100) {
       const candidate = `${filterEn(transliterate(base))}${counter}`;
-      const exists = db.prepare("SELECT 1 FROM Profile WHERE username = ?").get(candidate);
-      if (!exists) available.push(candidate);
+      if (!RESERVED_USERNAMES.includes(candidate)) {
+        const exists = db.prepare("SELECT 1 FROM Profile WHERE username = ?").get(candidate);
+        if (!exists) available.push(candidate);
+      }
       counter++;
     }
   }

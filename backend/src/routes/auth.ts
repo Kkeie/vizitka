@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../utils/db";
 import { hashPassword, verifyPassword, signToken } from "../utils/auth";
 import { findAvailableUsernames } from '../utils/usernameGenerator';
+import { RESERVED_USERNAMES } from "../constants";
 
 const router = Router();
 
@@ -18,6 +19,16 @@ router.post("/register", async (req, res) => {
     const uname = username.trim().toLowerCase();
     if (uname.length < 3) return res.status(400).json({ error: "username_too_short" });
     if (password.length < 4) return res.status(400).json({ error: "password_too_short" });
+
+    // Если имя зарезервировано – генерируем предложения и отвечаем как при занятом
+    if (RESERVED_USERNAMES.includes(uname)) {
+      const suggestions = await findAvailableUsernames(db, uname, 10);
+      return res.status(409).json({
+        error: "username_taken",
+        message: "This username is reserved",
+        suggestions,
+      });
+    }
 
     // Проверяем существование username
     console.log("[REGISTER] Checking existing username:", uname);
@@ -143,6 +154,12 @@ router.post("/check-username", async (req, res) => {
   if (!username) return res.status(400).json({ error: "username_required" });
   const uname = username.trim().toLowerCase();
   if (uname.length < 3) return res.status(400).json({ error: "username_too_short" });
+  
+  // Если зарезервировано – возвращаем недоступность с предложениями
+  if (RESERVED_USERNAMES.includes(uname)) {
+    const suggestions = await findAvailableUsernames(db, uname, 10);
+    return res.json({ available: false, suggestions });
+  }
   
   const existing = db.prepare("SELECT id FROM Profile WHERE username = ?").get(uname);
   if (!existing) {
