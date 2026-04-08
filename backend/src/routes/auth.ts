@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "../utils/db";
 import { hashPassword, verifyPassword, signToken } from "../utils/auth";
-import { findAvailableUsernames } from '../utils/usernameGenerator';
+import { findAvailableUsernames, isValidUsernameFormat  } from '../utils/usernameGenerator';
 import { RESERVED_USERNAMES } from "../constants";
 
 const router = Router();
@@ -18,11 +18,14 @@ router.post("/register", async (req, res) => {
     if (!username || !password) return res.status(400).json({ error: "username_and_password_required" });
     const uname = username.trim().toLowerCase();
     if (uname.length < 3) return res.status(400).json({ error: "username_too_short" });
+    if (!isValidUsernameFormat(uname)) {
+      return res.status(400).json({ error: "invalid_username_format", message: "Only latin letters, numbers and underscore are allowed" });
+    }
     if (password.length < 4) return res.status(400).json({ error: "password_too_short" });
 
     // Если имя зарезервировано – генерируем предложения и отвечаем как при занятом
     if (RESERVED_USERNAMES.includes(uname)) {
-      const suggestions = await findAvailableUsernames(db, uname, 10);
+      const suggestions = await findAvailableUsernames(db, uname, 42);
       return res.status(409).json({
         error: "username_taken",
         message: "This username is reserved",
@@ -152,20 +155,26 @@ router.post("/login", async (req, res) => {
 router.post("/check-username", async (req, res) => {
   const { username } = req.body as { username?: string };
   if (!username) return res.status(400).json({ error: "username_required" });
-  const uname = username.trim().toLowerCase();
-  if (uname.length < 3) return res.status(400).json({ error: "username_too_short" });
+
+  const raw = username.trim();
+  if (raw.length < 3) {
+    return res.status(400).json({ error: "username_too_short" });
+  }
+
+  const normalized = raw.toLowerCase();
+  const isValidFormat = /^[a-z0-9_]+$/.test(normalized);
   
-  // Если зарезервировано – возвращаем недоступность с предложениями
-  if (RESERVED_USERNAMES.includes(uname)) {
-    const suggestions = await findAvailableUsernames(db, uname, 10);
-    return res.json({ available: false, suggestions });
+  // Если формат правильный и имя не зарезервировано – проверяем, свободно ли оно
+  if (isValidFormat && !RESERVED_USERNAMES.includes(normalized)) {
+    const existing = db.prepare("SELECT id FROM Profile WHERE username = ?").get(normalized);
+    if (!existing) {
+      return res.json({ available: true, suggestions: [] });
+    }
   }
   
-  const existing = db.prepare("SELECT id FROM Profile WHERE username = ?").get(uname);
-  if (!existing) {
-    return res.json({ available: true });
-  }
-  const suggestions = await findAvailableUsernames(db, uname, 42);
+  // Во всех остальных случаях (неправильный формат, зарезервировано, занято)
+  // генерируем предложения на основе исходного ввода (с поддержкой кириллицы и т.д.)
+  const suggestions = await findAvailableUsernames(db, raw, 42);
   return res.json({ available: false, suggestions });
 });
 
