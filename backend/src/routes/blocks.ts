@@ -290,14 +290,17 @@ router.patch("/:id", requireAuth, async (req: AuthedRequest, res) => {
  * POST /api/blocks/reorder — [{ id, sort }]
  */
 router.post("/reorder", requireAuth, async (req: AuthedRequest, res) => {
-  const payload = (req.body as { items?: { id: number | string; sort: number | string }[] }) || {};
+  const payload = (req.body as { items?: { id: unknown; sort: unknown }[] }) || {};
   const items = Array.isArray(payload.items) ? payload.items : [];
   
   // noinspection SqlNoDataSourceInspection
   const update = db.prepare("UPDATE Block SET sort = ? WHERE id = ? AND userId = ?");
   const transaction = db.transaction(() => {
     for (const it of items) {
-      update.run(Number(it.sort), Number(it.id), req.user!.id);
+      const id = typeof it.id === 'number' ? it.id : Number(it.id);
+      const sort = typeof it.sort === 'number' ? it.sort : Number(it.sort);
+      if (isNaN(id) || isNaN(sort)) continue; // пропускаем некорректные пары
+      update.run(sort, id, req.user!.id);
     }
   });
   
