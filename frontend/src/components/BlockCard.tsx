@@ -56,6 +56,9 @@ export default function BlockCard({
   const isSection = b.type === "section";
   const isSectionEditable = Boolean(onUpdate) && isSection;
   const [sectionValue, setSectionValue] = React.useState(b.note ?? "");
+  const [isHovered, setIsHovered] = React.useState(false);
+  const [isSectionFocused, setIsSectionFocused] = React.useState(false);
+  const isPublic = !onUpdate && !onDelete;
 
   const handleSelectionChange = React.useCallback(() => {
     if (!isNoteEditable) return;
@@ -158,7 +161,7 @@ export default function BlockCard({
   const playButtonSize = 72;
 
   const cardStyle: React.CSSProperties = {
-    padding: isSection ? "0 28px" : (b.type === "photo" ? "0" : "16px"),
+    padding: b.type === "photo" ? "0" : "16px",
     position: "relative",
     transition: isDragPreview ? "none" : "all 0.2s ease",
     display: "flex",
@@ -168,16 +171,21 @@ export default function BlockCard({
     maxWidth: "100%",
     boxSizing: "border-box",
     userSelect: "none",
-    borderRadius: isSection ? "var(--radius-sm)" : "var(--radius-md)",
+    borderRadius: isSection ? "var(--radius-md)" : "var(--radius-md)",
     overflow: isSection ? "visible" : "hidden",
     height: "100%",
     pointerEvents: isDragPreview ? "none" : undefined,
-    background: isSection
-      ? "linear-gradient(90deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.96) 18%, rgba(255,255,255,0.96) 82%, rgba(255,255,255,0.45) 100%)"
-      : undefined,
-    border: isSection ? "1px solid rgba(15, 23, 42, 0.08)" : undefined,
-    boxShadow: isSection ? "none" : undefined,
-  }
+    ...(isSection && isSectionEditable && !isPublic && {
+      background: (isHovered || isSectionFocused) ? "var(--surface)" : "transparent",
+      border: (isHovered || isSectionFocused) ? "1px solid var(--border)" : "none",
+      boxShadow: (isHovered || isSectionFocused) ? "var(--shadow-md)" : "none",
+    }),
+    ...(isSection && (!isSectionEditable || isPublic) && {
+      background: "transparent",
+      border: "none",
+      boxShadow: "none",
+    }),
+  };
 
   const scrollableContentStyle: React.CSSProperties = { height: "100%", overflowY: "auto", paddingRight: 4, minHeight: 0 };
 
@@ -188,6 +196,7 @@ export default function BlockCard({
       style={cardStyle}
       {...sortableProps}
       onMouseEnter={(e) => {
+        setIsHovered(true);
         if (showEditorHeader) {
           const header = e.currentTarget.querySelector(".card-edit-header") as HTMLElement | null;
           if (header) {
@@ -197,6 +206,7 @@ export default function BlockCard({
         }
       }}
       onMouseLeave={(e) => {
+        setIsHovered(false);
         if (showEditorHeader) {
           const header = e.currentTarget.querySelector(".card-edit-header") as HTMLElement | null;
           if (header) {
@@ -208,87 +218,98 @@ export default function BlockCard({
     >
 
       <div style={{ flex: 1, position: "relative", zIndex: 0, minHeight: 0, overflow: "hidden" }}>
-        {isSection && (
-          <div
-            className="card__content"
-            style={{
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 20,
-            }}
-          >
-            <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(15,23,42,0.18), rgba(15,23,42,0.04))" }} />
-            {isSectionEditable ? (
-              <input
-                className="input"
-                type="text"
-                value={sectionValue}
-                placeholder="Новый раздел"
-                onPointerDown={(e) => e.stopPropagation()}
-                onChange={(e) => {
-                  const nextValue = e.target.value;
-                  setSectionValue(nextValue);
-                  if (saveNoteDebounceRef.current) clearTimeout(saveNoteDebounceRef.current);
-                  saveNoteDebounceRef.current = setTimeout(() => {
-                    const normalized = nextValue.trim();
-                    const prev = (b.note ?? "").trim();
-                    if (normalized !== prev) {
-                      onUpdate?.({ note: normalized || null });
-                    }
-                  }, 500);
-                }}
-                onBlur={() => {
-                  const normalized = sectionValue.trim();
+      {isSection && (
+        <div
+          className="card__content"
+          style={{
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-start",
+            width: "100%",
+          }}
+        >
+          {isSectionEditable ? (
+            <input
+              className="input"
+              type="text"
+              value={sectionValue}
+              placeholder="Новый раздел"
+              maxLength={80}
+              onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }
+                if (e.key === ' ') {
+                  e.stopPropagation();
+                }
+              }}
+              onChange={(e) => {
+                const nextValue = e.target.value;
+                setSectionValue(nextValue);
+                if (saveNoteDebounceRef.current) clearTimeout(saveNoteDebounceRef.current);
+                saveNoteDebounceRef.current = setTimeout(() => {
+                  const normalized = nextValue.trim();
                   const prev = (b.note ?? "").trim();
                   if (normalized !== prev) {
                     onUpdate?.({ note: normalized || null });
                   }
-                }}
-                style={{
-                  width: "auto",
-                  minWidth: 220,
-                  maxWidth: "min(100%, 420px)",
-                  padding: "10px 16px",
-                  textAlign: "center",
-                  fontSize: 18,
-                  fontWeight: 700,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  borderRadius: 999,
-                  border: "1px solid rgba(15, 23, 42, 0.08)",
-                  background: "rgba(255,255,255,0.88)",
-                  boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  maxWidth: "100%",
-                  padding: "10px 18px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(15, 23, 42, 0.08)",
-                  background: "rgba(255,255,255,0.88)",
-                  boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
-                  color: "var(--text)",
-                  fontSize: 18,
-                  fontWeight: 700,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                }}
-                title={b.note ?? ""}
-              >
-                {b.note ?? "Раздел"}
-              </div>
-            )}
-            <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(15,23,42,0.04), rgba(15,23,42,0.18))" }} />
-          </div>
-        )}
-
+                }, 500);
+              }}
+              onFocus={() => setIsSectionFocused(true)}
+              onBlur={() => {
+                setIsSectionFocused(false);
+                const normalized = sectionValue.trim();
+                const prev = (b.note ?? "").trim();
+                if (normalized !== prev) {
+                  onUpdate?.({ note: normalized || null });
+                }
+              }}
+              style={{
+                width: "100%",
+                maxWidth: "100%",
+                padding: "0",
+                textAlign: "left",
+                fontSize: 16,
+                fontWeight: 700,
+                letterSpacing: "normal",
+                textTransform: "none",
+                borderRadius: 0,
+                border: "none",
+                background: "transparent",
+                boxShadow: "none",
+                outline: "none",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                maxWidth: "100%",
+                padding: "0",
+                borderRadius: 0,
+                border: "none",
+                background: "transparent",
+                boxShadow: "none",
+                color: "var(--text)",
+                fontSize: 16,
+                fontWeight: 700,
+                letterSpacing: "normal",
+                textTransform: "none",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                textAlign: "left",
+              }}
+              title={b.note ?? ""}
+            >
+              {b.note ?? "Раздел"}
+            </div>
+          )}
+        </div>
+      )}
         {b.type === "note" && (() => {
           const ns = b.noteStyle;
           const textCss = noteStyleToTextCss(ns);

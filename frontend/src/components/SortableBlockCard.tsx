@@ -311,7 +311,7 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     { key: 'e', cursor: 'ew-resize', style: { right: -4, top: '50%', transform: 'translateY(-50%)', width: 12, height: 36 } },
     { key: 'w', cursor: 'ew-resize', style: { left: -4, top: '50%', transform: 'translateY(-50%)', width: 12, height: 36 } },
     { key: 'ne', cursor: 'nesw-resize', style: { top: -4, right: -4, width: 16, height: 16 } },
-    { key: 'nw', cursor: 'nwse-resize', style: { top: -4, left: -4, width: 16, height: 16 } },
+    //{ key: 'nw', cursor: 'nwse-resize', style: { top: -4, left: -4, width: 16, height: 16 } },
     { key: 'se', cursor: 'nwse-resize', style: { bottom: -4, right: -4, width: 16, height: 16 } },
     { key: 'sw', cursor: 'nesw-resize', style: { bottom: -4, left: -4, width: 16, height: 16 } },
   ] as const;
@@ -409,12 +409,12 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
             aria-label="Удалить блок"
             style={{
               position: 'absolute',
-              top: 4,
-              left: 4,
+              top: -8,
+              left: -8,
               zIndex: 4,
               padding: 0,
-              width: 20,
-              height: 20,
+              width: 30,
+              height: 30,
               fontSize: 10,
               color: '#000000',
               background: '#ffffff',
@@ -427,7 +427,21 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
               boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
             }}
           >
-            🗑️
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ display: "block" }}
+            >
+              <path d="M4 6h16" />
+              <path d="M6 6v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
+              <path d="M9 3h6" />
+            </svg>
           </button>
         )}
 
