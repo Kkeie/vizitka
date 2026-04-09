@@ -10,7 +10,7 @@ export const GRID_COLUMNS: Record<Breakpoint, number> = {
 export const MAX_ROW_SPAN = 6;
 export const BENTO_ROW_UNIT = 8;
 export const DEFAULT_BENTO_CELL_SIZE = 180;
-export const SECTION_BLOCK_HEIGHT = 88;
+export const SECTION_BLOCK_HEIGHT = 56;
 
 const DEFAULT_SIZES: Record<BlockType, BlockGridSize> = {
   section: { colSpan: GRID_COLUMNS.desktop, rowSpan: 1 },
