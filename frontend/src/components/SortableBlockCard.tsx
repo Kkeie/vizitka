@@ -409,8 +409,8 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
             aria-label="Удалить блок"
             style={{
               position: 'absolute',
-              top: -4,
-              left: -4,
+              top: -8,
+              left: -8,
               zIndex: 4,
               padding: 0,
               width: 30,
