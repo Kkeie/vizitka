@@ -34,9 +34,7 @@ export default function BlockCard({
   onUpdate,
   isDragPreview,
   sortableProps,
-  colSpan,
-  isEditor,
-  editorHovered,
+  colSpan,   
 }: {
   b: Block;
   onDelete?: () => void;
@@ -44,9 +42,7 @@ export default function BlockCard({
   isDragPreview?: boolean;
   /** Слушатели dnd-kit только на карточке, не на родителе с ручками ресайза */
   sortableProps?: React.HTMLAttributes<HTMLDivElement>;
-  colSpan?: number;
-  isEditor?: boolean;
-  editorHovered?: boolean;
+  colSpan?: number;  
 }) {
   const [isVideoPlaying, setIsVideoPlaying] = React.useState(false);
   const [linkMetadata, setLinkMetadata] = React.useState<{ title?: string; description?: string; image?: string } | null>(null);
@@ -162,7 +158,7 @@ export default function BlockCard({
   const playButtonSize = 72;
 
   const cardStyle: React.CSSProperties = {
-    padding: b.type === "photo" ? "0" : "16px",
+    padding: isSection ? "0 28px" : (b.type === "photo" ? "0" : "16px"),
     position: "relative",
     transition: isDragPreview ? "none" : "all 0.2s ease",
     display: "flex",
@@ -176,21 +172,12 @@ export default function BlockCard({
     overflow: isSection ? "visible" : "hidden",
     height: "100%",
     pointerEvents: isDragPreview ? "none" : undefined,
-    ...(isSection && {
-      padding: "4px 16px",
-      background: isEditor && editorHovered ? "var(--surface)" : "transparent",
-      border: "1px solid transparent",           // ← всегда есть, но невидима
-      boxShadow: "none",
-      ...(isEditor && editorHovered && {
-        borderColor: "var(--border)",            // ← при наведении делаем видимой
-      }),
-    }),
-    ...(!isSection && {
-      background: "var(--surface)",
-      border: "1px solid var(--border)",
-      boxShadow: "var(--shadow)",
-    }),
-  };
+    background: isSection
+      ? "linear-gradient(90deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.96) 18%, rgba(255,255,255,0.96) 82%, rgba(255,255,255,0.45) 100%)"
+      : undefined,
+    border: isSection ? "1px solid rgba(15, 23, 42, 0.08)" : undefined,
+    boxShadow: isSection ? "none" : undefined,
+  }
 
   const scrollableContentStyle: React.CSSProperties = { height: "100%", overflowY: "auto", paddingRight: 4, minHeight: 0 };
 
@@ -222,27 +209,26 @@ export default function BlockCard({
 
       <div style={{ flex: 1, position: "relative", zIndex: 0, minHeight: 0, overflow: "hidden" }}>
         {isSection && (
-          <div className="card__content" style={{ width: "100%" }}>
+          <div
+            className="card__content"
+            style={{
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 20,
+            }}
+          >
+            <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(15,23,42,0.18), rgba(15,23,42,0.04))" }} />
             {isSectionEditable ? (
-              <textarea
+              <input
+                className="input"
+                type="text"
                 value={sectionValue}
-                placeholder="Добавить заголовок"
-                maxLength={100}
-                rows={2}   
+                placeholder="Новый раздел"
                 onPointerDown={(e) => e.stopPropagation()}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.stopPropagation();
-                    e.preventDefault();      // Предотвращаем нежелательное поведение (например, отправку формы)
-                    (e.target as HTMLInputElement).blur(); // Убираем фокус, чтобы сохранить значение
-                  }
-                  if (e.key === ' ') {
-                    e.stopPropagation();   // ← предотвращает всплытие события пробела
-                  }
-                }}
                 onChange={(e) => {
-                  let nextValue = e.target.value;
-                  if (nextValue.length > 100) nextValue = nextValue.slice(0, 100);
+                  const nextValue = e.target.value;
                   setSectionValue(nextValue);
                   if (saveNoteDebounceRef.current) clearTimeout(saveNoteDebounceRef.current);
                   saveNoteDebounceRef.current = setTimeout(() => {
@@ -260,46 +246,46 @@ export default function BlockCard({
                     onUpdate?.({ note: normalized || null });
                   }
                 }}
-                onFocus={(e) => {
-                e.currentTarget.style.boxShadow = "none";
-                e.currentTarget.style.outline = "none";
-              }}
                 style={{
-                  width: "100%",
-                  border: "none",
-                  background: "transparent",
-                  fontSize: 24,
+                  width: "auto",
+                  minWidth: 220,
+                  maxWidth: "min(100%, 420px)",
+                  padding: "10px 16px",
+                  textAlign: "center",
+                  fontSize: 18,
                   fontWeight: 700,
-                  letterSpacing: "-0.02em",
-                  color: "var(--text)",
-                  outline: "none",
-                  padding: "8px 0",
-                  margin: 0,
-                  textShadow: "none", 
-                  boxShadow: "none",
-                  resize: "none",              // ← запрещаем ручное изменение размера
-                  overflowY: "auto",           // ← прокрутка при превышении 2 строк       // пользователь может менять высоту (опционально)
-                  fontFamily: "inherit",
-                  lineHeight: 1.3,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  borderRadius: 999,
+                  border: "1px solid rgba(15, 23, 42, 0.08)",
+                  background: "rgba(255,255,255,0.88)",
+                  boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
                 }}
               />
             ) : (
               <div
                 style={{
-                  fontSize: 24,
-                  fontWeight: 700,
-                  letterSpacing: "-0.02em",
+                  maxWidth: "100%",
+                  padding: "10px 18px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(15, 23, 42, 0.08)",
+                  background: "rgba(255,255,255,0.88)",
+                  boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
                   color: "var(--text)",
-                  padding: "8px 0",
-                  margin: 0,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  textShadow: "none",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
                 }}
+                title={b.note ?? ""}
               >
                 {b.note ?? "Раздел"}
               </div>
             )}
+            <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, rgba(15,23,42,0.04), rgba(15,23,42,0.18))" }} />
           </div>
         )}
 
@@ -371,9 +357,6 @@ export default function BlockCard({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.stopPropagation();
-                    }
-                    if (e.key === ' ') {
-                      e.stopPropagation();   // ← предотвращает всплытие события пробела
                     }
                   }}
                   style={{

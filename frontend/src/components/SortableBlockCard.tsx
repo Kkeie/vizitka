@@ -400,8 +400,6 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
           isDragPreview={isDragging}
           sortableProps={{ ...attributes, ...(listeners ?? {}) }}
           colSpan={resolvedGridSize.colSpan}
-          isEditor={!!onDelete}
-          editorHovered={isHovered}
         />
 
         {onDelete && isHovered && !isDragging && (
