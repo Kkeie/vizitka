@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../utils/db");
 const auth_1 = require("../utils/auth");
+const usernameGenerator_1 = require("../utils/usernameGenerator");
+const constants_1 = require("../constants");
 const router = (0, express_1.Router)();
 router.use(auth_1.requireAuth);
 function parseProfileJsonFields(profile) {
@@ -78,18 +80,29 @@ router.patch("/", async (req, res) => {
         console.error(`[PROFILE] User ${userId} not found in database`);
         return res.status(401).json({ error: "user_not_found", message: "User does not exist in database" });
     }
-    // если меняем username — проверить уникальность
-    if (username !== undefined) {
-        const exists = db_1.db.prepare("SELECT id, userId FROM Profile WHERE username = ?").get(username);
-        if (exists && exists.userId !== userId)
-            return res.status(400).json({ error: "username_taken" });
-    }
     // Строим UPDATE запрос динамически
     const updates = [];
     const values = [];
+    // Обработка username с нормализацией
     if (username !== undefined) {
+        const normalized = username.trim().toLowerCase();
+        if (normalized.length < 3) {
+            return res.status(400).json({ error: "username_too_short", message: "Username must be at least 3 characters" });
+        }
+        if (!(0, usernameGenerator_1.isValidUsernameFormat)(normalized)) {
+            return res.status(400).json({ error: "invalid_username_format", message: "Only latin letters, numbers and underscore are allowed" });
+        }
+        if (constants_1.RESERVED_USERNAMES.includes(normalized)) {
+            const suggestions = await (0, usernameGenerator_1.findAvailableUsernames)(db_1.db, normalized, 42);
+            return res.status(400).json({ error: "username_taken", suggestions });
+        }
+        // Проверка уникальности
+        const exists = db_1.db.prepare("SELECT id, userId FROM Profile WHERE username = ?").get(normalized);
+        if (exists && exists.userId !== userId) {
+            return res.status(400).json({ error: "username_taken", message: "Username already taken" });
+        }
         updates.push("username = ?");
-        values.push(username);
+        values.push(normalized);
     }
     if (name !== undefined) {
         updates.push("name = ?");

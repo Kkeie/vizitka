@@ -323,7 +323,11 @@ router.post("/reorder", auth_1.requireAuth, async (req, res) => {
     const update = db_1.db.prepare("UPDATE Block SET sort = ? WHERE id = ? AND userId = ?");
     const transaction = db_1.db.transaction(() => {
         for (const it of items) {
-            update.run(Number(it.sort), Number(it.id), req.user.id);
+            const id = typeof it.id === 'number' ? it.id : Number(it.id);
+            const sort = typeof it.sort === 'number' ? it.sort : Number(it.sort);
+            if (isNaN(id) || isNaN(sort))
+                continue; // пропускаем некорректные пары
+            update.run(sort, id, req.user.id);
         }
     });
     transaction();

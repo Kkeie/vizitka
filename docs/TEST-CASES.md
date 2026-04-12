@@ -437,6 +437,28 @@
 
 ## Модуль: Блоки
 
+### Соответствие автотестам (Vitest)
+
+Автоматизированный файл: `backend/test/blocks.integration.test.ts` (команда: `npm test` в каталоге `backend`).
+
+| Тест-кейс документации | Покрытие в коде |
+|------------------------|-----------------|
+| TC-BLOCK-01 | `GET /api/blocks` → тест «массив блоков: у каждого есть id, type, sort» |
+| TC-BLOCK-02 | `POST` note «Это текстовый блок» + проверка через `GET` |
+| TC-BLOCK-03 | `POST` link с `linkUrl: "https://example.com"` |
+| TC-BLOCK-04 | `POST` photo с `photoUrl: "/uploads/test.jpg"` |
+| TC-BLOCK-05 | `POST` map с `mapLat` / `mapLng` |
+| TC-BLOCK-06 | `POST` social telegram с `https://t.me/example` |
+| TC-BLOCK-07 | `POST` без `type`, тело `{ "note": "Без типа" }` |
+| TC-BLOCK-08 | `PATCH` своего блока + повторный `GET` списка |
+| TC-BLOCK-09 | `PATCH` чужого блока → `404` + данные владельца без изменений |
+| TC-BLOCK-10 | `DELETE` своего блока + отсутствие в `GET` |
+| TC-BLOCK-11 | `POST /reorder` с `items: [{ id: id1, sort: 1 }, { id: id2, sort: 0 }]` при исходных sort 0 и 1 |
+| TC-BLOCK-12 | `GET` без токена → `401`, тело `{ "error": "unauthorized" }` |
+| TC-BLOCK-13 | Два пользователя: множества `id` блоков не пересекаются |
+
+Дополнительно в том же файле (сверх таблицы TC-BLOCK): `POST` без `Authorization`; типы section, video, music; алиасы полей; `noteStyle`; неизвестный `type`; сортировка списка; невалидный JWT; `DELETE` чужого блока (текущее поведение API: `200`); `reorder` с некорректными элементами; цепочка загрузки PNG и создания photo-блока (**TC-UPLOAD-02**, **TC-UPLOAD-05**).
+
 ---
 
 ### TC-BLOCK-01
