@@ -27,6 +27,7 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+
 // Логирование всех запросов для отладки
 app.use((req, _res, next) => {
   console.log(`[${req.method}] ${req.path}`, {
