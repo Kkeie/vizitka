@@ -75,15 +75,6 @@ router.get("/:username", async (req, res) => {
         WHERE TRIM(p.username) = ?
       `).get(rawUsername);
         }
-        // Для отладки: выводим все профили с похожим username
-        if (!profile) {
-            const allProfiles = db_1.db.prepare(`
-        SELECT p.id, p.username, LOWER(TRIM(p.username)) as lower_trimmed, p.userId
-        FROM Profile p
-        LIMIT 20
-      `).all();
-            console.log(`[PUBLIC] All profiles in DB (first 20):`, allProfiles);
-        }
         console.log(`[PUBLIC] Profile found:`, profile ? { id: profile.id, username: profile.username, userId: profile.userId } : 'null');
         if (!profile) {
             console.log(`[PUBLIC] Profile not found for username: "${username}" (raw: "${rawUsername}")`);

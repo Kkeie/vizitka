@@ -7,13 +7,15 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsc -w",
-    "postinstall": "npm run build || true"
+    "postinstall": "npm run build || true",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "better-sqlite3": "11.7.0",
     "bcryptjs": "2.4.3",
     "cors": "2.8.5",
-    "express": "4.19.2",
+    "express": "4.22.1",
     "jsonwebtoken": "9.0.2",
     "multer": "1.4.5-lts.1",
     "qrcode": "1.5.3"
@@ -26,6 +28,9 @@
     "@types/better-sqlite3": "7.6.11",
     "@types/multer": "1.4.12",
     "@types/node": "20.14.12",
-    "typescript": "5.6.3"
+    "@types/supertest": "6.0.2",
+    "supertest": "7.0.0",
+    "typescript": "5.6.3",
+    "vitest": "2.1.9"
   }
 }
