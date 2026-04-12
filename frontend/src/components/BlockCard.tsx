@@ -57,6 +57,8 @@ export default function BlockCard({
   const isSectionEditable = Boolean(onUpdate) && isSection;
   const [sectionValue, setSectionValue] = React.useState(b.note ?? "");
   const [isHovered, setIsHovered] = React.useState(false);
+  const [isSectionEditing, setIsSectionEditing] = React.useState(false);
+  const sectionValueRef = React.useRef(sectionValue);
   const [isSectionFocused, setIsSectionFocused] = React.useState(false);
   const isPublic = !onUpdate && !onDelete;
 
@@ -106,9 +108,13 @@ export default function BlockCard({
   }, [isNoteEditable, handleSelectionChange]);
 
   React.useEffect(() => {
-    if (!isSection) return;
-    setSectionValue(b.note ?? "");
-  }, [b.id, b.note, isSection]);
+    if (!isSection || isSectionEditing) return;
+    const newValue = b.note ?? "";
+    if (sectionValueRef.current !== newValue) {
+      setSectionValue(newValue);
+      sectionValueRef.current = newValue;
+    }
+  }, [b.id, b.note, isSection, isSectionEditing]);
 
   const stopControlEvent = (event: React.MouseEvent | React.PointerEvent) => {
     event.stopPropagation();
@@ -249,6 +255,7 @@ export default function BlockCard({
               onChange={(e) => {
                 const nextValue = e.target.value;
                 setSectionValue(nextValue);
+                sectionValueRef.current = nextValue;
                 if (saveNoteDebounceRef.current) clearTimeout(saveNoteDebounceRef.current);
                 saveNoteDebounceRef.current = setTimeout(() => {
                   const normalized = nextValue.trim();
@@ -258,9 +265,13 @@ export default function BlockCard({
                   }
                 }, 500);
               }}
-              onFocus={() => setIsSectionFocused(true)}
+              onFocus={() => {
+                setIsSectionFocused(true);
+                setIsSectionEditing(true);
+              }}
               onBlur={() => {
                 setIsSectionFocused(false);
+                setIsSectionEditing(false);
                 const normalized = sectionValue.trim();
                 const prev = (b.note ?? "").trim();
                 if (normalized !== prev) {
@@ -377,6 +388,9 @@ export default function BlockCard({
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
+                      e.stopPropagation();
+                    }
+                    if (e.key === ' ') {
                       e.stopPropagation();
                     }
                   }}
