@@ -38,11 +38,7 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Логирование ошибок
-app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(`[ERROR] ${req.method} ${req.path}:`, err);
-  res.status(500).json({ error: 'internal_error', message: err.message });
-});
+// Парсеры JSON и urlencoded
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -88,5 +84,19 @@ app.use("/api/qr", qrRouter);
 
 // обработчик 404 для /api/*
 app.use("/api", (_req, res) => res.status(404).json({ error: "not_found" }));
+
+// Глобальный обработчик ошибок — последний middleware
+// Перехватывает ошибки из всех предыдущих middleware и роутов
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+  
+  // В production не показываем детали ошибки клиенту
+  const status = err.status || 500;
+  const message = (process.env.NODE_ENV === 'production' && status === 500)
+    ? 'internal_error'
+    : err.message || 'internal_error';
+  
+  res.status(status).json({ error: message });
+});
 
 export default app;
