@@ -37,13 +37,21 @@ app.use((req, _res, next) => {
   next();
 });
 
-// Логирование ошибок
-app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(`[ERROR] ${req.method} ${req.path}:`, err);
-  res.status(500).json({ error: 'internal_error', message: err.message });
-});
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// TC-SYS-03: тело не JSON → 400 JSON (не HTML)
+app.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const e = err as { status?: number; body?: unknown; type?: string };
+  const isParse =
+    e?.type === "entity.parse.failed" ||
+    (err instanceof SyntaxError && typeof e?.status === "number" && e.status === 400 && "body" in e);
+  if (isParse) {
+    const message = err instanceof Error ? err.message : "Invalid JSON";
+    return res.status(400).json({ error: "invalid_json", message });
+  }
+  next(err);
+});
 
 // Никогда не кешируем приватные ответы, зависящие от bearer token.
 app.use("/api", (req, res, next) => {
@@ -87,5 +95,11 @@ app.use("/api/qr", qrRouter);
 
 // обработчик 404 для /api/*
 app.use("/api", (_req, res) => res.status(404).json({ error: "not_found" }));
+
+app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+  const msg = err instanceof Error ? err.message : String(err);
+  res.status(500).json({ error: "internal_error", message: msg });
+});
 
 export default app;

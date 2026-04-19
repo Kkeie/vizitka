@@ -37,13 +37,19 @@ app.use((req, _res, next) => {
     });
     next();
 });
-// Логирование ошибок
-app.use((err, req, res, _next) => {
-    console.error(`[ERROR] ${req.method} ${req.path}:`, err);
-    res.status(500).json({ error: 'internal_error', message: err.message });
-});
 app.use(express_1.default.json({ limit: "10mb" }));
 app.use(express_1.default.urlencoded({ extended: true }));
+// TC-SYS-03: тело не JSON → 400 JSON (не HTML)
+app.use((err, _req, res, next) => {
+    const e = err;
+    const isParse = (e === null || e === void 0 ? void 0 : e.type) === "entity.parse.failed" ||
+        (err instanceof SyntaxError && typeof (e === null || e === void 0 ? void 0 : e.status) === "number" && e.status === 400 && "body" in e);
+    if (isParse) {
+        const message = err instanceof Error ? err.message : "Invalid JSON";
+        return res.status(400).json({ error: "invalid_json", message });
+    }
+    next(err);
+});
 // Никогда не кешируем приватные ответы, зависящие от bearer token.
 app.use("/api", (req, res, next) => {
     if (req.headers.authorization) {
@@ -79,4 +85,9 @@ app.use("/api/metadata", metadata_1.default);
 app.use("/api/qr", qr_1.default);
 // обработчик 404 для /api/*
 app.use("/api", (_req, res) => res.status(404).json({ error: "not_found" }));
+app.use((err, req, res, _next) => {
+    console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: "internal_error", message: msg });
+});
 exports.default = app;
