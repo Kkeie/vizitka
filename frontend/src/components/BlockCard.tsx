@@ -178,7 +178,8 @@ export default function BlockCard({
     boxSizing: "border-box",
     userSelect: "none",
     borderRadius: isSection ? "var(--radius-md)" : "var(--radius-md)",
-    overflow: isSection ? "visible" : "hidden",
+    ...((b.type === "note") && { overflowY: "auto", overflowX: "hidden" }),
+    ...(b.type !== "note" && { overflow: "hidden" }),
     height: "100%",
     pointerEvents: isDragPreview ? "none" : undefined,
     ...(isSection && isSectionEditable && !isPublic && {
@@ -193,8 +194,8 @@ export default function BlockCard({
     }),
   };
 
-  const scrollableContentStyle: React.CSSProperties = { height: "100%", overflowY: "auto", paddingRight: 4, minHeight: 0 };
-
+  const scrollableContentStyle: React.CSSProperties = { paddingRight: 4 };
+  
   return (
     <div
       ref={revealRef}
