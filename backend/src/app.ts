@@ -42,6 +42,19 @@ app.use((req, _res, next) => {
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// TC-SYS-03: тело не JSON → 400 JSON (не HTML)
+app.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const e = err as { status?: number; body?: unknown; type?: string };
+  const isParse =
+    e?.type === "entity.parse.failed" ||
+    (err instanceof SyntaxError && typeof e?.status === "number" && e.status === 400 && "body" in e);
+  if (isParse) {
+    const message = err instanceof Error ? err.message : "Invalid JSON";
+    return res.status(400).json({ error: "invalid_json", message });
+  }
+  next(err);
+});
+
 // Никогда не кешируем приватные ответы, зависящие от bearer token.
 app.use("/api", (req, res, next) => {
   if (req.headers.authorization) {
