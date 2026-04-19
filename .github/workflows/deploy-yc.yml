@@ -1,0 +1,84 @@
+name: Deploy to Yandex Cloud
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-yc-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      YC_REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
+      YC_INSTANCE_NAME: ${{ secrets.YC_INSTANCE_NAME }}
+      YC_INSTANCE_ID: ${{ secrets.YC_INSTANCE_ID }}
+      YC_SERVICE_ACCOUNT_NAME: ${{ secrets.YC_SERVICE_ACCOUNT_NAME }}
+      YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
+      YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+      VITE_BACKEND_API_URL: /api
+      PLATFORM: linux/amd64
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        env:
+          YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
+        run: |
+          set -Eeuo pipefail
+          missing=()
+
+          for name in YC_SA_KEY_JSON YC_REGISTRY_ID JWT_SECRET; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [[ -z "${YC_INSTANCE_NAME:-}" && -z "${YC_INSTANCE_ID:-}" ]]; then
+            missing+=("YC_INSTANCE_NAME or YC_INSTANCE_ID")
+          fi
+
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing GitHub secrets:\n' >&2
+            printf '  - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+
+      - name: Install Yandex Cloud CLI
+        run: |
+          set -Eeuo pipefail
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+          echo "$HOME/yandex-cloud/bin" >> "$GITHUB_PATH"
+
+      - name: Configure Yandex Cloud auth
+        env:
+          YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
+        run: |
+          set -Eeuo pipefail
+          key_file="$RUNNER_TEMP/yc-sa-key.json"
+          printf '%s' "$YC_SA_KEY_JSON" > "$key_file"
+
+          yc config set service-account-key "$key_file"
+
+          if [[ -n "${YC_CLOUD_ID:-}" ]]; then
+            yc config set cloud-id "$YC_CLOUD_ID"
+          fi
+
+          if [[ -n "${YC_FOLDER_ID:-}" ]]; then
+            yc config set folder-id "$YC_FOLDER_ID"
+          fi
+
+      - name: Deploy to COI VM
+        run: scripts/deploy-yc-coi.sh

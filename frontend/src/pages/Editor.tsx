@@ -58,11 +58,12 @@ import {
   DragMoveEvent,
   DragEndEvent,
   type CollisionDetection,
+  DragOverEvent,
 } from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
-  rectSortingStrategy,
+  verticalListSortingStrategy,
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
 
@@ -181,6 +182,8 @@ export default function Editor() {
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
   );
   const [activeId, setActiveId] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragCellSize, setDragCellSize] = useState<number | null>(null);
   const lastPointerRef = useRef({ x: 0, y: 0 });
   const revealTimeoutsRef = useRef<number[]>([]);
 
@@ -499,6 +502,7 @@ export default function Editor() {
 
   useEffect(() => {
     if (!cellSize || !layout || blocks.length === 0) return;
+    if (isDragging) return;
     setBlockSizes((prev) => {
       const needAnchor = currentOrder.some(
         (id) => !prev[id]?.anchorsByBreakpoint?.[breakpoint],
@@ -528,6 +532,8 @@ export default function Editor() {
   ]);
 
   const handleDragStart = (event: DragStartEvent) => {
+    setIsDragging(true);
+    setDragCellSize(cellSize);
     canvasPadDesiredRef.current = editorCanvasPadBottom;
     setActiveId(event.active.id as number);
     const e = event.activatorEvent as PointerEvent;
@@ -558,16 +564,52 @@ export default function Editor() {
     addCanvasPadDelta(delta);
     window.scrollBy({ top: Math.min(delta, 28), left: 0, behavior: "auto" });
   };
+  
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!active || !over) return;
+    if (typeof active.id !== "number" || typeof over.id !== "number") return;
+    if (active.id === over.id) return;
+
+    const oldIndex = currentOrder.indexOf(active.id);
+    const newIndex = currentOrder.indexOf(over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const nextOrder = arrayMove(currentOrder, oldIndex, newIndex);
+
+    setLayout((prev) => {
+      if (!prev) return prev;
+      return { ...prev, [breakpoint]: [nextOrder] };
+    });
+
+    setBlockSizes((prev) => {
+      const cleared = stripAnchorsForBreakpoint(prev, breakpoint);
+      const assigned = assignSparseAnchorsForBreakpoint(
+        nextOrder,
+        blocks,
+        cleared,
+        breakpoint,
+        currentGridColumns,
+        cellSize,
+        currentGridGap,
+      );
+      return assigned;
+    });
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    setIsDragging(false);
+    setDragCellSize(null);
     const { active, over } = event;
     setActiveId(null);
+
     if (!layout) return;
 
     const draggedId = active.id as number;
-
     const gridEl = gridRef.current;
     const pointer = lastPointerRef.current;
+
+    // Проверка дропа на пустое пространство (как раньше)
     const dropOnGridSurface =
       over?.id === GRID_SURFACE_ID ||
       (!over &&
@@ -581,32 +623,20 @@ export default function Editor() {
         ));
 
     if (dropOnGridSurface) {
+      // ... логика дропа на поверхность остаётся без изменений (обновление якоря одного блока)
       if (!gridEl) return;
-
       const block = blocks.find((b) => b.id === draggedId);
       if (!block) return;
-
       const gs = getResolvedGridSize(block, blockSizes[draggedId], currentGridColumns);
       const anchor = clientPointToGridAnchor(
-        pointer.x,
-        pointer.y,
-        gridEl,
-        currentGridColumns,
-        cellSize,
-        currentGridGap,
-        BENTO_ROW_UNIT,
-        gs.colSpan,
+        pointer.x, pointer.y, gridEl, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, gs.colSpan,
       );
-
       setBlockSizes((prev) => {
         const prevEntry = prev[draggedId] ?? {};
         const next: BlockSizes = {
           ...prev,
           [draggedId]: {
-            ...clampGridSize(
-              { ...prevEntry, colSpan: gs.colSpan, rowSpan: gs.rowSpan },
-              currentGridColumns,
-            ),
+            ...clampGridSize({ ...prevEntry, colSpan: gs.colSpan, rowSpan: gs.rowSpan }, currentGridColumns),
             anchorsByBreakpoint: {
               ...(prevEntry.anchorsByBreakpoint ?? {}),
               [breakpoint]: anchor,
@@ -614,64 +644,25 @@ export default function Editor() {
           },
         };
         let merged = assignSparseAnchorsForBreakpoint(
-          currentOrder,
-          blocks,
-          next,
-          breakpoint,
-          currentGridColumns,
-          cellSize,
-          currentGridGap,
-          BENTO_ROW_UNIT,
-          { onlyMissing: true },
+          currentOrder, blocks, next, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, { onlyMissing: true }
         );
-        merged = resolveAnchorOverlaps(
-          merged,
-          currentOrder,
-          blocks,
-          breakpoint,
-          currentGridColumns,
-          cellSize,
-          currentGridGap,
-        );
+        merged = resolveAnchorOverlaps(merged, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
         saveBlockSizes(merged);
         return merged;
       });
       return;
     }
 
-    if (!over) {
-      return;
+    // Если дроп был на блок (или отменён), порядок уже обновлён в onDragOver.
+    // Здесь просто сохраняем результат на сервер.
+    if (over && typeof over.id === "number") {
+      // layout уже обновлён, нужно сохранить его
+      saveLayout(layout);
+      // blockSizes тоже уже обновлён, сохраняем
+      saveBlockSizes(blockSizes);
+    } else {
+      // Если over нет и не на поверхности – ничего не делаем (или можно откатить)
     }
-
-    if (typeof over.id !== "number") return;
-
-    const overId = over.id as number;
-    const oldIndex = currentOrder.indexOf(draggedId);
-    const newIndex = currentOrder.indexOf(overId);
-
-    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
-      return;
-    }
-
-    const nextOrder = arrayMove(currentOrder, oldIndex, newIndex);
-    const newLayout = { ...layout, [breakpoint]: [nextOrder] };
-    setLayout(newLayout);
-    saveLayout(newLayout);
-
-    setBlockSizes((prev) => {
-      const cleared = stripAnchorsForBreakpoint(prev, breakpoint);
-      const assigned = assignSparseAnchorsForBreakpoint(
-        nextOrder,
-        blocks,
-        cleared,
-        breakpoint,
-        currentGridColumns,
-        cellSize,
-        currentGridGap,
-      );
-      saveBlockSizes(assigned);
-      return assigned;
-    });
   };
 
   async function saveProfile(e: React.FormEvent) {
@@ -1287,7 +1278,12 @@ export default function Editor() {
                 }}
                 onDragStart={handleDragStart}
                 onDragMove={handleDragMove}
-                onDragCancel={() => setActiveId(null)}
+                onDragOver={handleDragOver}
+                onDragCancel={() => {
+                  setActiveId(null);
+                  setIsDragging(false);
+                  setDragCellSize(null);
+                }}
                 onDragEnd={handleDragEnd}
               >
                 <BentoGridDropSurface
@@ -1307,7 +1303,7 @@ export default function Editor() {
                     boxSizing: 'border-box',
                   }}
                 >
-                  <SortableContext items={currentOrder} strategy={rectSortingStrategy}>
+                  <SortableContext items={currentOrder} strategy={verticalListSortingStrategy}>
                     {currentOrder.map(blockId => {
                       const block = blocks.find(b => b.id === blockId);
                       return block ? (
@@ -1315,7 +1311,7 @@ export default function Editor() {
                           key={block.id}
                           block={block}
                           gridColumns={currentGridColumns}
-                          cellSize={cellSize}
+                          cellSize={isDragging && dragCellSize !== null ? dragCellSize : cellSize}
                           gridGap={currentGridGap}
                           gridSize={blockSizes[block.id]}
                           gridAnchor={blockSizes[block.id]?.anchorsByBreakpoint?.[breakpoint] ?? null}
