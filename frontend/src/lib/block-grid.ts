@@ -268,9 +268,11 @@ export function assignSparseAnchorsForBreakpoint(
   cellSize: number | null,
   gap: number,
   rowUnit = BENTO_ROW_UNIT,
-  options?: { onlyMissing?: boolean },
+  options?: { onlyMissing?: boolean; priorityBlockId?: number },
 ): BlockSizes {
   const onlyMissing = options?.onlyMissing !== false;
+  const priorityBlockId = options?.priorityBlockId;
+
   const next: BlockSizes = { ...blockSizes };
   const occupancy: boolean[][] = [];
 
@@ -280,49 +282,68 @@ export function assignSparseAnchorsForBreakpoint(
     }
   };
 
-  const canPlace = (r0: number, c0: number, w: number, h: number) => {
-    ensureRows(r0 + h);
-    for (let dr = 0; dr < h; dr++) {
-      for (let dc = 0; dc < w; dc++) {
-        if (occupancy[r0 + dr][c0 + dc]) return false;
-      }
-    }
-    return true;
-  };
+  // Определяем порядок обработки: сначала приоритетный блок (если есть), затем остальные в исходном порядке
+  let processOrder: number[];
+  if (priorityBlockId !== undefined && orderedIds.includes(priorityBlockId)) {
+    processOrder = [priorityBlockId, ...orderedIds.filter(id => id !== priorityBlockId)];
+  } else {
+    processOrder = [...orderedIds];
+  }
 
-  const mark = (r0: number, c0: number, w: number, h: number) => {
-    ensureRows(r0 + h);
-    for (let dr = 0; dr < h; dr++) {
-      for (let dc = 0; dc < w; dc++) {
-        occupancy[r0 + dr][c0 + dc] = true;
-      }
-    }
-  };
-
-  for (const id of orderedIds) {
-    const block = blocks.find((b) => b.id === id);
+  for (const id of processOrder) {
+    const block = blocks.find(b => b.id === id);
     if (!block) continue;
+
     const gs = getResolvedGridSize(block, next[id], gridColumns);
     const h = getGridRowSpan(block, gs, cellSize, gap, rowUnit);
     const w = Math.min(gs.colSpan, gridColumns);
 
+    // Если нужно сохранить существующий якорь (onlyMissing = true) и он есть
     if (onlyMissing) {
       const ex = next[id]?.anchorsByBreakpoint?.[bp];
       if (ex?.gridColumnStart != null && ex?.gridRowStart != null) {
         const c = ex.gridColumnStart - 1;
         const r = ex.gridRowStart - 1;
         if (c >= 0 && c + w <= gridColumns && r >= 0) {
-          mark(r, c, w, h);
+          ensureRows(r + h);
+          let ok = true;
+          for (let dr = 0; dr < h; dr++) {
+            for (let dc = 0; dc < w; dc++) {
+              if (occupancy[r + dr]?.[c + dc]) { ok = false; break; }
+            }
+            if (!ok) break;
+          }
+          if (ok) {
+            for (let dr = 0; dr < h; dr++) {
+              for (let dc = 0; dc < w; dc++) {
+                if (!occupancy[r + dr]) occupancy[r + dr] = Array(gridColumns).fill(false);
+                occupancy[r + dr][c + dc] = true;
+              }
+            }
+            continue;
+          }
         }
-        continue;
       }
     }
 
+    // Ищем первое свободное место (жадная упаковка)
     let placed = false;
     for (let r = 0; !placed && r < 10000; r++) {
       for (let c = 0; c <= gridColumns - w; c++) {
-        if (canPlace(r, c, w, h)) {
-          mark(r, c, w, h);
+        ensureRows(r + h);
+        let free = true;
+        for (let dr = 0; dr < h; dr++) {
+          for (let dc = 0; dc < w; dc++) {
+            if (occupancy[r + dr][c + dc]) { free = false; break; }
+          }
+          if (!free) break;
+        }
+        if (free) {
+          for (let dr = 0; dr < h; dr++) {
+            for (let dc = 0; dc < w; dc++) {
+              occupancy[r + dr][c + dc] = true;
+            }
+          }
           const prev = next[id] ?? { colSpan: gs.colSpan, rowSpan: gs.rowSpan };
           const anchor = clampAnchor(
             { gridColumnStart: c + 1, gridRowStart: r + 1 },

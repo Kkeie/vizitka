@@ -192,6 +192,11 @@ export default function BlockCard({
       border: "none",
       boxShadow: "none",
     }),
+    ...(isDragPreview && isSection && {
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    boxShadow: "var(--shadow-md)",
+  }),
   };
 
   const scrollableContentStyle: React.CSSProperties = { paddingRight: 4 };
