@@ -130,6 +130,8 @@ export default function Editor() {
   const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasVirtualLayoutRef = useRef(false);
   const lastVirtualBlockSizesRef = useRef<BlockSizes | null>(null);
+  // Новый реф для хранения исходного состояния якорей на момент начала драга
+  const originalBlockSizesRef = useRef<BlockSizes>({});
 
   // State для нижнего холста
   const [editorCanvasPadBottom, setEditorCanvasPadBottom] = useState(0);
@@ -152,14 +154,12 @@ export default function Editor() {
       activationConstraint: { delay: 100, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, {
-      coordinateGetter: () => ({ x: 0, y: 0 }), // не используем клавиатуру
+      coordinateGetter: () => ({ x: 0, y: 0 }),
     })
   );
 
-  // Если не на странице /editor – не рендерим
   if (location.pathname !== "/editor") return null;
 
-  // Отслеживание координат мыши
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
@@ -280,15 +280,20 @@ export default function Editor() {
     []
   );
 
-  // Функция перестроения по координатам курсора
-  const recalcVirtualLayout = useCallback((draggedId: number, cursorX: number, cursorY: number) => {
+  // Функция перестроения по координатам курсора, используя базовое состояние (originalBlockSizes)
+  const recalcVirtualLayout = useCallback((
+    draggedId: number,
+    cursorX: number,
+    cursorY: number,
+    baseSizes: BlockSizes, // исходные якоря до начала драга
+  ) => {
     const gridEl = gridRef.current;
     if (!gridEl) return;
     const draggedBlock = blocks.find(b => b.id === draggedId);
     if (!draggedBlock) return;
 
     // 1. Вычисляем якорь для перетаскиваемого блока
-    const gs = getResolvedGridSize(draggedBlock, blockSizes[draggedId], currentGridColumns);
+    const gs = getResolvedGridSize(draggedBlock, baseSizes[draggedId], currentGridColumns);
     let anchor = clientPointToGridAnchor(
       cursorX, cursorY, gridEl, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, gs.colSpan
     );
@@ -296,21 +301,21 @@ export default function Editor() {
     const maxStartCol = currentGridColumns - gs.colSpan + 1;
     if (anchor.gridColumnStart > maxStartCol) anchor.gridColumnStart = Math.max(1, maxStartCol);
 
-    // 2. Применяем якорь к перетаскиваемому блоку
+    // 2. Применяем якорь к перетаскиваемому блоку на копии baseSizes
     let newSizes: BlockSizes = {
-      ...blockSizes,
+      ...baseSizes,
       [draggedId]: {
-        ...(blockSizes[draggedId] || {}),
+        ...(baseSizes[draggedId] || {}),
         colSpan: gs.colSpan,
         rowSpan: gs.rowSpan,
         anchorsByBreakpoint: {
-          ...(blockSizes[draggedId]?.anchorsByBreakpoint || {}),
+          ...(baseSizes[draggedId]?.anchorsByBreakpoint || {}),
           [breakpoint]: anchor,
         },
       },
     };
 
-    // 3. Перестраиваем все блоки, чтобы не было пересечений
+    // 3. Перестраиваем все блоки, чтобы не было пересечений, отдавая приоритет перетаскиваемому блоку
     let assigned = assignSparseAnchorsForBreakpoint(
       currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
       { onlyMissing: true, priorityBlockId: draggedId }
@@ -321,7 +326,7 @@ export default function Editor() {
     setBlockSizes(resolved);
     lastVirtualBlockSizesRef.current = resolved;
     hasVirtualLayoutRef.current = true;
-  }, [blocks, blockSizes, currentOrder, breakpoint, currentGridColumns, cellSize, currentGridGap, gridRef]);
+  }, [blocks, currentOrder, breakpoint, currentGridColumns, cellSize, currentGridGap, gridRef]);
 
   // Обработчики перетаскивания
   const handleDragStart = (event: DragStartEvent) => {
@@ -331,6 +336,8 @@ export default function Editor() {
     setActiveId(event.active.id as number);
     hasVirtualLayoutRef.current = false;
     lastVirtualBlockSizesRef.current = null;
+    // Сохраняем исходное состояние якорей на момент начала драга
+    originalBlockSizesRef.current = blockSizes;
     const e = event.activatorEvent as PointerEvent;
     if (e?.clientX != null) {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
@@ -363,10 +370,15 @@ export default function Editor() {
       window.scrollBy({ top: Math.min(delta, 28), left: 0, behavior: "auto" });
     }
 
-    // Запускаем таймер перестроения (200 мс)
+    // Запускаем таймер перестроения (200 мс), используя исходное состояние originalBlockSizesRef
     if (activeId !== null) {
       dragTimeoutRef.current = setTimeout(() => {
-        recalcVirtualLayout(activeId, lastPointerRef.current.x, lastPointerRef.current.y);
+        recalcVirtualLayout(
+          activeId,
+          lastPointerRef.current.x,
+          lastPointerRef.current.y,
+          originalBlockSizesRef.current
+        );
         dragTimeoutRef.current = null;
       }, 200);
     }
@@ -386,7 +398,7 @@ export default function Editor() {
       hasVirtualLayoutRef.current = false;
       lastVirtualBlockSizesRef.current = null;
     } else {
-      // Дроп на пустую область
+      // Дроп на пустую область – используем исходное состояние originalBlockSizesRef для расчёта
       const gridEl = gridRef.current;
       if (gridEl && draggedId) {
         const pointer = lastPointerRef.current;
@@ -397,26 +409,29 @@ export default function Editor() {
         if (inGrid) {
           const block = blocks.find(b => b.id === draggedId);
           if (block) {
-            const gs = getResolvedGridSize(block, blockSizes[draggedId], currentGridColumns);
+            // Базовое состояние для дропа – текущие blockSizes (они могли быть изменены виртуальными перестроениями, но для дропа лучше взять originalBlockSizesRef)
+            const baseSizes = originalBlockSizesRef.current;
+            const gs = getResolvedGridSize(block, baseSizes[draggedId], currentGridColumns);
             let anchor = clientPointToGridAnchor(
               pointer.x, pointer.y, gridEl, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, gs.colSpan
             );
             const maxStartCol = currentGridColumns - gs.colSpan + 1;
             if (anchor.gridColumnStart > maxStartCol) anchor.gridColumnStart = Math.max(1, maxStartCol);
-            const newSizes = {
-              ...blockSizes,
+            let newSizes: BlockSizes = {
+              ...baseSizes,
               [draggedId]: {
-                ...(blockSizes[draggedId] || {}),
+                ...(baseSizes[draggedId] || {}),
                 colSpan: gs.colSpan,
                 rowSpan: gs.rowSpan,
                 anchorsByBreakpoint: {
-                  ...(blockSizes[draggedId]?.anchorsByBreakpoint || {}),
+                  ...(baseSizes[draggedId]?.anchorsByBreakpoint || {}),
                   [breakpoint]: anchor,
                 },
               },
             };
             let assigned = assignSparseAnchorsForBreakpoint(
-              currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, { onlyMissing: true }
+              currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
+              { onlyMissing: true, priorityBlockId: draggedId }
             );
             let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
             setBlockSizes(resolved);
@@ -426,9 +441,11 @@ export default function Editor() {
         }
       }
     }
+    // Очищаем сохранённое исходное состояние
+    originalBlockSizesRef.current = {};
   };
 
-  // ----- Остальные функции (сохранение профиля, удаление блоков, обновление, изменение размеров, создание блоков и т.д.) -----
+  // ----- Остальные функции (профиль, блоки, создание, удаление) – скопированы из вашего рабочего файла -----
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!profile) return;
@@ -679,7 +696,6 @@ export default function Editor() {
     }
   }
 
-  // Редиректы и рендер
   if (isAuthorized === false) return <Navigate to="/login" replace />;
   if (loading) return <div className="page-bg min-h-screen flex items-center justify-center">Загрузка…</div>;
   if (error) return <div className="page-bg min-h-screen flex items-center justify-center"><div className="ribbon error">{error}</div></div>;
@@ -691,7 +707,6 @@ export default function Editor() {
     <div className="page-bg min-h-screen editor-page">
       <div className="container" style={{ paddingTop: 40, paddingBottom: 100 }}>
         <div className="two-column-layout" style={{ alignItems: "start" }}>
-          {/* Левая колонка – профиль */}
           <div style={{ width: "100%", maxWidth: "100%" }}>
             <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
               <div className="reveal reveal-in">
@@ -709,60 +724,34 @@ export default function Editor() {
                   />
                   {editingProfile ? (
                     <form onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-                      <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>Имя</label>
-                        <input className="input" placeholder="Ваше имя" value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} style={{ fontSize: 16, fontWeight: 700, padding: "8px 12px", width: "100%" }} />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>Username</label>
-                        <div style={{ position: "relative", width: "100%" }}>
-                          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "var(--text)", pointerEvents: "none", zIndex: 1 }}>@</span>
-                          <input className="input" placeholder="username" value={profileForm.username} onChange={(e) => setProfileForm({ ...profileForm, username: e.target.value })} required style={{ fontSize: 16, padding: "8px 12px 8px 28px", width: "100%" }} />
-                        </div>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>Описание</label>
-                        <textarea className="textarea" placeholder="Расскажите о себе..." value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} rows={4} style={{ fontSize: 14, resize: "vertical", width: "100%" }} />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>Телефон</label>
-                        <input className="input" type="tel" placeholder="+7 (999) 123-45-67" value={profileForm.phone || ""} onChange={(e) => { const formatted = formatPhoneNumber(e.target.value); setProfileForm({ ...profileForm, phone: formatted }); }} style={{ fontSize: 14, padding: "8px 12px", width: "100%" }} />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>Email</label>
-                        <input className="input" type="email" placeholder="example@mail.ru" value={profileForm.email || ""} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} style={{ fontSize: 14, padding: "8px 12px", width: "100%" }} />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6, display: "block" }}>Telegram</label>
-                        <div style={{ position: "relative", width: "100%" }}>
-                          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: "var(--text)", pointerEvents: "none", zIndex: 1 }}>@</span>
-                          <input className="input" placeholder="username" value={profileForm.telegram || ""} onChange={(e) => setProfileForm({ ...profileForm, telegram: e.target.value })} style={{ fontSize: 14, padding: "8px 12px 8px 28px", width: "100%" }} />
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
+                      <div><label>Имя</label><input className="input" value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} style={{ width: "100%" }} /></div>
+                      <div><label>Username</label><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }}>@</span><input className="input" value={profileForm.username} onChange={e => setProfileForm(p => ({ ...p, username: e.target.value }))} style={{ paddingLeft: 28, width: "100%" }} required /></div></div>
+                      <div><label>Описание</label><textarea className="textarea" value={profileForm.bio} onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))} rows={4} /></div>
+                      <div><label>Телефон</label><input className="input" value={profileForm.phone || ""} onChange={e => setProfileForm(p => ({ ...p, phone: formatPhoneNumber(e.target.value) }))} /></div>
+                      <div><label>Email</label><input className="input" value={profileForm.email || ""} onChange={e => setProfileForm(p => ({ ...p, email: e.target.value }))} /></div>
+                      <div><label>Telegram</label><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: "50%" }}>@</span><input className="input" value={profileForm.telegram || ""} onChange={e => setProfileForm(p => ({ ...p, telegram: e.target.value }))} style={{ paddingLeft: 28, width: "100%" }} /></div></div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         <button type="submit" disabled={savingProfile} className="btn btn-primary" style={{ width: "100%" }}>{savingProfile ? "Сохранение..." : "Сохранить"}</button>
                         <button type="button" onClick={() => { setEditingProfile(false); setProfileForm({ username: profile.username || "", name: profile.name || "", bio: profile.bio || "", phone: (profile as any).phone || "", email: (profile as any).email || "", telegram: (profile as any).telegram || "" }); }} className="btn btn-ghost" style={{ width: "100%" }}>Отмена</button>
                       </div>
                     </form>
                   ) : (
                     <>
-                      <div style={{ textAlign: "left", width: "100%" }}>
-                        <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.2, color: "var(--text)", marginBottom: 8, wordBreak: "break-word" }}>{profile.name || profile.username}</h1>
-                        <p style={{ fontSize: 16, color: "var(--text)", marginBottom: 16, fontWeight: 500 }}>@{profile.username}</p>
-                        {profile.bio && <p style={{ color: "var(--text)", fontSize: 14, lineHeight: 1.6, textAlign: "left", wordBreak: "break-word", whiteSpace: "pre-wrap", marginBottom: 16 }}>{profile.bio}</p>}
-                        {(profile.phone || profile.email || profile.telegram) && (
-                          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-                            {profile.phone && <div style={{ fontSize: 14, color: "var(--text)" }}>📞 {profile.phone}</div>}
-                            {profile.email && <div style={{ fontSize: 14, color: "var(--text)" }}>✉️ {profile.email}</div>}
-                            {profile.telegram && <div style={{ fontSize: 14, color: "var(--text)" }}>✈️ {profile.telegram}</div>}
-                          </div>
-                        )}
-                        <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-                          <button type="button" className="btn" style={{ fontSize: 13, width: "100%", justifyContent: "flex-start" }} onClick={() => setShowQr(true)}>📱 Показать QR визитки</button>
-                          <div style={{ fontSize: 12, color: "var(--muted)", wordBreak: "break-all" }}>Публичная ссылка: {publicUrl(profile.username)}</div>
+                      <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em" }}>{profile.name || profile.username}</h1>
+                      <p style={{ fontSize: 16, fontWeight: 500, marginBottom: 16 }}>@{profile.username}</p>
+                      {profile.bio && <p style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: 16 }}>{profile.bio}</p>}
+                      {(profile.phone || profile.email || profile.telegram) && (
+                        <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                          {profile.phone && <div>📞 {profile.phone}</div>}
+                          {profile.email && <div>✉️ {profile.email}</div>}
+                          {profile.telegram && <div>✈️ {profile.telegram}</div>}
                         </div>
-                        <button onClick={() => setEditingProfile(true)} className="btn btn-ghost" style={{ fontSize: 13, padding: "8px 16px", marginTop: 16, width: "auto", background: "var(--accent)", border: "1px solid var(--border)" }}>✏️ Редактировать</button>
+                      )}
+                      <div style={{ marginTop: 20 }}>
+                        <button className="btn" style={{ fontSize: 13 }} onClick={() => setShowQr(true)}>📱 Показать QR визитки</button>
+                        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>Публичная ссылка: {publicUrl(profile.username)}</div>
                       </div>
+                      <button onClick={() => setEditingProfile(true)} className="btn btn-ghost" style={{ marginTop: 16, background: "var(--accent)", border: "1px solid var(--border)" }}>✏️ Редактировать</button>
                     </>
                   )}
                 </div>
@@ -771,7 +760,6 @@ export default function Editor() {
             <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }}></div>
           </div>
 
-          {/* Правая колонка – блоки */}
           <div className="editor-blocks-column" style={{ minWidth: 0, width: "100%" }}>
             {totalBlocks === 0 ? (
               <SocialMediaForm onSubmit={handleSocialMediaSubmit} />
@@ -788,6 +776,7 @@ export default function Editor() {
                   setDragCellSize(null);
                   setActiveId(null);
                   if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+                  originalBlockSizesRef.current = {};
                 }}
               >
                 <div
@@ -796,10 +785,6 @@ export default function Editor() {
                   style={{
                     display: 'grid',
                     gridTemplateColumns: `repeat(${currentGridColumns}, minmax(0, 1fr))`,
-                    ['--grid-columns' as string]: String(currentGridColumns),
-                    ['--grid-gap' as string]: `${currentGridGap}px`,
-                    ['--bento-cell-size' as string]: cellSize ? `${cellSize}px` : undefined,
-                    ['--bento-row-unit' as string]: `${BENTO_ROW_UNIT}px`,
                     gap: `${currentGridGap}px`,
                     gridAutoRows: `${BENTO_ROW_UNIT}px`,
                     gridAutoFlow: 'row',
@@ -829,201 +814,54 @@ export default function Editor() {
                   })}
                 </div>
                 <DragOverlay>
-                  {activeId ? (
-                    <BlockCard 
-                      b={blocks.find(b => b.id === activeId)!}
-                      isDragPreview
-                      colSpan={1}
-                    />
-                  ) : null}
+                  {activeId ? <BlockCard b={blocks.find(b => b.id === activeId)!} isDragPreview colSpan={1} /> : null}
                 </DragOverlay>
               </DndContext>
             )}
           </div>
         </div>
 
-        {/* Bottom Navigation Bar */}
-        <div
-          ref={bottomBarRef}
-          style={{
-            position: "fixed",
-            bottom: 20,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-md)",
-            padding: "12px 20px",
-            zIndex: 1000,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-            maxWidth: "calc(100% - 40px)",
-            width: "fit-content",
-          }}
-        >
+        <div ref={bottomBarRef} style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px 20px", zIndex: 1000, boxShadow: "0 4px 16px rgba(0,0,0,0.1)", maxWidth: "calc(100% - 40px)", width: "fit-content" }}>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
             {[
-              { type: "section" as BlockType, label: "Заголовок", icon: "📑" },
-              { type: "note" as BlockType, label: "Заметка", icon: "📝" },
-              { type: "link" as BlockType, label: "Ссылка", icon: "🔗" },
-              { type: "social" as BlockType, label: "Соцсеть", icon: "💬" },
-              { type: "photo" as BlockType, label: "Фото", icon: "🖼️" },
-              { type: "video" as BlockType, label: "Видео", icon: "🎥" },
-              { type: "music" as BlockType, label: "Музыка", icon: "🎵" },
-              { type: "map" as BlockType, label: "Карта", icon: "🗺️" },
+              { type: "section", label: "Заголовок", icon: "📑" },
+              { type: "note", label: "Заметка", icon: "📝" },
+              { type: "link", label: "Ссылка", icon: "🔗" },
+              { type: "social", label: "Соцсеть", icon: "💬" },
+              { type: "photo", label: "Фото", icon: "🖼️" },
+              { type: "video", label: "Видео", icon: "🎥" },
+              { type: "music", label: "Музыка", icon: "🎵" },
+              { type: "map", label: "Карта", icon: "🗺️" },
             ].map(({ type, label, icon }) => (
-              <button
-                key={type}
-                data-add-type={type}
-                onClick={() => handleAddBlockClick(type)}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "3px",
-                  padding: "6px 10px",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  borderRadius: "var(--radius-sm)",
-                  transition: "all 0.2s ease",
-                  color: "var(--text)",
-                  minWidth: "65px",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.transform = "translateY(0)"; }}
-              >
-                <span style={{ fontSize: "20px", lineHeight: 1 }}>{icon}</span>
-                <span style={{ fontSize: "11px", fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
+              <button key={type} data-add-type={type} onClick={() => handleAddBlockClick(type as BlockType)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: "65px" }}>
+                <span style={{ fontSize: "20px" }}>{icon}</span>
+                <span style={{ fontSize: "11px", fontWeight: 500 }}>{label}</span>
               </button>
             ))}
             <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 44, background: "var(--border)", margin: "0 6px" }} />
-            <button
-              type="button"
-              title="Превью визитки на телефоне"
-              aria-label="Превью визитки на телефоне"
-              onClick={() => setShowMobilePreview(true)}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "3px",
-                padding: "6px 10px",
-                background: isMobileViewport ? "var(--accent)" : "transparent",
-                border: "none",
-                cursor: "pointer",
-                borderRadius: "var(--radius-sm)",
-                transition: "all 0.2s ease",
-                color: "var(--text)",
-                minWidth: isMobileViewport ? "72px" : "52px",
-              }}
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-                <line x1="10" y1="17" x2="14" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              <span style={{ fontSize: "11px", fontWeight: 600, lineHeight: 1.2 }}>{isMobileViewport ? "Превью" : "Тел."}</span>
+            <button type="button" onClick={() => setShowMobilePreview(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: isMobileViewport ? "var(--accent)" : "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: isMobileViewport ? "72px" : "52px" }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8"/><line x1="10" y1="17" x2="14" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              <span style={{ fontSize: "11px", fontWeight: 600 }}>{isMobileViewport ? "Превью" : "Тел."}</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Модалки и тосты */}
-      {modalType && (
-        <BlockModal
-          type={modalType}
-          isOpen={modalOpen}
-          onClose={() => { setModalOpen(false); setModalType(null); }}
-          onSubmit={handleBlockSubmit}
-        />
-      )}
-      {inlineInput && (
-        <InlineInputCard
-          buttonRect={inlineInput.buttonRect}
-          onSubmit={handleInlineSubmit}
-          onCancel={() => setInlineInput(null)}
-          placeholder={
-            inlineInput.type === 'link'
-              ? 'https://example.com'
-              : inlineInput.type === 'video'
-              ? 'https://youtu.be/... или https://vk.com/video...'
-              : 'https://music.yandex.ru/... или embed-код'
-          }
-          buttonText="Добавить"
-          type={inlineInput.type === 'link' ? 'url' : 'text'}
-          validate={(val) => {
-            if (inlineInput.type === 'link') {
-              try { new URL(val); return true; } catch { return false; }
-            }
-            return val.trim().length > 0;
-          }}
-        />
-      )}
-      {profile && layout && (
-        <MobileVisitPreviewModal
-          open={showMobilePreview}
-          onClose={() => setShowMobilePreview(false)}
-          profile={profile}
-          blocks={blocks}
-          layout={layout}
-          blockSizes={blockSizes}
-        />
-      )}
-      {toast && (
-        <div className="card" style={{ position: "fixed", right: 24, top: 24, padding: "14px 18px", zIndex: 10000, boxShadow: "var(--shadow-xl)", animation: "slideIn 0.3s ease" }}>
-          {toast}
-        </div>
-      )}
+      {modalType && <BlockModal type={modalType} isOpen={modalOpen} onClose={() => { setModalOpen(false); setModalType(null); }} onSubmit={handleBlockSubmit} />}
+      {inlineInput && <InlineInputCard buttonRect={inlineInput.buttonRect} onSubmit={handleInlineSubmit} onCancel={() => setInlineInput(null)} placeholder={inlineInput.type === 'link' ? 'https://example.com' : inlineInput.type === 'video' ? 'https://youtu.be/...' : 'https://music.yandex.ru/...'} buttonText="Добавить" type={inlineInput.type === 'link' ? 'url' : 'text'} validate={(val) => inlineInput.type === 'link' ? (() => { try { new URL(val); return true; } catch { return false; } })() : val.trim().length > 0} />}
+      {profile && layout && <MobileVisitPreviewModal open={showMobilePreview} onClose={() => setShowMobilePreview(false)} profile={profile} blocks={blocks} layout={layout} blockSizes={blockSizes} />}
+      {toast && <div className="card" style={{ position: "fixed", right: 24, top: 24, padding: "14px 18px", zIndex: 10000, boxShadow: "var(--shadow-xl)", animation: "slideIn 0.3s ease" }}>{toast}</div>}
       {showQr && profile && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.45)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 11000,
-          }}
-          onClick={() => setShowQr(false)}
-        >
-          <div
-            className="card"
-            style={{ padding: 24, maxWidth: 360, width: "90%", textAlign: "center" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>QR-код вашей визитки</h2>
-            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>Отсканируйте код камерой телефона, чтобы открыть публичную страницу.</p>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-              <img src={qrUrlForPublic(profile.username)} alt="QR-код визитки" style={{ width: 220, height: 220 }} />
-            </div>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 11000 }} onClick={() => setShowQr(false)}>
+          <div className="card" style={{ padding: 24, maxWidth: 360, width: "90%", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>QR-код визитки</h2>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>Отсканируйте код камерой телефона</p>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}><img src={qrUrlForPublic(profile.username)} alt="QR" style={{ width: 220, height: 220 }} /></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-              <button
-                type="button"
-                className="btn"
-                style={{ width: "100%", fontSize: 14 }}
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(publicUrl(profile.username));
-                    setToast("Ссылка на визитку скопирована");
-                    setTimeout(() => setToast(null), 2500);
-                  } catch {
-                    setToast("Не удалось скопировать ссылку");
-                    setTimeout(() => setToast(null), 2500);
-                  }
-                }}
-              >
-                📋 Скопировать ссылку
-              </button>
-              <a
-                href={qrUrlForPublic(profile.username)}
-                download={`vizitka-${profile.username}-qr.png`}
-                className="btn"
-                style={{ width: "100%", fontSize: 14, textAlign: "center", justifyContent: "center", display: "inline-flex" }}
-              >
-                ⬇️ Скачать QR-код
-              </a>
+              <button className="btn" style={{ width: "100%" }} onClick={async () => { await navigator.clipboard.writeText(publicUrl(profile.username)); setToast("Ссылка скопирована"); setTimeout(() => setToast(null), 2500); }}>📋 Скопировать ссылку</button>
+              <a href={qrUrlForPublic(profile.username)} download={`vizitka-${profile.username}-qr.png`} className="btn" style={{ width: "100%", textAlign: "center" }}>⬇️ Скачать QR</a>
             </div>
-            <button type="button" className="btn" style={{ width: "100%", fontSize: 14 }} onClick={() => setShowQr(false)}>Закрыть</button>
+            <button className="btn" style={{ width: "100%" }} onClick={() => setShowQr(false)}>Закрыть</button>
           </div>
         </div>
       )}
