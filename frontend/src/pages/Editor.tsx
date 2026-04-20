@@ -17,6 +17,7 @@ import {
   type Layout,
   getToken,
   setToken,
+  BlockGridAnchor,
 } from "../api";
 import Avatar from "../components/Avatar";
 import { DraggableBlockCard } from "../components/DraggableBlockCard";
@@ -289,31 +290,79 @@ export default function Editor() {
     []
   );
 
+  const syncLayoutFromBlockSizes = useCallback((newBlockSizes: BlockSizes) => {
+    // Собираем блоки, у которых есть якорь для текущего breakpoint
+    const blocksWithAnchor = blocks
+      .map(block => ({
+        id: block.id,
+        anchor: newBlockSizes[block.id]?.anchorsByBreakpoint?.[breakpoint],
+      }))
+      .filter((item): item is { id: number; anchor: BlockGridAnchor } => item.anchor !== undefined);
+
+    // Сортируем по строке, затем по колонке
+    blocksWithAnchor.sort((a, b) => {
+      if (a.anchor.gridRowStart !== b.anchor.gridRowStart) {
+        return a.anchor.gridRowStart - b.anchor.gridRowStart;
+      }
+      return a.anchor.gridColumnStart - b.anchor.gridColumnStart;
+    });
+
+    // Блоки без якоря добавляем в конец
+    const blocksWithoutAnchor = blocks
+      .filter(block => !newBlockSizes[block.id]?.anchorsByBreakpoint?.[breakpoint])
+      .map(block => block.id);
+
+    const newOrder = [...blocksWithAnchor.map(item => item.id), ...blocksWithoutAnchor];
+
+    // Обновляем layout только если порядок изменился
+    setLayout(prev => {
+      if (!prev) return prev; // защита от null
+      const currentOrderForBp = prev[breakpoint]?.[0] ?? [];
+      if (JSON.stringify(currentOrderForBp) === JSON.stringify(newOrder)) return prev;
+      // Возвращаем новый объект, сохраняя все брейкпоинты
+      return {
+        mobile: prev.mobile,
+        tablet: prev.tablet,
+        desktop: prev.desktop,
+        [breakpoint]: [newOrder],
+      };
+    });
+
+    // Сохраняем layout в БД только если он существует
+    if (layout) {
+      saveLayoutDebounced({
+        ...layout,
+        [breakpoint]: [newOrder],
+      });
+    }
+  }, [blocks, breakpoint, layout, saveLayoutDebounced]);
+
   // Функция перестроения по координатам курсора, используя базовое состояние (originalBlockSizes)
   const recalcVirtualLayout = useCallback((
     draggedId: number,
     cursorX: number,
     cursorY: number,
-    baseSizes: BlockSizes, // исходные якоря до начала драга
+    baseSizes: BlockSizes,
   ) => {
-    const gridEl = gridRef.current;
-    if (!gridEl) return;
-    const draggedBlock = blocks.find(b => b.id === draggedId);
-    if (!draggedBlock) return;
 
-    // 1. Замеряем текущие позиции (First)
+    const gridEl = gridRef.current;
+    if (!gridEl) {
+      return;
+    }
+    const draggedBlock = blocks.find(b => b.id === draggedId);
+    if (!draggedBlock) {
+      return;
+    }
+
     const beforeRects = measureBlockRects(currentOrder);
 
-    // 2. Вычисляем якорь для перетаскиваемого блока
     const gs = getResolvedGridSize(draggedBlock, baseSizes[draggedId], currentGridColumns);
     let anchor = clientPointToGridAnchor(
       cursorX, cursorY, gridEl, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, gs.colSpan
     );
-    // Корректируем, чтобы не выходил за правый край
     const maxStartCol = currentGridColumns - gs.colSpan + 1;
     if (anchor.gridColumnStart > maxStartCol) anchor.gridColumnStart = Math.max(1, maxStartCol);
 
-    // 3. Применяем якорь к перетаскиваемому блоку на копии baseSizes
     let newSizes: BlockSizes = {
       ...baseSizes,
       [draggedId]: {
@@ -327,7 +376,6 @@ export default function Editor() {
       },
     };
 
-    // 4. Перестраиваем все блоки, чтобы не было пересечений, отдавая приоритет перетаскиваемому блоку
     let assigned = assignSparseAnchorsForBreakpoint(
       currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
       { onlyMissing: true, priorityBlockId: draggedId }
@@ -336,18 +384,15 @@ export default function Editor() {
 
     console.log(`[VIRTUAL] Перестроение для блока ${draggedId} в ячейку ${anchor.gridColumnStart},${anchor.gridRowStart}`);
 
-    // 5. Обновляем состояние
     setBlockSizes(resolved);
+    syncLayoutFromBlockSizes(resolved); // синхронизация порядка
     lastVirtualBlockSizesRef.current = resolved;
     hasVirtualLayoutRef.current = true;
 
-    // 6. FLIP-анимация: дожидаемся рендера и запускаем анимацию
     requestAnimationFrame(() => {
       window.setTimeout(() => {
         const afterRects = measureBlockRects(currentOrder);
-        if (flipAnimationRef.current) {
-          flipAnimationRef.current.cancel();
-        }
+        if (flipAnimationRef.current) flipAnimationRef.current.cancel();
         flipAnimationRef.current = animateFlip(beforeRects, afterRects, 300, () => {
           if (flipAnimationRef.current?.cancel === flipAnimationRef.current?.cancel) {
             flipAnimationRef.current = null;
@@ -355,7 +400,7 @@ export default function Editor() {
         });
       }, 0);
     });
-  }, [blocks, currentOrder, breakpoint, currentGridColumns, cellSize, currentGridGap, gridRef]);
+  }, [blocks, currentOrder, breakpoint, currentGridColumns, cellSize, currentGridGap, gridRef, syncLayoutFromBlockSizes]);
 
   // Обработчики перетаскивания
   const handleDragStart = (event: DragStartEvent) => {
@@ -420,7 +465,6 @@ export default function Editor() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
-    // Отменяем анимацию
     if (flipAnimationRef.current) {
       flipAnimationRef.current.cancel();
       flipAnimationRef.current = null;
@@ -431,13 +475,12 @@ export default function Editor() {
     setActiveId(null);
 
     if (hasVirtualLayoutRef.current && lastVirtualBlockSizesRef.current) {
-      // Сохраняем последнее перестроение в БД
       await saveBlockSizesDebounced(lastVirtualBlockSizesRef.current);
+      syncLayoutFromBlockSizes(lastVirtualBlockSizesRef.current);
       console.log("[DRAG] Сохранено перестроение");
       hasVirtualLayoutRef.current = false;
       lastVirtualBlockSizesRef.current = null;
     } else {
-      // Дроп на пустую область – используем исходное состояние originalBlockSizesRef для расчёта
       const gridEl = gridRef.current;
       if (gridEl && draggedId) {
         const pointer = lastPointerRef.current;
@@ -448,7 +491,6 @@ export default function Editor() {
         if (inGrid) {
           const block = blocks.find(b => b.id === draggedId);
           if (block) {
-            // Базовое состояние для дропа – текущие blockSizes (они могли быть изменены виртуальными перестроениями, но для дропа лучше взять originalBlockSizesRef)
             const baseSizes = originalBlockSizesRef.current;
             const gs = getResolvedGridSize(block, baseSizes[draggedId], currentGridColumns);
             let anchor = clientPointToGridAnchor(
@@ -474,13 +516,13 @@ export default function Editor() {
             );
             let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
             setBlockSizes(resolved);
+            syncLayoutFromBlockSizes(resolved);
             await saveBlockSizesDebounced(resolved);
             console.log("[DRAG] Дроп на пустую область, якорь обновлён");
           }
         }
       }
     }
-    // Очищаем сохранённое исходное состояние
     originalBlockSizesRef.current = {};
   };
 
@@ -533,6 +575,7 @@ export default function Editor() {
         const next = { ...prev };
         delete next[id];
         saveBlockSizesDebounced(next);
+        syncLayoutFromBlockSizes(next);
         return next;
       });
       if (!layout) return;
@@ -559,7 +602,7 @@ export default function Editor() {
   }
 
   function handleBlockDimensionsChange(id: number, nextDimensions: BlockGridSize | null) {
-    // Сброс размера (двойной клик по хендлу)
+    // Сброс размера (двойной клик)
     if (nextDimensions === null) {
       if (isResizingRef.current) {
         isResizingRef.current = false;
@@ -567,7 +610,6 @@ export default function Editor() {
         resizeBlockIdRef.current = null;
         lastResizeSizeRef.current = null;
       }
-      // Отменяем анимацию, если была
       if (flipAnimationRef.current) {
         flipAnimationRef.current.cancel();
         flipAnimationRef.current = null;
@@ -577,6 +619,7 @@ export default function Editor() {
         const next = { ...prev };
         delete next[id];
         saveBlockSizesDebounced(next);
+        syncLayoutFromBlockSizes(next); // синхронизация
         return next;
       });
       requestAnimationFrame(() => {
@@ -593,12 +636,12 @@ export default function Editor() {
       return;
     }
 
-    // Если идёт активный ресайз и это тот же блок – продолжаем с использованием снапшота
+    // Активный ресайз (через хендлы)
     if (isResizingRef.current && resizeBlockIdRef.current === id) {
       if (lastResizeSizeRef.current &&
           lastResizeSizeRef.current.colSpan === nextDimensions.colSpan &&
           lastResizeSizeRef.current.rowSpan === nextDimensions.rowSpan) {
-        return; // не изменился – выходим
+        return;
       }
       lastResizeSizeRef.current = nextDimensions;
       const baseSizes = resizeOriginalBlockSizesRef.current;
@@ -618,6 +661,7 @@ export default function Editor() {
       );
       let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
       setBlockSizes(resolved);
+      syncLayoutFromBlockSizes(resolved); // синхронизация
       requestAnimationFrame(() => {
         window.setTimeout(() => {
           const afterRects = measureBlockRects(currentOrder);
@@ -632,7 +676,7 @@ export default function Editor() {
       return;
     }
 
-    // Сюда попадаем, если ресайз не активен (например, вызов из SizeMenu)
+    // Сброс остаточных флагов ресайза
     if (isResizingRef.current || resizeBlockIdRef.current !== null || lastResizeSizeRef.current !== null) {
       isResizingRef.current = false;
       resizeOriginalBlockSizesRef.current = {};
@@ -640,7 +684,7 @@ export default function Editor() {
       lastResizeSizeRef.current = null;
     }
 
-    // Одиночное изменение (SizeMenu или другой не-ресайз)
+    // Одиночное изменение (SizeMenu)
     const beforeRects = measureBlockRects(currentOrder);
     const baseSizes = blockSizes;
     let newSizes: BlockSizes = {
@@ -658,6 +702,7 @@ export default function Editor() {
     );
     let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
     setBlockSizes(resolved);
+    syncLayoutFromBlockSizes(resolved); // синхронизация
     saveBlockSizesDebounced(resolved);
     requestAnimationFrame(() => {
       window.setTimeout(() => {
@@ -737,12 +782,14 @@ export default function Editor() {
         saveLayoutDebounced(nextLayout);
         return nextLayout;
       });
+      // Синхронизация layout после добавления новых блоков (они пока без якорей, порядок не изменится)
+      syncLayoutFromBlockSizes(blockSizes);
       revealCreatedBlock(
         options?.scrollTargetId ?? newIds[newIds.length - 1],
         options?.focusType ? { focusType: options.focusType } : undefined,
       );
     },
-    [revealCreatedBlock, saveLayoutDebounced],
+    [revealCreatedBlock, saveLayoutDebounced, blockSizes, syncLayoutFromBlockSizes],
   );
 
   const createEmptyBlock = async (type: BlockType, initialData: Partial<Block> = {}) => {
