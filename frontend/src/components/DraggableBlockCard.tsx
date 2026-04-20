@@ -18,6 +18,7 @@ interface DraggableBlockCardProps {
   gridGap: number;
   onGridSizeChange?: (size: BlockGridSize | null) => void;
   gridAnchor?: BlockGridAnchor | null;
+  onResizeEnd?: () => void;
 }
 
 export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
@@ -30,6 +31,7 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
   gridGap,
   onGridSizeChange,
   gridAnchor,
+  onResizeEnd,
 }) => {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: block.id,
@@ -193,6 +195,7 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerUp);
+      onResizeEnd?.();
     };
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);

@@ -153,6 +153,11 @@ export default function Editor() {
   } | null>(null);
   const bottomBarRef = useRef<HTMLDivElement>(null);
 
+  const isResizingRef = useRef(false);
+  const resizeOriginalBlockSizesRef = useRef<BlockSizes>({});
+  const resizeBlockIdRef = useRef<number | null>(null);
+  const lastResizeSizeRef = useRef<BlockGridSize | null>(null);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { 
       activationConstraint: { delay: 100, tolerance: 5 },
@@ -479,6 +484,19 @@ export default function Editor() {
     originalBlockSizesRef.current = {};
   };
 
+  const handleResizeEnd = useCallback(() => {
+    if (!isResizingRef.current) return;
+    // Сохраняем последнее состояние (оно уже в blockSizes)
+    if (resizeBlockIdRef.current !== null) {
+      saveBlockSizesDebounced(blockSizes);
+    }
+    // Сбрасываем флаги
+    isResizingRef.current = false;
+    resizeOriginalBlockSizesRef.current = {};
+    resizeBlockIdRef.current = null;
+    lastResizeSizeRef.current = null;
+  }, [blockSizes, saveBlockSizesDebounced]);
+
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!profile) return;
@@ -538,45 +556,80 @@ export default function Editor() {
   }
 
   function handleBlockDimensionsChange(id: number, nextDimensions: BlockGridSize | null) {
-    setBlockSizes((prev) => {
-      const next = { ...prev };
-      if (nextDimensions == null) {
+    // Сброс размера (двойной клик по хендлу)
+    if (nextDimensions === null) {
+      // Если был активный ресайз – принудительно завершаем его
+      if (isResizingRef.current) {
+        isResizingRef.current = false;
+        resizeOriginalBlockSizesRef.current = {};
+        resizeBlockIdRef.current = null;
+        lastResizeSizeRef.current = null;
+      }
+      setBlockSizes(prev => {
+        const next = { ...prev };
         delete next[id];
         saveBlockSizesDebounced(next);
         return next;
+      });
+      return;
+    }
+
+    // Если идёт активный ресайз и это тот же блок – продолжаем с использованием снапшота
+    if (isResizingRef.current && resizeBlockIdRef.current === id) {
+      // Проверяем, изменился ли размер (оптимизация)
+      if (lastResizeSizeRef.current &&
+          lastResizeSizeRef.current.colSpan === nextDimensions.colSpan &&
+          lastResizeSizeRef.current.rowSpan === nextDimensions.rowSpan) {
+        return; // не изменился – выходим
       }
-      const prevEntry = prev[id] ?? {};
-      next[id] = {
-        colSpan: nextDimensions.colSpan,
-        rowSpan: nextDimensions.rowSpan,
-        anchorsByBreakpoint: {
-          ...(prevEntry.anchorsByBreakpoint ?? {}),
-          ...(nextDimensions.anchorsByBreakpoint ?? {}),
+      lastResizeSizeRef.current = nextDimensions;
+      const baseSizes = resizeOriginalBlockSizesRef.current;
+      let newSizes: BlockSizes = {
+        ...baseSizes,
+        [id]: {
+          ...(baseSizes[id] || {}),
+          colSpan: nextDimensions.colSpan,
+          rowSpan: nextDimensions.rowSpan,
+          anchorsByBreakpoint: baseSizes[id]?.anchorsByBreakpoint,
         },
       };
-      let merged = assignSparseAnchorsForBreakpoint(
-        currentOrder,
-        blocks,
-        next,
-        breakpoint,
-        currentGridColumns,
-        cellSize,
-        currentGridGap,
-        BENTO_ROW_UNIT,
-        { onlyMissing: true },
+      let assigned = assignSparseAnchorsForBreakpoint(
+        currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
+        { onlyMissing: true, priorityBlockId: id }
       );
-      merged = resolveAnchorOverlaps(
-        merged,
-        currentOrder,
-        blocks,
-        breakpoint,
-        currentGridColumns,
-        cellSize,
-        currentGridGap,
-      );
-      saveBlockSizesDebounced(merged);
-      return merged;
-    });
+      let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
+      setBlockSizes(resolved);
+      // НЕ сохраняем в БД – сохраним в handleResizeEnd
+      return;
+    }
+
+    // Сюда попадаем, если ресайз не активен (например, вызов из SizeMenu)
+    // Сбрасываем любые остаточные флаги ресайза (на случай, если они остались)
+    if (isResizingRef.current || resizeBlockIdRef.current !== null || lastResizeSizeRef.current !== null) {
+      isResizingRef.current = false;
+      resizeOriginalBlockSizesRef.current = {};
+      resizeBlockIdRef.current = null;
+      lastResizeSizeRef.current = null;
+    }
+
+    // Применяем изменение как одиночное действие (без снапшота, с немедленным сохранением)
+    const baseSizes = blockSizes; // текущее состояние
+    let newSizes: BlockSizes = {
+      ...baseSizes,
+      [id]: {
+        ...(baseSizes[id] || {}),
+        colSpan: nextDimensions.colSpan,
+        rowSpan: nextDimensions.rowSpan,
+        anchorsByBreakpoint: baseSizes[id]?.anchorsByBreakpoint,
+      },
+    };
+    let assigned = assignSparseAnchorsForBreakpoint(
+      currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
+      { onlyMissing: true, priorityBlockId: id }
+    );
+    let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
+    setBlockSizes(resolved);
+    saveBlockSizesDebounced(resolved); // сохраняем сразу
   }
 
   const revealCreatedBlock = useCallback(
@@ -814,6 +867,13 @@ export default function Editor() {
                     flipAnimationRef.current = null;
                   }
                   originalBlockSizesRef.current = {};
+                  // Сброс ресайза
+                  if (isResizingRef.current) {
+                    isResizingRef.current = false;
+                    resizeOriginalBlockSizesRef.current = {};
+                    resizeBlockIdRef.current = null;
+                    lastResizeSizeRef.current = null;
+                  }
                 }}
               >
                 <div
@@ -844,6 +904,7 @@ export default function Editor() {
                         gridSize={gridSize}
                         gridAnchor={anchor}
                         onGridSizeChange={(dimensions) => handleBlockDimensionsChange(block.id, dimensions)}
+                        onResizeEnd={handleResizeEnd}
                         onDelete={() => handleDeleteBlock(block.id)}
                         onUpdate={(partial) => handleUpdateBlock(block.id, partial)}
                       />
