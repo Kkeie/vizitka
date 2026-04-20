@@ -26,6 +26,7 @@ import MobileVisitPreviewModal from "../components/MobileVisitPreviewModal";
 import SocialMediaForm, { type SocialSubmitItem } from "../components/SocialMediaForm";
 import InlineInputCard from "../components/InlineInputCard";
 import { formatPhoneNumber } from "../utils/phone";
+import { measureBlockRects, animateFlip } from '../utils/flipAnimation'; // ← добавить
 import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
 import { getSocialInfo } from '../lib/social-preview';
@@ -132,6 +133,9 @@ export default function Editor() {
   const lastVirtualBlockSizesRef = useRef<BlockSizes | null>(null);
   // Новый реф для хранения исходного состояния якорей на момент начала драга
   const originalBlockSizesRef = useRef<BlockSizes>({});
+
+  // Реф для FLIP-анимации
+  const flipAnimationRef = useRef<{ cancel: () => void } | null>(null);
 
   // State для нижнего холста
   const [editorCanvasPadBottom, setEditorCanvasPadBottom] = useState(0);
@@ -292,7 +296,10 @@ export default function Editor() {
     const draggedBlock = blocks.find(b => b.id === draggedId);
     if (!draggedBlock) return;
 
-    // 1. Вычисляем якорь для перетаскиваемого блока
+    // 1. Замеряем текущие позиции (First)
+    const beforeRects = measureBlockRects(currentOrder);
+
+    // 2. Вычисляем якорь для перетаскиваемого блока
     const gs = getResolvedGridSize(draggedBlock, baseSizes[draggedId], currentGridColumns);
     let anchor = clientPointToGridAnchor(
       cursorX, cursorY, gridEl, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, gs.colSpan
@@ -301,7 +308,7 @@ export default function Editor() {
     const maxStartCol = currentGridColumns - gs.colSpan + 1;
     if (anchor.gridColumnStart > maxStartCol) anchor.gridColumnStart = Math.max(1, maxStartCol);
 
-    // 2. Применяем якорь к перетаскиваемому блоку на копии baseSizes
+    // 3. Применяем якорь к перетаскиваемому блоку на копии baseSizes
     let newSizes: BlockSizes = {
       ...baseSizes,
       [draggedId]: {
@@ -315,7 +322,7 @@ export default function Editor() {
       },
     };
 
-    // 3. Перестраиваем все блоки, чтобы не было пересечений, отдавая приоритет перетаскиваемому блоку
+    // 4. Перестраиваем все блоки, чтобы не было пересечений, отдавая приоритет перетаскиваемому блоку
     let assigned = assignSparseAnchorsForBreakpoint(
       currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
       { onlyMissing: true, priorityBlockId: draggedId }
@@ -323,14 +330,36 @@ export default function Editor() {
     let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
 
     console.log(`[VIRTUAL] Перестроение для блока ${draggedId} в ячейку ${anchor.gridColumnStart},${anchor.gridRowStart}`);
+
+    // 5. Обновляем состояние
     setBlockSizes(resolved);
     lastVirtualBlockSizesRef.current = resolved;
     hasVirtualLayoutRef.current = true;
+
+    // 6. FLIP-анимация: дожидаемся рендера и запускаем анимацию
+    requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const afterRects = measureBlockRects(currentOrder);
+        if (flipAnimationRef.current) {
+          flipAnimationRef.current.cancel();
+        }
+        flipAnimationRef.current = animateFlip(beforeRects, afterRects, 300, () => {
+          if (flipAnimationRef.current?.cancel === flipAnimationRef.current?.cancel) {
+            flipAnimationRef.current = null;
+          }
+        });
+      }, 0);
+    });
   }, [blocks, currentOrder, breakpoint, currentGridColumns, cellSize, currentGridGap, gridRef]);
 
   // Обработчики перетаскивания
   const handleDragStart = (event: DragStartEvent) => {
     if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+    // Отменяем предыдущую анимацию
+    if (flipAnimationRef.current) {
+      flipAnimationRef.current.cancel();
+      flipAnimationRef.current = null;
+    }
     setIsDragging(true);
     setDragCellSize(cellSize);
     setActiveId(event.active.id as number);
@@ -386,6 +415,11 @@ export default function Editor() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+    // Отменяем анимацию
+    if (flipAnimationRef.current) {
+      flipAnimationRef.current.cancel();
+      flipAnimationRef.current = null;
+    }
     setIsDragging(false);
     setDragCellSize(null);
     const draggedId = event.active.id as number;
@@ -445,7 +479,6 @@ export default function Editor() {
     originalBlockSizesRef.current = {};
   };
 
-  // ----- Остальные функции (профиль, блоки, создание, удаление) – скопированы из вашего рабочего файла -----
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!profile) return;
@@ -776,6 +809,10 @@ export default function Editor() {
                   setDragCellSize(null);
                   setActiveId(null);
                   if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+                  if (flipAnimationRef.current) {
+                    flipAnimationRef.current.cancel();
+                    flipAnimationRef.current = null;
+                  }
                   originalBlockSizesRef.current = {};
                 }}
               >
