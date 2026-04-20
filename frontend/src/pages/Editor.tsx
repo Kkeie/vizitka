@@ -26,7 +26,7 @@ import MobileVisitPreviewModal from "../components/MobileVisitPreviewModal";
 import SocialMediaForm, { type SocialSubmitItem } from "../components/SocialMediaForm";
 import InlineInputCard from "../components/InlineInputCard";
 import { formatPhoneNumber } from "../utils/phone";
-import { measureBlockRects, animateFlip } from '../utils/flipAnimation'; // ← добавить
+import { measureBlockRects, animateFlip } from '../utils/flipAnimation';
 import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
 import { getSocialInfo } from '../lib/social-preview';
@@ -486,11 +486,14 @@ export default function Editor() {
 
   const handleResizeEnd = useCallback(() => {
     if (!isResizingRef.current) return;
-    // Сохраняем последнее состояние (оно уже в blockSizes)
     if (resizeBlockIdRef.current !== null) {
       saveBlockSizesDebounced(blockSizes);
     }
-    // Сбрасываем флаги
+    // Отменяем анимацию, если она ещё идёт
+    if (flipAnimationRef.current) {
+      flipAnimationRef.current.cancel();
+      flipAnimationRef.current = null;
+    }
     isResizingRef.current = false;
     resizeOriginalBlockSizesRef.current = {};
     resizeBlockIdRef.current = null;
@@ -558,25 +561,40 @@ export default function Editor() {
   function handleBlockDimensionsChange(id: number, nextDimensions: BlockGridSize | null) {
     // Сброс размера (двойной клик по хендлу)
     if (nextDimensions === null) {
-      // Если был активный ресайз – принудительно завершаем его
       if (isResizingRef.current) {
         isResizingRef.current = false;
         resizeOriginalBlockSizesRef.current = {};
         resizeBlockIdRef.current = null;
         lastResizeSizeRef.current = null;
       }
+      // Отменяем анимацию, если была
+      if (flipAnimationRef.current) {
+        flipAnimationRef.current.cancel();
+        flipAnimationRef.current = null;
+      }
+      const beforeRects = measureBlockRects(currentOrder);
       setBlockSizes(prev => {
         const next = { ...prev };
         delete next[id];
         saveBlockSizesDebounced(next);
         return next;
       });
+      requestAnimationFrame(() => {
+        window.setTimeout(() => {
+          const afterRects = measureBlockRects(currentOrder);
+          if (flipAnimationRef.current) flipAnimationRef.current.cancel();
+          flipAnimationRef.current = animateFlip(beforeRects, afterRects, 300, () => {
+            if (flipAnimationRef.current?.cancel === flipAnimationRef.current?.cancel) {
+              flipAnimationRef.current = null;
+            }
+          });
+        }, 0);
+      });
       return;
     }
 
     // Если идёт активный ресайз и это тот же блок – продолжаем с использованием снапшота
     if (isResizingRef.current && resizeBlockIdRef.current === id) {
-      // Проверяем, изменился ли размер (оптимизация)
       if (lastResizeSizeRef.current &&
           lastResizeSizeRef.current.colSpan === nextDimensions.colSpan &&
           lastResizeSizeRef.current.rowSpan === nextDimensions.rowSpan) {
@@ -593,18 +611,28 @@ export default function Editor() {
           anchorsByBreakpoint: baseSizes[id]?.anchorsByBreakpoint,
         },
       };
+      const beforeRects = measureBlockRects(currentOrder);
       let assigned = assignSparseAnchorsForBreakpoint(
         currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
         { onlyMissing: true, priorityBlockId: id }
       );
       let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
       setBlockSizes(resolved);
-      // НЕ сохраняем в БД – сохраним в handleResizeEnd
+      requestAnimationFrame(() => {
+        window.setTimeout(() => {
+          const afterRects = measureBlockRects(currentOrder);
+          if (flipAnimationRef.current) flipAnimationRef.current.cancel();
+          flipAnimationRef.current = animateFlip(beforeRects, afterRects, 300, () => {
+            if (flipAnimationRef.current?.cancel === flipAnimationRef.current?.cancel) {
+              flipAnimationRef.current = null;
+            }
+          });
+        }, 0);
+      });
       return;
     }
 
     // Сюда попадаем, если ресайз не активен (например, вызов из SizeMenu)
-    // Сбрасываем любые остаточные флаги ресайза (на случай, если они остались)
     if (isResizingRef.current || resizeBlockIdRef.current !== null || lastResizeSizeRef.current !== null) {
       isResizingRef.current = false;
       resizeOriginalBlockSizesRef.current = {};
@@ -612,8 +640,9 @@ export default function Editor() {
       lastResizeSizeRef.current = null;
     }
 
-    // Применяем изменение как одиночное действие (без снапшота, с немедленным сохранением)
-    const baseSizes = blockSizes; // текущее состояние
+    // Одиночное изменение (SizeMenu или другой не-ресайз)
+    const beforeRects = measureBlockRects(currentOrder);
+    const baseSizes = blockSizes;
     let newSizes: BlockSizes = {
       ...baseSizes,
       [id]: {
@@ -629,7 +658,18 @@ export default function Editor() {
     );
     let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
     setBlockSizes(resolved);
-    saveBlockSizesDebounced(resolved); // сохраняем сразу
+    saveBlockSizesDebounced(resolved);
+    requestAnimationFrame(() => {
+      window.setTimeout(() => {
+        const afterRects = measureBlockRects(currentOrder);
+        if (flipAnimationRef.current) flipAnimationRef.current.cancel();
+        flipAnimationRef.current = animateFlip(beforeRects, afterRects, 300, () => {
+          if (flipAnimationRef.current?.cancel === flipAnimationRef.current?.cancel) {
+            flipAnimationRef.current = null;
+          }
+        });
+      }, 0);
+    });
   }
 
   const revealCreatedBlock = useCallback(
