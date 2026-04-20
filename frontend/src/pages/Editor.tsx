@@ -382,8 +382,6 @@ export default function Editor() {
     );
     let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
 
-    console.log(`[VIRTUAL] Перестроение для блока ${draggedId} в ячейку ${anchor.gridColumnStart},${anchor.gridRowStart}`);
-
     setBlockSizes(resolved);
     syncLayoutFromBlockSizes(resolved); // синхронизация порядка
     lastVirtualBlockSizesRef.current = resolved;
@@ -477,7 +475,6 @@ export default function Editor() {
     if (hasVirtualLayoutRef.current && lastVirtualBlockSizesRef.current) {
       await saveBlockSizesDebounced(lastVirtualBlockSizesRef.current);
       syncLayoutFromBlockSizes(lastVirtualBlockSizesRef.current);
-      console.log("[DRAG] Сохранено перестроение");
       hasVirtualLayoutRef.current = false;
       lastVirtualBlockSizesRef.current = null;
     } else {
@@ -518,7 +515,6 @@ export default function Editor() {
             setBlockSizes(resolved);
             syncLayoutFromBlockSizes(resolved);
             await saveBlockSizesDebounced(resolved);
-            console.log("[DRAG] Дроп на пустую область, якорь обновлён");
           }
         }
       }
