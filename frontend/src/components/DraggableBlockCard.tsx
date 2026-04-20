@@ -1,7 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { useDraggable } from '@dnd-kit/core';
 import type { BlockGridAnchor, BlockGridSize, NoteTextStyle } from '../api';
 import BlockCard, { Block } from './BlockCard';
 import { clampGridSize, getGridRowSpan, getResolvedGridSize } from '../lib/block-grid';
@@ -9,11 +8,11 @@ import SizeMenu from './SizeMenu';
 import TextStyleMenu from './TextStyleMenu';
 import SearchInputCard from './SearchInputCard';
 
-interface SortableBlockCardProps {
+interface DraggableBlockCardProps {
   block: Block;
   onDelete?: () => void;
   onUpdate?: (partial: Partial<Block>) => void;
-  gridSize?: BlockGridSize | null;
+  gridSize: BlockGridSize;
   gridColumns: number;
   cellSize: number | null;
   gridGap: number;
@@ -21,7 +20,7 @@ interface SortableBlockCardProps {
   gridAnchor?: BlockGridAnchor | null;
 }
 
-export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
+export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
   block,
   onDelete,
   onUpdate,
@@ -32,14 +31,9 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
   onGridSizeChange,
   gridAnchor,
 }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: block.id });
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: block.id,
+  });
 
   const resolvedGridSize = getResolvedGridSize(block, gridSize, gridColumns);
   const resolvedRowSpan = getGridRowSpan(block, resolvedGridSize, cellSize, gridGap);
@@ -231,11 +225,8 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     </>
   ) : null;
 
+  // Без transform и transition – блоки не двигаются во время драга
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition: isDragging ? 'none' : transition, // ← ключевое исправление
-    opacity: isDragging ? 0.5 : 1,
-    cursor: isDragging ? 'grabbing' : 'grab',
     gridColumn: gridAnchor
       ? `${gridAnchor.gridColumnStart} / span ${resolvedGridSize.colSpan}`
       : `span ${resolvedGridSize.colSpan}`,
@@ -245,6 +236,8 @@ export const SortableBlockCard: React.FC<SortableBlockCardProps> = ({
     position: 'relative' as const,
     minWidth: 0,
     minHeight: 0,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: isDragging ? 'grabbing' : 'grab',
     zIndex: isDragging ? 50 : (isResizing || isHovered || isMenuVisible || isTextMenuVisible || isSearchActive ? 20 : undefined),
   };
 
