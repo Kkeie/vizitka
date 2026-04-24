@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useSearchParams } from "react-router-dom"; // ONBOARDING: added useSearchParams
 import { 
   listBlocks, 
   deleteBlock, 
@@ -26,6 +26,7 @@ import BlockModal from "../components/BlockModal";
 import MobileVisitPreviewModal from "../components/MobileVisitPreviewModal";
 import SocialMediaForm, { type SocialSubmitItem } from "../components/SocialMediaForm";
 import InlineInputCard from "../components/InlineInputCard";
+import OnboardingInEditor from "../components/onboarding/OnboardingInEditor"; // ONBOARDING: import
 import { formatPhoneNumber } from "../utils/phone";
 import { measureBlockRects, animateFlip } from '../utils/flipAnimation';
 import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
@@ -94,6 +95,7 @@ function debounce<T extends (...args: any[]) => void>(fn: T, wait: number): T & 
 
 export default function Editor() {
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams(); // ONBOARDING
   const profileRef = useRef<HTMLDivElement>(null);
   const breakpoint = useBreakpoint();
 
@@ -127,6 +129,10 @@ export default function Editor() {
   const [dragCellSize, setDragCellSize] = useState<number | null>(null);
   const lastPointerRef = useRef({ x: 0, y: 0 });
   const revealTimeoutsRef = useRef<number[]>([]);
+
+  // ONBOARDING: состояние для режима онбординга
+  const onboardingMode = searchParams.get("onboarding") === "true";
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
 
   // Рефы для отложенного перестроения
   const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -798,6 +804,43 @@ export default function Editor() {
     }
   };
 
+  // ONBOARDING: функция добавления блока из панели онбординга
+  const addOnboardingBlock = useCallback(async (type: "social" | "link", data: any) => {
+    try {
+      let newBlock: Block;
+      if (type === "social") {
+        newBlock = await createBlock({
+          type: "social",
+          socialType: data.socialType,
+          socialUrl: data.socialUrl,
+          sort: blocks.length,
+        });
+      } else {
+        newBlock = await createBlock({
+          type: "link",
+          linkUrl: data.linkUrl,
+          sort: blocks.length,
+        });
+      }
+      // Немедленно добавляем блок в состояние
+      setBlocks(prev => [...prev, newBlock]);
+      // Обновляем layout: добавляем ID блока в конец всех колонок
+      setLayout(prev => {
+        if (!prev) return prev;
+        const next = { ...prev };
+        (Object.keys(next) as Breakpoint[]).forEach(bp => {
+          next[bp] = next[bp].map(col => [...col, newBlock.id]);
+        });
+        return next;
+      });
+      // Устанавливаем дефолтный размер
+      setBlockSizes(prev => ({ ...prev, [newBlock.id]: { colSpan: 1, rowSpan: 1 } }));
+    } catch (err) {
+      console.error(err);
+      setToast("Не удалось создать блок");
+    }
+  }, [blocks.length]);
+
   const handleAddWithInline = (type: 'link' | 'video' | 'music', buttonElement: HTMLElement) => {
     const rect = buttonElement.getBoundingClientRect();
     setInlineInput({ type, buttonRect: rect });
@@ -871,66 +914,80 @@ export default function Editor() {
   if (!profile || !layout) return null;
 
   const totalBlocks = blocks.length;
+  const showOnboardingPanel = onboardingMode && !onboardingComplete;
 
   return (
     <div className="page-bg min-h-screen editor-page">
       <div className="container" style={{ paddingTop: 40, paddingBottom: 100 }}>
         <div className="two-column-layout" style={{ alignItems: "start" }}>
+          {/* Левая колонка */}
           <div style={{ width: "100%", maxWidth: "100%" }}>
-            <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
-              <div className="reveal reveal-in">
-                <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", alignItems: "flex-start" }}>
-                  <Avatar
-                    src={profile.avatarUrl}
-                    size={120}
-                    editable={true}
-                    onChange={async (url: string) => {
-                      try {
-                        const updated = await updateProfile({ avatarUrl: url } as any);
-                        setProfile({ ...updated, avatarUrl: updated.avatarUrl ? `${updated.avatarUrl}?t=${Date.now()}` : updated.avatarUrl });
-                      } catch { alert("Не удалось сохранить аватар"); }
-                    }}
-                  />
-                  {editingProfile ? (
-                    <form onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-                      <div><label>Имя</label><input className="input" value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} style={{ width: "100%" }} /></div>
-                      <div><label>Username</label><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }}>@</span><input className="input" value={profileForm.username} onChange={e => setProfileForm(p => ({ ...p, username: e.target.value }))} style={{ paddingLeft: 28, width: "100%" }} required /></div></div>
-                      <div><label>Описание</label><textarea className="textarea" value={profileForm.bio} onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))} rows={4} /></div>
-                      <div><label>Телефон</label><input className="input" value={profileForm.phone || ""} onChange={e => setProfileForm(p => ({ ...p, phone: formatPhoneNumber(e.target.value) }))} /></div>
-                      <div><label>Email</label><input className="input" value={profileForm.email || ""} onChange={e => setProfileForm(p => ({ ...p, email: e.target.value }))} /></div>
-                      <div><label>Telegram</label><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: "50%" }}>@</span><input className="input" value={profileForm.telegram || ""} onChange={e => setProfileForm(p => ({ ...p, telegram: e.target.value }))} style={{ paddingLeft: 28, width: "100%" }} /></div></div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        <button type="submit" disabled={savingProfile} className="btn btn-primary" style={{ width: "100%" }}>{savingProfile ? "Сохранение..." : "Сохранить"}</button>
-                        <button type="button" onClick={() => { setEditingProfile(false); setProfileForm({ username: profile.username || "", name: profile.name || "", bio: profile.bio || "", phone: (profile as any).phone || "", email: (profile as any).email || "", telegram: (profile as any).telegram || "" }); }} className="btn btn-ghost" style={{ width: "100%" }}>Отмена</button>
-                      </div>
-                    </form>
-                  ) : (
-                    <>
-                      <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em" }}>{profile.name || profile.username}</h1>
-                      <p style={{ fontSize: 16, fontWeight: 500, marginBottom: 16 }}>@{profile.username}</p>
-                      {profile.bio && <p style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: 16 }}>{profile.bio}</p>}
-                      {(profile.phone || profile.email || profile.telegram) && (
-                        <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-                          {profile.phone && <div>📞 {profile.phone}</div>}
-                          {profile.email && <div>✉️ {profile.email}</div>}
-                          {profile.telegram && <div>✈️ {profile.telegram}</div>}
+            {showOnboardingPanel ? (
+              <OnboardingInEditor
+                onAddBlock={addOnboardingBlock}
+                onComplete={() => {
+                  setOnboardingComplete(true);
+                  setSearchParams({});
+                  loadData(); // перезагружаем данные, чтобы подтянуть все блоки
+                }}
+              />
+            ) : (
+              <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
+                <div className="reveal reveal-in">
+                  <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", alignItems: "flex-start" }}>
+                    <Avatar
+                      src={profile.avatarUrl}
+                      size={120}
+                      editable={true}
+                      onChange={async (url: string) => {
+                        try {
+                          const updated = await updateProfile({ avatarUrl: url } as any);
+                          setProfile({ ...updated, avatarUrl: updated.avatarUrl ? `${updated.avatarUrl}?t=${Date.now()}` : updated.avatarUrl });
+                        } catch { alert("Не удалось сохранить аватар"); }
+                      }}
+                    />
+                    {editingProfile ? (
+                      <form onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+                        <div><label>Имя</label><input className="input" value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} style={{ width: "100%" }} /></div>
+                        <div><label>Username</label><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }}>@</span><input className="input" value={profileForm.username} onChange={e => setProfileForm(p => ({ ...p, username: e.target.value }))} style={{ paddingLeft: 28, width: "100%" }} required /></div></div>
+                        <div><label>Описание</label><textarea className="textarea" value={profileForm.bio} onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))} rows={4} /></div>
+                        <div><label>Телефон</label><input className="input" value={profileForm.phone || ""} onChange={e => setProfileForm(p => ({ ...p, phone: formatPhoneNumber(e.target.value) }))} /></div>
+                        <div><label>Email</label><input className="input" value={profileForm.email || ""} onChange={e => setProfileForm(p => ({ ...p, email: e.target.value }))} /></div>
+                        <div><label>Telegram</label><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: "50%" }}>@</span><input className="input" value={profileForm.telegram || ""} onChange={e => setProfileForm(p => ({ ...p, telegram: e.target.value }))} style={{ paddingLeft: 28, width: "100%" }} /></div></div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <button type="submit" disabled={savingProfile} className="btn btn-primary" style={{ width: "100%" }}>{savingProfile ? "Сохранение..." : "Сохранить"}</button>
+                          <button type="button" onClick={() => { setEditingProfile(false); setProfileForm({ username: profile.username || "", name: profile.name || "", bio: profile.bio || "", phone: (profile as any).phone || "", email: (profile as any).email || "", telegram: (profile as any).telegram || "" }); }} className="btn btn-ghost" style={{ width: "100%" }}>Отмена</button>
                         </div>
-                      )}
-                      <div style={{ marginTop: 20 }}>
-                        <button className="btn" style={{ fontSize: 13 }} onClick={() => setShowQr(true)}>📱 Показать QR визитки</button>
-                        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>Публичная ссылка: {publicUrl(profile.username)}</div>
-                      </div>
-                      <button onClick={() => setEditingProfile(true)} className="btn btn-ghost" style={{ marginTop: 16, background: "var(--accent)", border: "1px solid var(--border)" }}>✏️ Редактировать</button>
-                    </>
-                  )}
+                      </form>
+                    ) : (
+                      <>
+                        <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em" }}>{profile.name || profile.username}</h1>
+                        <p style={{ fontSize: 16, fontWeight: 500, marginBottom: 16 }}>@{profile.username}</p>
+                        {profile.bio && <p style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: 16 }}>{profile.bio}</p>}
+                        {(profile.phone || profile.email || profile.telegram) && (
+                          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                            {profile.phone && <div>📞 {profile.phone}</div>}
+                            {profile.email && <div>✉️ {profile.email}</div>}
+                            {profile.telegram && <div>✈️ {profile.telegram}</div>}
+                          </div>
+                        )}
+                        <div style={{ marginTop: 20 }}>
+                          <button className="btn" style={{ fontSize: 13 }} onClick={() => setShowQr(true)}>📱 Показать QR визитки</button>
+                          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>Публичная ссылка: {publicUrl(profile.username)}</div>
+                        </div>
+                        <button onClick={() => setEditingProfile(true)} className="btn btn-ghost" style={{ marginTop: 16, background: "var(--accent)", border: "1px solid var(--border)" }}>✏️ Редактировать</button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }}></div>
           </div>
 
+          {/* Правая колонка – сетка блоков */}
           <div className="editor-blocks-column" style={{ minWidth: 0, width: "100%" }}>
-            {totalBlocks === 0 ? (
+            {!showOnboardingPanel && totalBlocks === 0 ? (
               <SocialMediaForm onSubmit={handleSocialMediaSubmit} />
             ) : (
               <DndContext
@@ -1002,30 +1059,33 @@ export default function Editor() {
           </div>
         </div>
 
-        <div ref={bottomBarRef} style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px 20px", zIndex: 1000, boxShadow: "0 4px 16px rgba(0,0,0,0.1)", maxWidth: "calc(100% - 40px)", width: "fit-content" }}>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            {[
-              { type: "section", label: "Заголовок", icon: "📑" },
-              { type: "note", label: "Заметка", icon: "📝" },
-              { type: "link", label: "Ссылка", icon: "🔗" },
-              { type: "social", label: "Соцсеть", icon: "💬" },
-              { type: "photo", label: "Фото", icon: "🖼️" },
-              { type: "video", label: "Видео", icon: "🎥" },
-              { type: "music", label: "Музыка", icon: "🎵" },
-              { type: "map", label: "Карта", icon: "🗺️" },
-            ].map(({ type, label, icon }) => (
-              <button key={type} data-add-type={type} onClick={() => handleAddBlockClick(type as BlockType)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: "65px" }}>
-                <span style={{ fontSize: "20px" }}>{icon}</span>
-                <span style={{ fontSize: "11px", fontWeight: 500 }}>{label}</span>
+        {/* Нижняя панель с кнопками добавления блоков – скрываем во время онбординга */}
+        {!showOnboardingPanel && (
+          <div ref={bottomBarRef} style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px 20px", zIndex: 1000, boxShadow: "0 4px 16px rgba(0,0,0,0.1)", maxWidth: "calc(100% - 40px)", width: "fit-content" }}>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              {[
+                { type: "section", label: "Заголовок", icon: "📑" },
+                { type: "note", label: "Заметка", icon: "📝" },
+                { type: "link", label: "Ссылка", icon: "🔗" },
+                { type: "social", label: "Соцсеть", icon: "💬" },
+                { type: "photo", label: "Фото", icon: "🖼️" },
+                { type: "video", label: "Видео", icon: "🎥" },
+                { type: "music", label: "Музыка", icon: "🎵" },
+                { type: "map", label: "Карта", icon: "🗺️" },
+              ].map(({ type, label, icon }) => (
+                <button key={type} data-add-type={type} onClick={() => handleAddBlockClick(type as BlockType)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: "65px" }}>
+                  <span style={{ fontSize: "20px" }}>{icon}</span>
+                  <span style={{ fontSize: "11px", fontWeight: 500 }}>{label}</span>
+                </button>
+              ))}
+              <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 44, background: "var(--border)", margin: "0 6px" }} />
+              <button type="button" onClick={() => setShowMobilePreview(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: isMobileViewport ? "var(--accent)" : "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: isMobileViewport ? "72px" : "52px" }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8"/><line x1="10" y1="17" x2="14" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                <span style={{ fontSize: "11px", fontWeight: 600 }}>{isMobileViewport ? "Превью" : "Тел."}</span>
               </button>
-            ))}
-            <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 44, background: "var(--border)", margin: "0 6px" }} />
-            <button type="button" onClick={() => setShowMobilePreview(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: isMobileViewport ? "var(--accent)" : "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: isMobileViewport ? "72px" : "52px" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8"/><line x1="10" y1="17" x2="14" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-              <span style={{ fontSize: "11px", fontWeight: 600 }}>{isMobileViewport ? "Превью" : "Тел."}</span>
-            </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {modalType && <BlockModal type={modalType} isOpen={modalOpen} onClose={() => { setModalOpen(false); setModalType(null); }} onSubmit={handleBlockSubmit} />}
