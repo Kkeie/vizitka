@@ -235,8 +235,14 @@ interface ApiError {
 }
 
 // Auth
-export async function register(username: string, password: string): Promise<{ token: string; user: User }> {
+export async function register(username: string, password: string, email?: string): Promise<{ token: string; user: User }> {
   setToken(null);
+  const payload: any = { username, password };
+  if (email) {
+    payload.email = email;
+  } else {
+    payload.email = `${username}@temp.local`;
+  }
   const url = `${API}/auth/register`;
   console.log('[API] Register request to:', url);
 
