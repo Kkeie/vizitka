@@ -81,11 +81,6 @@ export default function UsernameInputWithSuggestions({
 
   return (
     <div className="username-field" style={{ marginBottom: 20 }}>
-      {!hideLabel && (
-        <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
-          Username
-        </label>
-      )}
       <div className="prefixed-input">
         <span className="prefix">bento.me/</span>
         <input
