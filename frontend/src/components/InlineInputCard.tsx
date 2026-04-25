@@ -27,6 +27,18 @@ export default function InlineInputCard({
     inputRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+        onCancel();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onCancel]);
+
   useLayoutEffect(() => {
     if (!cardRef.current) return;
     const cardRect = cardRef.current.getBoundingClientRect();

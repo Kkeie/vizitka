@@ -806,38 +806,71 @@ export default function Editor() {
     }
   }, [appendCreatedBlocks]);
 
-  // ONBOARDING: функция добавления блока из панели онбординга
   const addOnboardingBlock = useCallback(async (type: "social" | "link", data: any) => {
     try {
-      let newBlock: Block;
       if (type === "social") {
-        newBlock = await createBlock({
+        let url = data.socialUrl?.trim();
+        if (!url) {
+          setToast("Введите username или ссылку");
+          return;
+        }
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+          const platform = data.socialType;
+          if (platform === "telegram") url = `https://t.me/${url.replace(/^@/, "")}`;
+          else if (platform === "vk") url = `https://vk.com/${url}`;
+          else if (platform === "instagram") url = `https://instagram.com/${url.replace(/^@/, "")}`;
+          else if (platform === "twitter") url = `https://twitter.com/${url.replace(/^@/, "")}`;
+          else if (platform === "linkedin") url = `https://linkedin.com/in/${url}`;
+          else if (platform === "github") url = `https://github.com/${url}`;
+          else if (platform === "youtube") url = `https://youtube.com/@${url.replace(/^@/, "")}`;
+          else if (platform === "dribbble") url = `https://dribbble.com/${url}`;
+          else if (platform === "behance") url = `https://behance.net/${url}`;
+          else url = `https://${url}`;
+        }
+        try { new URL(url); } catch { throw new Error("invalid_url"); }
+        const newBlock = await createBlock({
           type: "social",
           socialType: data.socialType,
-          socialUrl: data.socialUrl,
+          socialUrl: url,
           sort: blocks.length,
         });
-      } else {
-        newBlock = await createBlock({
+        setBlocks(prev => [...prev, newBlock]);
+        setLayout(prev => {
+          if (!prev) return prev;
+          const next = { ...prev };
+          (Object.keys(next) as Breakpoint[]).forEach(bp => {
+            next[bp] = next[bp].map(col => [...col, newBlock.id]);
+          });
+          return next;
+        });
+      } else if (type === "link") {
+        let url = data.linkUrl?.trim();
+        if (!url) {
+          setToast("Введите URL ссылки");
+          return;
+        }
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+          url = "https://" + url;
+        }
+        try { new URL(url); } catch { throw new Error("invalid_url"); }
+        const newBlock = await createBlock({
           type: "link",
-          linkUrl: data.linkUrl,
+          linkUrl: url,
           sort: blocks.length,
+        });
+        setBlocks(prev => [...prev, newBlock]);
+        setLayout(prev => {
+          if (!prev) return prev;
+          const next = { ...prev };
+          (Object.keys(next) as Breakpoint[]).forEach(bp => {
+            next[bp] = next[bp].map(col => [...col, newBlock.id]);
+          });
+          return next;
         });
       }
-      // Немедленно добавляем блок в состояние
-      setBlocks(prev => [...prev, newBlock]);
-      // Обновляем layout: добавляем ID блока в конец всех колонок
-      setLayout(prev => {
-        if (!prev) return prev;
-        const next = { ...prev };
-        (Object.keys(next) as Breakpoint[]).forEach(bp => {
-          next[bp] = next[bp].map(col => [...col, newBlock.id]);
-        });
-        return next;
-      });
     } catch (err) {
       console.error(err);
-      setToast("Не удалось создать блок");
+      setToast("Не удалось создать блок. Проверьте ссылку.");
     }
   }, [blocks.length]);
 

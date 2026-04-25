@@ -3,6 +3,7 @@ import {
   TelegramIcon, VKIcon, YouTubeIcon, InstagramIcon, GitHubIcon, LinkedInIcon,
   TwitterIcon, DribbbleIcon, BehanceIcon,
 } from "../SocialIcons";
+import CongratsStep from "./CongratsStep";
 
 type SocialType = "telegram" | "vk" | "instagram" | "twitter" | "linkedin" | "github" | "youtube" | "dribbble" | "behance";
 
@@ -30,7 +31,7 @@ interface OnboardingInEditorProps {
 }
 
 export default function OnboardingInEditor({ onAddBlock, onComplete }: OnboardingInEditorProps) {
-  const [step, setStep] = useState<"social" | "link">("social");
+  const [step, setStep] = useState<"social" | "link" | "congrats">("social");
   const [loading, setLoading] = useState(false);
   const [socialValues, setSocialValues] = useState<Record<string, string>>({});
   const [linkUrl, setLinkUrl] = useState("");
@@ -39,19 +40,7 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
     if (!value.trim()) return;
     setLoading(true);
     try {
-      let url = value.trim();
-      if (!url.startsWith("http")) {
-        if (socialType === "telegram") url = `https://t.me/${url.replace(/^@/, "")}`;
-        else if (socialType === "instagram") url = `https://instagram.com/${url.replace(/^@/, "")}`;
-        else if (socialType === "twitter") url = `https://twitter.com/${url.replace(/^@/, "")}`;
-        else if (socialType === "youtube") url = `https://youtube.com/@${url.replace(/^@/, "")}`;
-        else if (socialType === "github") url = `https://github.com/${url}`;
-        else if (socialType === "linkedin") url = `https://linkedin.com/in/${url}`;
-        else if (socialType === "vk") url = `https://vk.com/${url}`;
-        else if (socialType === "dribbble") url = `https://dribbble.com/${url}`;
-        else if (socialType === "behance") url = `https://behance.net/${url}`;
-      }
-      await onAddBlock("social", { socialType, socialUrl: url });
+      await onAddBlock("social", { socialType, socialUrl: value.trim() });
       setSocialValues(prev => ({ ...prev, [socialType]: "" }));
     } finally {
       setLoading(false);
@@ -62,9 +51,7 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
     if (!linkUrl.trim()) return;
     setLoading(true);
     try {
-      let url = linkUrl.trim();
-      if (!url.startsWith("http")) url = "https://" + url;
-      await onAddBlock("link", { linkUrl: url });
+      await onAddBlock("link", { linkUrl: linkUrl.trim() });
       setLinkUrl("");
     } finally {
       setLoading(false);
@@ -74,14 +61,23 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
   const nextStep = () => {
     if (step === "social") {
       setStep("link");
-    } else {
-      onComplete();
+    } else if (step === "link") {
+      setStep("congrats");
     }
   };
 
   const skip = () => {
+    // Пропустить весь онбординг → сразу показать поздравление и завершить
+    setStep("congrats");
+  };
+
+  const finishOnboarding = () => {
     onComplete();
   };
+
+  if (step === "congrats") {
+    return <CongratsStep onComplete={finishOnboarding} />;
+  }
 
   return (
     <div className="oe-container">
