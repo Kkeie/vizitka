@@ -784,17 +784,19 @@ export default function Editor() {
         saveLayoutDebounced(nextLayout);
         return nextLayout;
       });
-      // Синхронизация layout после добавления новых блоков (они пока без якорей, порядок не изменится)
-      syncLayoutFromBlockSizes(blockSizes);
-      revealCreatedBlock(
-        options?.scrollTargetId ?? newIds[newIds.length - 1],
-        options?.focusType ? { focusType: options.focusType } : undefined,
-      );
+
+      setTimeout(() => {
+        revealCreatedBlock(
+          options?.scrollTargetId ?? newIds[newIds.length - 1],
+          options?.focusType ? { focusType: options.focusType } : undefined,
+        );
+      }, 100);
     },
-    [revealCreatedBlock, saveLayoutDebounced, blockSizes, syncLayoutFromBlockSizes],
+    [revealCreatedBlock, saveLayoutDebounced], 
   );
 
-  const createEmptyBlock = async (type: BlockType, initialData: Partial<Block> = {}) => {
+  const createEmptyBlock = useCallback(async (type: BlockType, initialData: Partial<Block> = {}) => {
+    console.log('createEmptyBlock called with type:', type);
     try {
       const newBlock = await createBlock({ type, ...initialData } as any);
       appendCreatedBlocks([newBlock], { focusType: type });
@@ -802,7 +804,7 @@ export default function Editor() {
       console.error(e);
       setToast("Не удалось создать блок");
     }
-  };
+  }, [appendCreatedBlocks]);
 
   // ONBOARDING: функция добавления блока из панели онбординга
   const addOnboardingBlock = useCallback(async (type: "social" | "link", data: any) => {
@@ -871,7 +873,7 @@ export default function Editor() {
     setInlineInput(null);
   };
 
-  const handleAddBlockClick = (type: BlockType) => {
+  const handleAddBlockClick = useCallback((type: BlockType) => {
     if (type === 'section') {
       createEmptyBlock('section', { note: '' });
     } else if (type === 'note') {
@@ -883,7 +885,7 @@ export default function Editor() {
       setModalType(type);
       setModalOpen(true);
     }
-  };
+  }, [createEmptyBlock, handleAddWithInline]);
 
   async function handleBlockSubmit(data: Partial<Block>) {
     try {
