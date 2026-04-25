@@ -473,7 +473,7 @@ export async function getPublic(username: string): Promise<{
   return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; phone: string | null; email: string | null; telegram: string | null; blocks: Block[]; layout: Layout | null; blockSizes: BlockSizes | null }>(r);
 }
 export function publicUrl(username: string) {
-  return `${window.location.origin}/public/${encodeURIComponent(username)}`;
+  return `${window.location.origin}/${encodeURIComponent(username)}`;
 }
 
 // QR
