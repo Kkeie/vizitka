@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { type User } from "../api";
+import { publicUrl, type User } from "../api";
 
 export default function Navbar({ user, onLogout }: { user: User | null; onLogout: () => void }) {
   const uname = user?.profile?.username || user?.username;
@@ -17,7 +17,7 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
 
   const copyPublic = async () => {
     if (!uname) return;
-    const url = `${window.location.origin}/public/${uname}`;
+    const url = publicUrl(uname);;
     try {
       await navigator.clipboard.writeText(url);
     } catch {
