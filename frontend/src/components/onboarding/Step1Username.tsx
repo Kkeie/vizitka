@@ -24,7 +24,7 @@ export default function Step1Username({ onNext, initialUsername = "" }: Step1Use
           Продолжить →
         </button>
         <div className="login-link-bottom">
-          <Link to="/login">Войти</Link>
+          <Link to="/login">Уже есть аккаунт? Войти</Link>
         </div>
       </div>
       <div className="step-right">
@@ -63,20 +63,30 @@ export default function Step1Username({ onNext, initialUsername = "" }: Step1Use
         .login-link-bottom {
           margin-top: 24px;
           text-align: center;
+          padding-top: 16px;
+          border-top: 1px solid var(--border, #e5e5e5);
         }
         .login-link-bottom a {
-          color: var(--primary);
+          color: var(--primary, #000);
           text-decoration: none;
           font-weight: 500;
+          font-size: 14px;
+        }
+        .login-link-bottom a:hover {
+          text-decoration: underline;
         }
         @media (max-width: 900px) {
           .step-container {
             flex-direction: column;
+            padding: 24px;
           }
           .step-right {
             order: -1;
             width: 100%;
             min-height: 300px;
+          }
+          .step-left {
+            max-width: 100%;
           }
         }
       `}</style>

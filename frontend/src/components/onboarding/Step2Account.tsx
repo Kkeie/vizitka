@@ -9,6 +9,7 @@ import {
   GitHubIcon,
   LinkedInIcon,
 } from "../SocialIcons";
+import { Link } from "react-router-dom";
 
 interface Step2AccountProps {
   username: string;
@@ -98,6 +99,9 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? "Регистрация..." : "Зарегистрироваться"}
           </button>
+          <div className="login-link-bottom">
+            <Link to="/login">Уже есть аккаунт? Войти</Link>
+          </div>
         </form>
       </div>
       <div className="step-right">
@@ -130,13 +134,102 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
         }
         .step2 .step-left {
           flex: 1;
-          max-width: 400px;
+          max-width: 440px;
         }
         .step2 .step-right {
           flex: 1;
           display: flex;
           justify-content: flex-end;
           align-items: center;
+        }
+        .btn-back {
+          background: none;
+          border: none;
+          font-size: 16px;
+          cursor: pointer;
+          margin-bottom: 24px;
+          color: var(--primary, #000);
+          font-weight: 500;
+          padding: 0;
+          transition: opacity 0.2s ease;
+        }
+        .btn-back:hover {
+          opacity: 0.7;
+        }
+        .step2 .step-title {
+          font-size: 36px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          margin-bottom: 24px;
+          color: var(--text, #1a1a1a);
+        }
+        .account-form {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        .account-form .field {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .account-form label {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text, #1a1a1a);
+        }
+        .account-form .input {
+          width: 100%;
+          padding: 14px 18px;
+          border: 1.5px solid var(--border, #e5e5e5);
+          border-radius: var(--radius-sm, 10px);
+          font-size: 15px;
+          background: var(--surface, #ffffff);
+          color: var(--text, #1a1a1a);
+          outline: none;
+          transition: border 0.2s ease;
+        }
+        .account-form .input:focus {
+          border-color: var(--primary, #000);
+        }
+        .account-form .btn-primary {
+          width: 100%;
+          padding: 14px 24px;
+          background: var(--primary, #000);
+          color: #fff;
+          border: none;
+          border-radius: var(--radius-sm, 10px);
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.2s ease;
+        }
+        .account-form .btn-primary:hover {
+          background: var(--primary-hover, #333);
+        }
+        .account-form .btn-primary:disabled {
+          background: #9ca3af;
+          cursor: not-allowed;
+        }
+        .error-message {
+          color: #ef4444;
+          font-size: 14px;
+          margin-top: -8px;
+        }
+        .login-link-bottom {
+          text-align: center;
+          margin-top: 24px;
+          padding-top: 24px;
+          border-top: 1px solid var(--border, #e5e5e5);
+        }
+        .login-link-bottom a {
+          color: var(--primary, #000);
+          text-decoration: none;
+          font-weight: 500;
+          font-size: 14px;
+        }
+        .login-link-bottom a:hover {
+          text-decoration: underline;
         }
         .phone-wrapper {
           opacity: 0;
@@ -146,33 +239,6 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
         .phone-wrapper.phone-visible {
           opacity: 1;
           transform: scale(1) translateY(0);
-        }
-        .btn-back {
-          background: none;
-          border: none;
-          font-size: 16px;
-          cursor: pointer;
-          margin-bottom: 24px;
-          color: var(--primary);
-          font-weight: 500;
-        }
-        .account-form .field {
-          margin-bottom: 24px;
-        }
-        .account-form label {
-          display: block;
-          font-size: 14px;
-          font-weight: 500;
-          margin-bottom: 8px;
-          color: var(--text);
-        }
-        .input {
-          width: 100%;
-          padding: 14px 18px;
-          border: 1.5px solid var(--border);
-          border-radius: var(--radius-sm);
-          font-size: 15px;
-          background: var(--surface);
         }
         .phone-link-header {
           font-weight: 600;
@@ -199,17 +265,31 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
           justify-content: center;
           box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
-        .error-message {
-          color: #ef4444;
-          font-size: 14px;
-          margin-top: 8px;
-        }
         @media (max-width: 900px) {
           .step2 {
             flex-direction: column;
+            padding: 24px;
           }
           .step2 .step-right {
+            order: -1;
             justify-content: center;
+            margin-bottom: 32px;
+          }
+          .step2 .step-left {
+            max-width: 100%;
+          }
+        }
+        @media (max-width: 480px) {
+          .step2 .step-title {
+            font-size: 28px;
+          }
+          .phone-icon-item {
+            width: 56px;
+            height: 56px;
+          }
+          .phone-icon-item svg {
+            width: 24px;
+            height: 24px;
           }
         }
       `}</style>
