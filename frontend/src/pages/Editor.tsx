@@ -833,8 +833,6 @@ export default function Editor() {
         });
         return next;
       });
-      // Устанавливаем дефолтный размер
-      setBlockSizes(prev => ({ ...prev, [newBlock.id]: { colSpan: 1, rowSpan: 1 } }));
     } catch (err) {
       console.error(err);
       setToast("Не удалось создать блок");
