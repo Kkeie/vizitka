@@ -26,6 +26,7 @@ jobs:
       YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+      DOMAIN: ${{ secrets.DOMAIN }}
       VITE_BACKEND_API_URL: /api
       PLATFORM: linux/amd64
       IMAGE_TAG: ${{ github.sha }}
