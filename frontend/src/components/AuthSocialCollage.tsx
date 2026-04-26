@@ -1,5 +1,5 @@
 import React from "react";
-import { REGISTRATION_DECO_SOCIALS } from "../data/registrationDecoSocials";
+import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../lib/registrationDecoSocials";
 import "../pages/LoginPage.css";
 
 const DECO_FRAMES: Array<{
@@ -30,7 +30,7 @@ export default function AuthSocialCollage() {
   return (
     <div className="login-bento__art" aria-hidden="true">
       <div className="login-bento__art-inner">
-        {REGISTRATION_DECO_SOCIALS.map((item, i) => {
+        {REGISTRATION_DECO_SOCIALS.map((item: RegistrationDecoSocial, i: number) => {
           const frame = DECO_FRAMES[i];
           if (!frame) return null;
           const { Icon, color, label } = item;
