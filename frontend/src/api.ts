@@ -149,20 +149,43 @@ if (missingProductionApiConfig && API.startsWith('/') && !API.startsWith('http')
   console.warn('[API] VITE_BACKEND_API_URL is not set. Using local fallback:', API);
 }
 
-// Token storage policy:
-// only sessionStorage to avoid cross-user leakage via persistent localStorage.
-// If a legacy token is present in localStorage, remove it.
-let token: string | null = sessionStorage.getItem("token");
-if (localStorage.getItem("token")) {
-  localStorage.removeItem("token");
+// Token: localStorage so one login is shared across tabs and survives refresh.
+// Also sync in-memory + listeners when another tab changes the token (storage event).
+// Legacy: migrate from sessionStorage once if localStorage is empty.
+const TOKEN_KEY = "token";
+
+function readStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  let t = localStorage.getItem(TOKEN_KEY);
+  if (!t) {
+    const legacy = sessionStorage.getItem(TOKEN_KEY);
+    if (legacy) {
+      localStorage.setItem(TOKEN_KEY, legacy);
+      sessionStorage.removeItem(TOKEN_KEY);
+      t = legacy;
+    }
+  }
+  return t;
 }
+
+let token: string | null = readStoredToken();
+
 const authTokenListeners = new Set<(token: string | null) => void>();
 
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.storageArea !== localStorage) return;
+    if (e.key !== TOKEN_KEY && e.key !== null) return;
+    const next = readStoredToken();
+    if (next !== token) {
+      token = next;
+      authTokenListeners.forEach((listener) => listener(token));
+    }
+  });
+}
+
 export function getToken(): string | null {
-  if (localStorage.getItem("token")) {
-    localStorage.removeItem("token");
-  }
-  token = sessionStorage.getItem("token");
+  token = readStoredToken();
   return token;
 }
 
@@ -173,16 +196,17 @@ export function subscribeAuthToken(listener: (token: string | null) => void): ()
 
 export function setToken(t: string | null) {
   token = t;
-  if (t) {
-    sessionStorage.setItem("token", t);
-  } else {
-    sessionStorage.removeItem("token");
+  if (typeof window !== "undefined") {
+    if (t) {
+      localStorage.setItem(TOKEN_KEY, t);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+    sessionStorage.removeItem(TOKEN_KEY);
   }
-  localStorage.removeItem("token");
   authTokenListeners.forEach((listener) => listener(token));
 }
 export function authHeaders(): Record<string, string> {
-  // Keep in-memory token synced with current tab sessionStorage state.
   token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
