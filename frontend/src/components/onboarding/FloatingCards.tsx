@@ -1,12 +1,6 @@
 import React from "react";
 import { REGISTRATION_DECO_SOCIALS } from "../../data/registrationDecoSocials";
 
-const SOCIALS = REGISTRATION_DECO_SOCIALS.map(({ Icon, color, label }) => ({
-  icon: Icon,
-  color,
-  label,
-}));
-
 interface FloatingCardsProps {
   username: string;
   withLinkCard?: boolean;
@@ -25,8 +19,8 @@ export default function FloatingCards({ username, withLinkCard = true }: Floatin
 
   return (
     <div className="floating-cards-container">
-      {SOCIALS.map((social, idx) => {
-        const Icon = social.icon;
+      {REGISTRATION_DECO_SOCIALS.map((social, idx) => {
+        const Icon = social.Icon;
         const pos = positions[idx % positions.length];
         return (
           <div

@@ -470,6 +470,28 @@ a:hover{color:var(--primary-hover)}
   border:0; 
   border-radius: var(--radius-md); 
 }
+/* Виджет Яндекс.Музыки: размеры как в коде встраивания, без 16/9 */
+iframe.yandex-music-embed {
+  display: block;
+  width: 100%;
+  max-width: 614px;
+  height: 244px;
+  border: 0;
+  margin: 0 auto;
+  border-radius: var(--radius-sm);
+  box-sizing: border-box;
+}
+/* Карточка не растягивается на всю ячейку: высота = виджет (см. block-grid default для music) */
+.bento-grid .yandex-music-card,
+.yandex-music-card {
+  height: auto !important;
+  min-height: 0 !important;
+}
+.bento-grid-item .yandex-music-card,
+[data-drag-item] .yandex-music-card {
+  max-height: none;
+  align-self: start;
+}
 .photo{ 
   width:100%;
   aspect-ratio: 1 / 1;

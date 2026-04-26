@@ -42,6 +42,7 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
   const isSection = block.type === 'section';
   const isNote = block.type === 'note';
   const isMap = block.type === 'map';
+  const isMusic = block.type === 'music';
 
   const [isHovered, setIsHovered] = React.useState(false);
   const [isMenuVisible, setIsMenuVisible] = React.useState(false);
@@ -246,7 +247,9 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
 
   const handlePointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
-    const interactive = target.closest('a, button, input, textarea, [contenteditable="true"], .no-drag');
+    const interactive = target.closest(
+      'a, button, input, textarea, [contenteditable="true"], .no-drag, audio, video, select, summary, [role="slider"]',
+    );
     if (interactive) e.stopPropagation();
   };
 
@@ -288,7 +291,7 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
           </button>
         )}
 
-        {onGridSizeChange && !isDragging && !isSection && isHovered && (
+        {onGridSizeChange && !isDragging && !isSection && !isMusic && isHovered && (
           <>
             {[
               { key: 'n', cursor: 'ns-resize', style: { top: -4, left: '50%', transform: 'translateX(-50%)', width: 36, height: 12 } },
@@ -320,7 +323,15 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
           onMouseEnter={() => setIsMenuVisible(true)}
           onMouseLeave={handleMenuMouseLeave}
         >
-          <SizeMenu onSelect={handleSizeSelect} currentSize={resolvedGridSize} maxCols={gridColumns} showStyleButton={isNote} onStyleClick={handleStyleMenuOpen} extraButtons={mapExtraButtons} />
+          <SizeMenu
+            onSelect={handleSizeSelect}
+            currentSize={resolvedGridSize}
+            maxCols={gridColumns}
+            maxPresetCount={isMusic ? 2 : undefined}
+            showStyleButton={isNote}
+            onStyleClick={handleStyleMenuOpen}
+            extraButtons={mapExtraButtons}
+          />
         </div>,
         document.body
       )}

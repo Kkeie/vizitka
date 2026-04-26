@@ -1,7 +1,15 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { useReveal } from "../hooks/useReveal";
-import { extractYouTubeId, toYouTubeEmbed, extractVKVideoId, toVKVideoEmbed, classifyMusic } from "../lib/embed";
+import {
+  extractYouTubeId,
+  toYouTubeEmbed,
+  extractVKVideoId,
+  toVKVideoEmbed,
+  classifyMusic,
+  YANDEX_MUSIC_IFRAME_HEIGHT_PX,
+  YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX,
+} from "../lib/embed";
 import { getSocialInfo } from '../lib/social-preview';
 import { 
   TwitterIcon, InstagramIcon, LinkedInIcon, GitHubIcon, 
@@ -12,6 +20,29 @@ import type { NoteTextStyle } from "../api";
 import { noteStyleToTextCss } from "../lib/noteStyle";
 import { sanitizeNoteHtml, looksLikeHtml } from "../lib/sanitizeNoteHtml";
 import NoteFloatingToolbar from "./NoteFloatingToolbar";
+
+/** Полоски по краю iframe в редакторе: dnd ловит край, центр (плеер/карта) остаётся интерактивным */
+const EDITOR_IFRAME_DRAG_EDGE_PX = 14;
+
+function EditorIframeEdgeDragHandles({ show }: { show: boolean }) {
+  if (!show) return null;
+  const base: React.CSSProperties = {
+    position: "absolute",
+    zIndex: 2,
+    cursor: "grab",
+    touchAction: "none",
+    boxSizing: "border-box",
+  };
+  const edge = EDITOR_IFRAME_DRAG_EDGE_PX;
+  return (
+    <>
+      <div aria-hidden className="editor-iframe-edge-drag" style={{ ...base, top: 0, left: 0, right: 0, height: edge }} />
+      <div aria-hidden className="editor-iframe-edge-drag" style={{ ...base, bottom: 0, left: 0, right: 0, height: edge }} />
+      <div aria-hidden className="editor-iframe-edge-drag" style={{ ...base, top: edge, bottom: edge, left: 0, width: edge }} />
+      <div aria-hidden className="editor-iframe-edge-drag" style={{ ...base, top: edge, bottom: edge, right: 0, width: edge }} />
+    </>
+  );
+}
 
 export type Block = {
   id: number;
@@ -166,8 +197,13 @@ export default function BlockCard({
   const previewTileSize = 64; // для обычных ссылок (не соцсетей)
   const playButtonSize = 72;
 
+  const musicKind = React.useMemo(
+    () => (b.type === "music" && b.musicEmbed ? classifyMusic(b.musicEmbed) : null),
+    [b.id, b.type, b.musicEmbed]
+  );
+  const yandexTrackCard = musicKind?.kind === "yandex";
   const cardStyle: React.CSSProperties = {
-    padding: b.type === "photo" ? "0" : "16px",
+    padding: b.type === "photo" || yandexTrackCard ? "0" : "16px",
     position: "relative",
     transition: isDragPreview ? "none" : "all 0.2s ease",
     display: "flex",
@@ -180,7 +216,9 @@ export default function BlockCard({
     borderRadius: isSection ? "var(--radius-md)" : "var(--radius-md)",
     ...((b.type === "note") && { overflowY: "auto", overflowX: "hidden" }),
     ...(b.type !== "note" && { overflow: "hidden" }),
-    height: "100%",
+    ...(yandexTrackCard
+      ? { height: "auto", minHeight: 0, flexShrink: 0 }
+      : { height: "100%" }),
     pointerEvents: isDragPreview ? "none" : undefined,
     ...(isSection && isSectionEditable && !isPublic && {
       background: (isHovered || isSectionFocused) ? "var(--surface)" : "transparent",
@@ -204,7 +242,7 @@ export default function BlockCard({
   return (
     <div
       ref={revealRef}
-      className="card"
+      className={yandexTrackCard ? "card yandex-music-card" : "card"}
       style={cardStyle}
       {...sortableProps}
       onMouseEnter={(e) => {
@@ -229,7 +267,15 @@ export default function BlockCard({
       }}
     >
 
-      <div style={{ flex: 1, position: "relative", zIndex: 0, minHeight: 0, overflow: "hidden" }}>
+      <div
+        style={{
+          flex: yandexTrackCard ? "0 0 auto" : 1,
+          position: "relative",
+          zIndex: 0,
+          minHeight: 0,
+          overflow: yandexTrackCard ? "visible" : "hidden",
+        }}
+      >
       {isSection && (
         <div
           className="card__content"
@@ -493,7 +539,7 @@ export default function BlockCard({
                   Загрузка...
                 </div>
               ) : linkMetadata?.image ? (
-                <img src={linkMetadata.image} alt="" style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-sm)", objectFit: "cover", marginBottom: 12, border: "1px solid var(--border)" }} />
+                <img src={linkMetadata.image} alt="" draggable={showEditorHeader ? false : undefined} style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-sm)", objectFit: "cover", marginBottom: 12, border: "1px solid var(--border)" }} />
               ) : (
                 <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, color: "var(--muted)", fontSize: 13, padding: 12, textAlign: "center" }}>
                   {safeDomain(b.linkUrl)}
@@ -511,7 +557,7 @@ export default function BlockCard({
 
         {b.type === "photo" && b.photoUrl && (
           <div style={{ borderRadius: "var(--radius-sm)", overflow: "hidden", height: "100%" }}>
-            <img src={getImageUrl(b.photoUrl)} alt="" className="photo" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <img src={getImageUrl(b.photoUrl)} alt="" className="photo" loading="lazy" decoding="async" draggable={showEditorHeader ? false : undefined} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
         )}
 
@@ -522,25 +568,52 @@ export default function BlockCard({
           if (!isVideoPlaying && vid) {
             return (
               <div onClick={() => setIsVideoPlaying(true)} title="Смотреть" style={{ cursor: "pointer", position: "relative", borderRadius: "var(--radius-sm)", overflow: "hidden", height: "100%" }}>
-                <img src={`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`} alt="Превью видео" className="photo" loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`} alt="Превью видео" className="photo" loading="lazy" decoding="async" draggable={showEditorHeader ? false : undefined} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: playButtonSize, height: playButtonSize, borderRadius: "50%", background: "rgba(0, 0, 0, 0.75)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, color: "#fff" }}>▶</div>
               </div>
             );
           }
 
           if (isVideoPlaying && vid) {
-            return <iframe className="embed" src={toYouTubeEmbed(b.videoUrl) + "?autoplay=1&rel=0&modestbranding=1"} title="Видео" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ borderRadius: "var(--radius-sm)", width: "100%", height: "100%" }} />;
+            return (
+              <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 0, flex: 1, borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+                <iframe className="embed" src={toYouTubeEmbed(b.videoUrl) + "?autoplay=1&rel=0&modestbranding=1"} title="Видео" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen style={{ borderRadius: "var(--radius-sm)", width: "100%", height: "100%" }} />
+                <EditorIframeEdgeDragHandles show={showEditorHeader && !isDragPreview} />
+              </div>
+            );
           }
 
           if (vkEmbedSrc) {
-            return <iframe className="embed" src={vkEmbedSrc} title="VK Видео" loading="lazy" allow="autoplay; encrypted-media" allowFullScreen style={{ borderRadius: "var(--radius-sm)", width: "100%", height: "100%" }} />;
+            return (
+              <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 0, flex: 1, borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+                <iframe className="embed" src={vkEmbedSrc} title="VK Видео" loading="lazy" allow="autoplay; encrypted-media" allowFullScreen style={{ borderRadius: "var(--radius-sm)", width: "100%", height: "100%" }} />
+                <EditorIframeEdgeDragHandles show={showEditorHeader && !isDragPreview} />
+              </div>
+            );
           }
 
           return <div className="card" style={{ padding: 48, textAlign: "center", color: "var(--muted)" }}>Видео</div>;
         })()}
 
         {b.type === "music" && b.musicEmbed && (() => {
-          const kind = classifyMusic(b.musicEmbed);
+          if (!musicKind) return null;
+          const kind = musicKind;
+          if (kind.kind === "yandex") {
+            return (
+              <div style={{ position: "relative", width: "100%", maxWidth: YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX, margin: "0 auto" }}>
+                <iframe
+                  className="yandex-music-embed"
+                  title="Яндекс Музыка"
+                  src={kind.src}
+                  loading="lazy"
+                  allow="clipboard-write; autoplay; encrypted-media"
+                  width={YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX}
+                  height={YANDEX_MUSIC_IFRAME_HEIGHT_PX}
+                />
+                <EditorIframeEdgeDragHandles show={showEditorHeader && !isDragPreview} />
+              </div>
+            );
+          }
           if (kind.kind === "audio") {
             return (
               <div style={{ padding: 16, borderRadius: "var(--radius-sm)", background: "var(--bg)", ...scrollableContentStyle }}>
@@ -553,15 +626,23 @@ export default function BlockCard({
             );
           }
           if (kind.kind === "spotify" || kind.kind === "soundcloud" || kind.kind === "youtube") {
-            return <iframe className="embed" src={kind.src} title="Музыка" loading="lazy" allow="autoplay; encrypted-media" allowFullScreen style={{ borderRadius: "var(--radius-sm)", width: "100%", height: "100%" }} />;
+            return (
+              <div style={{ position: "relative", width: "100%", height: "100%", minHeight: 0, flex: 1, borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+                <iframe className="embed" src={kind.src} title="Музыка" loading="lazy" allow="autoplay; encrypted-media" allowFullScreen style={{ borderRadius: "var(--radius-sm)", width: "100%", height: "100%" }} />
+                <EditorIframeEdgeDragHandles show={showEditorHeader && !isDragPreview} />
+              </div>
+            );
           }
           return <div style={{ borderRadius: "var(--radius-sm)", overflow: "hidden", position: "relative", width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: kind.html }} />;
         })()}
 
         {b.type === "map" && b.mapLat != null && b.mapLng != null && (
           <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-            <iframe className="embed" src={`https://yandex.ru/map-widget/v1/?ll=${b.mapLng}%2C${b.mapLat}&pt=${b.mapLng}%2C${b.mapLat}&z=14`} loading="lazy" title="Карта" style={{ borderRadius: "var(--radius-sm)", width: "100%", height: "100%", flex: 1, minHeight: 0 }} />
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, gap: 8 }}>
+            <div style={{ position: "relative", flex: 1, minHeight: 0, borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+              <iframe className="embed" src={`https://yandex.ru/map-widget/v1/?ll=${b.mapLng}%2C${b.mapLat}&pt=${b.mapLng}%2C${b.mapLat}&z=14`} loading="lazy" title="Карта" style={{ borderRadius: "var(--radius-sm)", width: "100%", height: "100%" }} />
+              <EditorIframeEdgeDragHandles show={showEditorHeader && !isDragPreview} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, gap: 8, position: "relative", zIndex: 3 }}>
               <a href={`https://yandex.ru/maps/?pt=${b.mapLng},${b.mapLat}&z=14`} target="_blank" rel="noreferrer" style={{ color: "var(--primary)", textDecoration: "none", fontSize: 13, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 4 }}>Яндекс.Карты <span>→</span></a>
               <a href={`https://2gis.ru/search/${b.mapLat},${b.mapLng}`} target="_blank" rel="noreferrer" style={{ color: "var(--primary)", textDecoration: "none", fontSize: 13, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 4 }}>2ГИС <span>→</span></a>
             </div>
