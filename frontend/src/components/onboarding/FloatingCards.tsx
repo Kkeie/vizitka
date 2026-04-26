@@ -1,21 +1,11 @@
 import React from "react";
-import {
-  TelegramIcon,
-  VKIcon,
-  YouTubeIcon,
-  InstagramIcon,
-  GitHubIcon,
-  LinkedInIcon,
-} from "../SocialIcons";
+import { REGISTRATION_DECO_SOCIALS } from "../../data/registrationDecoSocials";
 
-const SOCIALS = [
-  { icon: TelegramIcon, color: "#0088cc", label: "Telegram" },
-  { icon: VKIcon, color: "#0077FF", label: "VK" },
-  { icon: YouTubeIcon, color: "#FF0000", label: "YouTube" },
-  { icon: InstagramIcon, color: "#E4405F", label: "Instagram" },
-  { icon: GitHubIcon, color: "#24292e", label: "GitHub" },
-  { icon: LinkedInIcon, color: "#0A66C2", label: "LinkedIn" },
-];
+const SOCIALS = REGISTRATION_DECO_SOCIALS.map(({ Icon, color, label }) => ({
+  icon: Icon,
+  color,
+  label,
+}));
 
 interface FloatingCardsProps {
   username: string;

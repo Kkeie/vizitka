@@ -29,7 +29,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const multer_1 = __importStar(require("multer"));
 const path_1 = __importDefault(require("path"));
-const fs_1 = __importDefault(require("fs"));
+const promises_1 = __importDefault(require("fs/promises"));
+const file_type_1 = __importDefault(require("file-type"));
 const auth_1 = require("../utils/auth");
 const router = (0, express_1.Router)();
 // На Render используем /tmp/uploads для сохранения файлов
@@ -41,36 +42,30 @@ function getUploadDir() {
     // На Render (production без Docker) используем /tmp/uploads
     if (process.env.NODE_ENV === 'production' && !process.env.DOCKER) {
         const tmpDir = '/tmp/uploads';
-        if (!fs_1.default.existsSync(tmpDir)) {
-            fs_1.default.mkdirSync(tmpDir, { recursive: true });
+        if (!require('fs').existsSync(tmpDir)) {
+            require('fs').mkdirSync(tmpDir, { recursive: true });
         }
         return tmpDir;
     }
     // В Docker или локально используем ./uploads
     const uploadDir = path_1.default.resolve(process.cwd(), 'uploads');
-    if (!fs_1.default.existsSync(uploadDir)) {
-        fs_1.default.mkdirSync(uploadDir, { recursive: true });
+    if (!require('fs').existsSync(uploadDir)) {
+        require('fs').mkdirSync(uploadDir, { recursive: true });
     }
     return uploadDir;
 }
 const UPLOAD_DIR = getUploadDir();
 console.log(`[UPLOAD] Upload directory: ${UPLOAD_DIR}`);
-function sanitizeFilename(name) {
-    return name.replace(/[^\w.\-]+/g, '_');
-}
-const storage = multer_1.default.diskStorage({
-    destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-    filename: (_req, file, cb) => {
-        const ext = path_1.default.extname(file.originalname);
-        const base = path_1.default.basename(file.originalname, ext);
-        cb(null, `${Date.now()}_${sanitizeFilename(base)}${ext}`);
-    },
-});
+const ALLOWED_MIME_TYPES = new Set([
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'video/mp4', 'video/webm', 'video/ogg',
+    'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/mp4',
+]);
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const storage = multer_1.default.memoryStorage();
 const upload = (0, multer_1.default)({
     storage,
-    limits: {
-        fileSize: 50 * 1024 * 1024, // 50MB
-    },
+    limits: { fileSize: MAX_FILE_SIZE },
     fileFilter: (_req, file, cb) => {
         if (file.mimetype.startsWith('image/') ||
             file.mimetype.startsWith('video/') ||
@@ -84,51 +79,62 @@ const upload = (0, multer_1.default)({
 });
 // Принимаем ЛЮБОЕ имя поля (file, image, photo, avatar, upload и т.д.)
 const uploadAny = upload.any();
-function pickFirstFile(req) {
-    // multer.any() кладёт файлы в req.files (массив)
-    const files = req.files;
-    if (files && files.length > 0)
-        return files[0];
-    // на всякий случай — если кто-то использует single()
-    // @ts-ignore
-    if (req.file)
-        return req.file;
-    return null;
+async function saveValidatedFile(file) {
+    // Используем правильный метод из версии 16.x
+    const detectedType = await file_type_1.default.fromBuffer(file.buffer);
+    if (!detectedType) {
+        throw new Error('Cannot detect file type');
+    }
+    if (!ALLOWED_MIME_TYPES.has(detectedType.mime)) {
+        throw new Error(`Unsupported file type: ${detectedType.mime}`);
+    }
+    const originalExt = path_1.default.extname(file.originalname);
+    const baseName = path_1.default.basename(file.originalname, originalExt);
+    const safeBase = baseName.replace(/[^\w\-]/g, '_');
+    const filename = `${Date.now()}_${safeBase}${originalExt}`;
+    const fullPath = path_1.default.join(UPLOAD_DIR, filename);
+    await promises_1.default.writeFile(fullPath, file.buffer);
+    return { filename, url: `/uploads/${filename}` };
 }
-function respondWithFile(res, file) {
-    if (!file)
-        return res.status(400).json({ error: 'no_file' });
-    // Логируем успешную загрузку
-    console.log(`[UPLOAD] File uploaded: ${file.filename} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-    // В Docker всегда отдаём относительный путь, чтобы работать через nginx фронтенда
+function buildPublicUrl(req, filename) {
     if (process.env.DOCKER) {
-        const url = `/uploads/${file.filename}`;
-        console.log(`[UPLOAD] Returning URL (DOCKER): ${url}`);
-        return res.json({ url });
+        return `/uploads/${filename}`;
     }
     // Возвращаем полный URL или относительный путь в зависимости от окружения
     // На Render используем BACKEND_URL из переменных окружения или формируем из запроса
     const baseUrl = process.env.BACKEND_URL || '';
-    let url;
     if (baseUrl) {
-        // Если указан BACKEND_URL, используем его
-        url = `${baseUrl}/uploads/${file.filename}`;
+        return `${baseUrl}/uploads/${filename}`;
     }
-    else {
-        // Иначе формируем из запроса (для локальной разработки и Render)
-        const host = res.req.headers.host || 'localhost:3000';
-        // На Render всегда используем https
-        const isRender = process.env.RENDER || process.env.NODE_ENV === 'production';
-        if (isRender) {
-            url = `https://${host}/uploads/${file.filename}`;
-        }
-        else {
-            url = `/uploads/${file.filename}`;
-        }
+    const host = req.headers.host || 'localhost:3000';
+    const isRender = process.env.RENDER || process.env.NODE_ENV === 'production';
+    if (isRender) {
+        return `https://${host}/uploads/${filename}`;
     }
-    console.log(`[UPLOAD] Returning URL: ${url}`);
-    return res.json({ url });
+    return `/uploads/${filename}`;
 }
+async function handleUpload(req, res) {
+    const files = req.files;
+    const file = files === null || files === void 0 ? void 0 : files[0];
+    if (!file) {
+        res.status(400).json({ error: 'no_file' });
+        return;
+    }
+    try {
+        const { filename, url: relativeUrl } = await saveValidatedFile(file);
+        const publicUrl = buildPublicUrl(req, filename);
+        console.log(`[UPLOAD] File saved: ${filename} (${(file.size / 1024 / 1024).toFixed(2)} MB), type: ${file.mimetype}`);
+        res.json({ url: publicUrl });
+    }
+    catch (err) {
+        console.error('[UPLOAD] Validation error:', err.message);
+        res.status(400).json({ error: err.message || 'invalid_file' });
+    }
+}
+router.post('/upload', auth_1.requireAuth, uploadAny, handleUpload);
+router.post('/image', auth_1.requireAuth, uploadAny, handleUpload);
+router.post('/video', auth_1.requireAuth, uploadAny, handleUpload);
+router.post('/audio', auth_1.requireAuth, uploadAny, handleUpload);
 function multerErrorHandler(err, _req, res, _next) {
     if (err instanceof multer_1.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
@@ -141,24 +147,5 @@ function multerErrorHandler(err, _req, res, _next) {
     }
     return res.status(500).json({ error: 'internal' });
 }
-// Совместимость со старым фронтом: POST /api/storage/upload
-router.post('/upload', auth_1.requireAuth, uploadAny, (req, res) => {
-    const file = pickFirstFile(req);
-    return respondWithFile(res, file);
-});
-// Явные маршруты (тоже принимают любое имя поля)
-router.post('/image', auth_1.requireAuth, uploadAny, (req, res) => {
-    const file = pickFirstFile(req);
-    return respondWithFile(res, file);
-});
-router.post('/video', auth_1.requireAuth, uploadAny, (req, res) => {
-    const file = pickFirstFile(req);
-    return respondWithFile(res, file);
-});
-router.post('/audio', auth_1.requireAuth, uploadAny, (req, res) => {
-    const file = pickFirstFile(req);
-    return respondWithFile(res, file);
-});
-// общий обработчик ошибок Multer
 router.use(multerErrorHandler);
 exports.default = router;

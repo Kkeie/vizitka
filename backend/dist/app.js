@@ -37,6 +37,7 @@ app.use((req, _res, next) => {
     });
     next();
 });
+// Парсеры JSON и urlencoded
 app.use(express_1.default.json({ limit: "10mb" }));
 app.use(express_1.default.urlencoded({ extended: true }));
 // TC-SYS-03: тело не JSON → 400 JSON (не HTML)
@@ -85,9 +86,15 @@ app.use("/api/metadata", metadata_1.default);
 app.use("/api/qr", qr_1.default);
 // обработчик 404 для /api/*
 app.use("/api", (_req, res) => res.status(404).json({ error: "not_found" }));
+// Глобальный обработчик ошибок — последний middleware
+// Перехватывает ошибки из всех предыдущих middleware и роутов
 app.use((err, req, res, _next) => {
     console.error(`[ERROR] ${req.method} ${req.path}:`, err);
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "internal_error", message: msg });
+    // В production не показываем детали ошибки клиенту
+    const status = err.status || 500;
+    const message = (process.env.NODE_ENV === 'production' && status === 500)
+        ? 'internal_error'
+        : err.message || 'internal_error';
+    res.status(status).json({ error: message });
 });
 exports.default = app;

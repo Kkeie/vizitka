@@ -45,9 +45,9 @@ export default function OnboardingWizard({ onAuthed }: OnboardingWizardProps) {
         .onboarding-wizard {
           min-height: 100vh;
           display: flex;
-          align-items: center;
+          align-items: stretch;
           justify-content: center;
-          background: var(--bg);
+          background: #ffffff;
         }
       `}</style>
     </div>
