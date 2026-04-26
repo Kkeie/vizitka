@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { getToken } from "../api";
 import BlockCard, { Block } from "./BlockCard";
 
 type CreatePayload =
@@ -9,16 +10,6 @@ type CreatePayload =
   | { type: "video"; videoUrl: string }
   | { type: "music"; musicEmbed: string }
   | { type: "map"; mapLat: number; mapLng: number };
-
-function getToken() {
-  const t = sessionStorage.getItem("token");
-  if (t) return t;
-  const legacy = localStorage.getItem("token");
-  if (legacy) {
-    localStorage.removeItem("token");
-  }
-  return "";
-}
 
 function authHeaders(): HeadersInit {
   const t = getToken();
