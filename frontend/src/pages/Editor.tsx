@@ -125,6 +125,10 @@ export default function Editor() {
   );
   const [activeId, setActiveId] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
+  useEffect(() => {
+    isDraggingRef.current = isDragging;
+  }, [isDragging]);
   const [dragCellSize, setDragCellSize] = useState<number | null>(null);
   const lastPointerRef = useRef({ x: 0, y: 0 });
   const revealTimeoutsRef = useRef<number[]>([]);
@@ -294,6 +298,58 @@ export default function Editor() {
     }, 500),
     []
   );
+
+  const currentOrderRef = useRef(currentOrder);
+  const blocksRef = useRef(blocks);
+  useEffect(() => {
+    currentOrderRef.current = currentOrder;
+  }, [currentOrder]);
+  useEffect(() => {
+    blocksRef.current = blocks;
+  }, [blocks]);
+
+  /**
+   * При смене ширины сетки `cellSize` и `getGridRowSpan` меняются, а `gridRowStart` в state остаётся
+   * от предыдущей геометрии — блоки визуально наезжают. Переупаковываем якоря (как на публичной странице).
+   */
+  useEffect(() => {
+    if (loading) return;
+    if (isDragging) return;
+    const schedule = () => {
+      if (isResizingRef.current) return;
+      if (isDraggingRef.current) return;
+      setBlockSizes((prev) => {
+        const order = currentOrderRef.current;
+        const bl = blocksRef.current;
+        if (order.length === 0) return prev;
+        const assigned = assignSparseAnchorsForBreakpoint(
+          order,
+          bl,
+          prev,
+          breakpoint,
+          currentGridColumns,
+          cellSize,
+          currentGridGap,
+          BENTO_ROW_UNIT,
+          { onlyMissing: true },
+        );
+        const resolved = resolveAnchorOverlaps(
+          assigned,
+          order,
+          bl,
+          breakpoint,
+          currentGridColumns,
+          cellSize,
+          currentGridGap,
+        );
+        if (JSON.stringify(resolved) === JSON.stringify(prev)) return prev;
+        saveBlockSizesDebounced(resolved);
+        return resolved;
+      });
+    };
+    const t = window.setTimeout(schedule, 80);
+    return () => clearTimeout(t);
+  }, [cellSize, breakpoint, loading, isDragging, currentGridColumns, currentGridGap, saveBlockSizesDebounced]);
 
   const syncLayoutFromBlockSizes = useCallback((newBlockSizes: BlockSizes) => {
     // Собираем блоки, у которых есть якорь для текущего breakpoint

@@ -11,6 +11,7 @@ import {
   flattenLayoutIds,
   getGridRowSpan,
   getResolvedGridSize,
+  resolveAnchorOverlaps,
   sortBlockIdsByDesktopVisualOrder,
 } from "../lib/block-grid";
 
@@ -221,19 +222,26 @@ export default function PublicPage() {
     maxCellSize: breakpoint === "mobile" ? 100 : undefined,
   });
 
-  const effectiveSizes = React.useMemo(
-    () =>
-      assignSparseAnchorsForBreakpoint(
-        orderedIds,
-        state.blocks,
-        state.blockSizes,
-        breakpoint,
-        gridColumns,
-        cellSize,
-        gridGap,
-      ),
-    [orderedIds.join(","), state.blocks, state.blockSizes, breakpoint, gridColumns, cellSize, gridGap],
-  );
+  const effectiveSizes = React.useMemo(() => {
+    const assigned = assignSparseAnchorsForBreakpoint(
+      orderedIds,
+      state.blocks,
+      state.blockSizes,
+      breakpoint,
+      gridColumns,
+      cellSize,
+      gridGap,
+    );
+    return resolveAnchorOverlaps(
+      assigned,
+      orderedIds,
+      state.blocks,
+      breakpoint,
+      gridColumns,
+      cellSize,
+      gridGap,
+    );
+  }, [orderedIds.join(","), state.blocks, state.blockSizes, breakpoint, gridColumns, cellSize, gridGap]);
 
   if (state.loading) {
     return (
