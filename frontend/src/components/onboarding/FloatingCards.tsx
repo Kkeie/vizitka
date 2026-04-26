@@ -1,5 +1,5 @@
 import React from "react";
-import { REGISTRATION_DECO_SOCIALS } from "../../data/registrationDecoSocials";
+import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../lib/registrationDecoSocials";
 
 interface FloatingCardsProps {
   username: string;
@@ -19,7 +19,7 @@ export default function FloatingCards({ username, withLinkCard = true }: Floatin
 
   return (
     <div className="floating-cards-container">
-      {REGISTRATION_DECO_SOCIALS.map((social, idx) => {
+      {REGISTRATION_DECO_SOCIALS.map((social: RegistrationDecoSocial, idx: number) => {
         const Icon = social.Icon;
         const pos = positions[idx % positions.length];
         return (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { register } from "../../api";
 import { Link } from "react-router-dom";
-import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../data/registrationDecoSocials";
+import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../lib/registrationDecoSocials";
 import PhoneMockup from "./PhoneMockup";
 import "../../pages/LoginPage.css";
 

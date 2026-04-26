@@ -7,7 +7,9 @@ dist
 **/dist/
 build
 **/build/
-data/
+# Только data в корне контекста (не frontend/src/data — иначе COPY не копирует слой)
+/data
+/data/
 backend/data/
 uploads/
 backend/uploads/
