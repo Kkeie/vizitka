@@ -5,6 +5,8 @@ interface SizeMenuProps {
   onSelect: (size: BlockGridSize) => void;
   currentSize: BlockGridSize;
   maxCols: number;
+  /** 2 = только пресеты 1×1 и 2×1 (первые две кнопки в общем списке), с учётом maxCols */
+  maxPresetCount?: number;
   showStyleButton?: boolean;
   onStyleClick?: () => void;
   extraButtons?: React.ReactNode; // ← новый проп
@@ -18,8 +20,14 @@ const PRESETS: Array<{ cols: number; rows: number }> = [
 ];
 
 const SizeMenu = React.forwardRef<HTMLDivElement, SizeMenuProps>(
-  ({ onSelect, currentSize, maxCols, showStyleButton = false, onStyleClick, extraButtons }, ref) => {
+  ({ onSelect, currentSize, maxCols, maxPresetCount, showStyleButton = false, onStyleClick, extraButtons }, ref) => {
     const validPresets = PRESETS.filter(p => p.cols <= maxCols);
+    const presets =
+      maxPresetCount === 2
+        ? PRESETS.slice(0, 2).filter(p => p.cols <= maxCols)
+        : maxPresetCount != null && maxPresetCount >= 0
+          ? validPresets.slice(0, maxPresetCount)
+          : validPresets;
     const isActive = (cols: number, rows: number) =>
       currentSize.colSpan === cols && currentSize.rowSpan === rows;
 
@@ -42,7 +50,7 @@ const SizeMenu = React.forwardRef<HTMLDivElement, SizeMenuProps>(
         }}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        {validPresets.map(preset => {
+        {presets.map(preset => {
           const active = isActive(preset.cols, preset.rows);
           const width = preset.cols * cellSize + (preset.cols - 1) * gap;
           const height = preset.rows * cellSize + (preset.rows - 1) * gap;

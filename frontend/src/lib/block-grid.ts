@@ -1,5 +1,6 @@
 import type { Block, BlockGridAnchor, BlockGridSize, BlockSizes, BlockType } from "../api";
 import type { Breakpoint } from "../hooks/useBreakpoint";
+import { classifyMusic, YANDEX_MUSIC_IFRAME_HEIGHT_PX } from "./embed";
 
 export const GRID_COLUMNS: Record<Breakpoint, number> = {
   mobile: 2,
@@ -18,6 +19,7 @@ const DEFAULT_SIZES: Record<BlockType, BlockGridSize> = {
   link: { colSpan: 2, rowSpan: 1 },
   photo: { colSpan: 2, rowSpan: 2 },
   video: { colSpan: 2, rowSpan: 2 },
+  /* Только пресеты 1×1 и 2×1; по умолчанию шире — под embed Яндекса */
   music: { colSpan: 2, rowSpan: 1 },
   map: { colSpan: 2, rowSpan: 2 },
   social: { colSpan: 1, rowSpan: 1 },
@@ -85,6 +87,28 @@ export function getDefaultGridSize(blockType: BlockType, maxCols: number): Block
   return clampGridSize(DEFAULT_SIZES[blockType] || { colSpan: 2, rowSpan: 2 }, maxCols);
 }
 
+/** Музыка: в редакторе разрешены только 1×1 и 2×1 (см. SizeMenu, первые два пресета). */
+function snapMusicBlockSize(
+  size: BlockGridSize,
+  maxCols: number,
+): BlockGridSize {
+  const { anchorsByBreakpoint, ...rest } = size;
+  const base = (span: { colSpan: number; rowSpan: number }): BlockGridSize =>
+    anchorsByBreakpoint
+      ? { ...span, anchorsByBreakpoint }
+      : { ...span };
+  if (rest.colSpan === 1 && rest.rowSpan === 1) {
+    return base({ colSpan: 1, rowSpan: 1 });
+  }
+  if (maxCols >= 2 && rest.colSpan === 2 && rest.rowSpan === 1) {
+    return base({ colSpan: 2, rowSpan: 1 });
+  }
+  // старые размеры (2×2 и т.д.) — приводим к «широкому» пресету при возможности
+  return maxCols >= 2
+    ? base({ colSpan: 2, rowSpan: 1 })
+    : base({ colSpan: 1, rowSpan: 1 });
+}
+
 export function getResolvedGridSize(
   block: Pick<Block, "type">,
   rawSize: BlockGridSize | null | undefined,
@@ -98,7 +122,11 @@ export function getResolvedGridSize(
     return getDefaultGridSize(block.type, maxCols);
   }
 
-  return clampGridSize(rawSize, maxCols);
+  const resolved = clampGridSize(rawSize, maxCols);
+  if (block.type === "music") {
+    return snapMusicBlockSize(resolved, maxCols);
+  }
+  return resolved;
 }
 
 /** Координаты курсора → якорь сетки (линии 1-based) для свободного переноса */
@@ -423,7 +451,7 @@ export function resolveAnchorOverlaps(
 }
 
 export function getBlockHeightPx(
-  block: Pick<Block, "type">,
+  block: Pick<Block, "type" | "musicEmbed">,
   gridSize: BlockGridSize,
   cellSize: number | null,
   gap: number,
@@ -433,11 +461,20 @@ export function getBlockHeightPx(
   }
 
   const safeCellSize = cellSize && cellSize > 0 ? cellSize : DEFAULT_BENTO_CELL_SIZE;
-  return gridSize.rowSpan * safeCellSize + Math.max(0, gridSize.rowSpan - 1) * gap;
+  let h = gridSize.rowSpan * safeCellSize + Math.max(0, gridSize.rowSpan - 1) * gap;
+
+  if (block.type === "music" && block.musicEmbed) {
+    const kind = classifyMusic(block.musicEmbed);
+    if (kind.kind === "yandex") {
+      h = Math.max(h, YANDEX_MUSIC_IFRAME_HEIGHT_PX);
+    }
+  }
+
+  return h;
 }
 
 export function getGridRowSpan(
-  block: Pick<Block, "type">,
+  block: Pick<Block, "type" | "musicEmbed">,
   gridSize: BlockGridSize,
   cellSize: number | null,
   gap: number,

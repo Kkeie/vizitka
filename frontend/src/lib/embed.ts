@@ -71,12 +71,23 @@ export function toVKVideoEmbed(url: string): string | null {
   return null;
 }
 
+/** Параметры официального кода встраивания Яндекс.Музыки (трек) */
+export const YANDEX_MUSIC_IFRAME_HEIGHT_PX = 244;
+export const YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX = 614;
+
 export type MusicKind =
   | { kind: "audio"; src: string }
   | { kind: "spotify"; src: string }
   | { kind: "soundcloud"; src: string }
   | { kind: "youtube"; src: string }
+  /** Ссылка на music.yandex.ru/iframe/… — в карточке фиксированные размеры под виджет */
+  | { kind: "yandex"; src: string }
   | { kind: "rawEmbed"; html: string };
+
+function tryYandexSrcFromRawHtml(html: string): string | null {
+  const m = html.match(/<iframe[^>]+src=(["'])(https?:\/\/[^"']*music\.yandex\.[^"']*)\1/i);
+  return m && m[2] ? m[2] : null;
+}
 
 function findEmbedString(value: unknown, depth = 0): string | null {
   if (depth > 3 || value == null) return null;
@@ -168,16 +179,14 @@ export function classifyMusic(input: string): MusicKind {
           return `allow="${permissions.join('; ')}"`;
         });
       }
+      const yx = tryYandexSrcFromRawHtml(cleanedHtml);
+      if (yx) return { kind: "yandex", src: yx };
       return { kind: "rawEmbed", html: cleanedHtml };
     }
-    // Если это URL iframe, извлекаем src
     try {
       const iframeMatch = normalizedInput.match(/src=["']([^"']+)["']/);
-      if (iframeMatch && iframeMatch[1]) {
-        const iframeSrc = iframeMatch[1];
-        // Создаем полный iframe с правильными атрибутами для Yandex Music
-        const iframeHtml = `<iframe allow="clipboard-write; autoplay; encrypted-media" style="border:none;width:100%;height:244px;max-width:614px;" width="100%" height="244" src="${iframeSrc}"></iframe>`;
-        return { kind: "rawEmbed", html: iframeHtml };
+      if (iframeMatch?.[1] && iframeMatch[1].includes("music.yandex.")) {
+        return { kind: "yandex", src: iframeMatch[1] };
       }
     } catch {}
   }
@@ -205,44 +214,32 @@ export function classifyMusic(input: string): MusicKind {
       return { kind: "youtube", src: toYouTubeEmbed(u.href) };
     }
     if (u.hostname.includes("music.yandex.ru")) {
-      // Обработка ссылок Yandex Music - извлекаем album ID и track ID
+      const pl = u.pathname.match(/\/users\/([^/]+)\/playlists\/(\d+)\/?$/i);
+      if (pl) {
+        return { kind: "yandex", src: `https://music.yandex.ru/iframe/playlist/${pl[1]}/${pl[2]}/` };
+      }
       const trackMatch = u.pathname.match(/\/track\/(\d+)/);
       const albumMatch = u.pathname.match(/\/album\/(\d+)/);
-      
-      // Также проверяем query параметры на случай, если ID переданы через них
       const trackIdFromQuery = u.searchParams.get("track") || u.searchParams.get("track_id");
       const albumIdFromQuery = u.searchParams.get("album") || u.searchParams.get("album_id");
-      
       const trackId = trackMatch ? trackMatch[1] : trackIdFromQuery;
       const albumId = albumMatch ? albumMatch[1] : albumIdFromQuery;
-      
+
       if (trackId) {
-        let iframeSrc: string;
-        
-        if (albumId) {
-          // Если есть album ID, используем предпочтительный формат
-          iframeSrc = `https://music.yandex.ru/iframe/album/${albumId}/track/${trackId}`;
-        } else {
-          // Если нет album ID, используем альтернативный формат (может не работать для всех треков)
-          // Пользователю рекомендуется использовать ссылку с album ID
-          iframeSrc = `https://music.yandex.ru/iframe/#track/${trackId}`;
-        }
-        
-        const iframeHtml = `<iframe allow="clipboard-write; autoplay; encrypted-media" style="border:none;width:100%;height:244px;max-width:614px;" width="100%" height="244" src="${iframeSrc}"></iframe>`;
-        return { kind: "rawEmbed", html: iframeHtml };
+        const iframeSrc = albumId
+          ? `https://music.yandex.ru/iframe/album/${albumId}/track/${trackId}`
+          : `https://music.yandex.ru/iframe/#track/${trackId}`;
+        return { kind: "yandex", src: iframeSrc };
       }
-      
-      // Если это прямая ссылка на iframe
-      if (u.pathname.includes("/iframe/") || u.pathname.includes("/iframe#") || u.pathname.includes("/iframe")) {
-        const iframeSrc = u.href;
-        const iframeHtml = `<iframe allow="clipboard-write; autoplay; encrypted-media" style="border:none;width:100%;height:244px;max-width:614px;" width="100%" height="244" src="${iframeSrc}"></iframe>`;
-        return { kind: "rawEmbed", html: iframeHtml };
+      if (u.pathname.includes("/iframe/") || u.pathname.includes("/iframe#") || u.pathname.includes("iframe")) {
+        return { kind: "yandex", src: u.href };
       }
     }
     return { kind: "audio", src: u.href };
   } catch {
-    // Если не удалось распарсить как URL, проверяем, не является ли это iframe HTML
     if (normalizedInput.trim().startsWith("<iframe") || normalizedInput.includes("music.yandex.ru")) {
+      const yx = tryYandexSrcFromRawHtml(normalizedInput);
+      if (yx) return { kind: "yandex", src: yx };
       return { kind: "rawEmbed", html: normalizedInput };
     }
     return { kind: "rawEmbed", html: normalizedInput };

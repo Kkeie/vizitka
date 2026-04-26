@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { register } from "../../api";
 import { Link } from "react-router-dom";
-import { REGISTRATION_DECO_SOCIALS } from "../../data/registrationDecoSocials";
+import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../data/registrationDecoSocials";
 import PhoneMockup from "./PhoneMockup";
 import "../../pages/LoginPage.css";
 
@@ -104,7 +104,7 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
             <PhoneMockup>
               <div className="step2-reg__link-pill">bento.me/{username}</div>
               <div className="step2-reg__icons">
-                {REGISTRATION_DECO_SOCIALS.map((item) => {
+                {REGISTRATION_DECO_SOCIALS.map((item: RegistrationDecoSocial) => {
                   const Icon = item.Icon;
                   return (
                     <div
