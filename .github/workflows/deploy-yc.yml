@@ -27,6 +27,13 @@ jobs:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
       DOMAIN: ${{ secrets.DOMAIN }}
+      BACKUP_ENABLED: ${{ secrets.BACKUP_ENABLED || '1' }}
+      BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+      BACKUP_S3_KEY: ${{ secrets.BACKUP_S3_KEY }}
+      BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+      BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+      BACKUP_S3_ENDPOINT_URL: ${{ secrets.BACKUP_S3_ENDPOINT_URL }}
+      BACKUP_S3_REGION: ${{ secrets.BACKUP_S3_REGION }}
       VITE_BACKEND_API_URL: /api
       PLATFORM: linux/amd64
       IMAGE_TAG: ${{ github.sha }}
@@ -49,6 +56,19 @@ jobs:
 
           if [[ -z "${YC_INSTANCE_NAME:-}" && -z "${YC_INSTANCE_ID:-}" ]]; then
             missing+=("YC_INSTANCE_NAME or YC_INSTANCE_ID")
+          fi
+
+          case "${BACKUP_ENABLED:-1}" in
+            0|false|FALSE|no|NO|off|OFF) backup_required=0 ;;
+            *) backup_required=1 ;;
+          esac
+
+          if [[ "$backup_required" == "1" ]]; then
+            for name in BACKUP_S3_BUCKET BACKUP_S3_ACCESS_KEY_ID BACKUP_S3_SECRET_ACCESS_KEY; do
+              if [[ -z "${!name:-}" ]]; then
+                missing+=("$name")
+              fi
+            done
           fi
 
           if (( ${#missing[@]} > 0 )); then
