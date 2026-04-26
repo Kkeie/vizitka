@@ -24,7 +24,6 @@ import { DraggableBlockCard } from "../components/DraggableBlockCard";
 import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
 import MobileVisitPreviewModal from "../components/MobileVisitPreviewModal";
-import SocialMediaForm, { type SocialSubmitItem } from "../components/SocialMediaForm";
 import InlineInputCard from "../components/InlineInputCard";
 import OnboardingInEditor from "../components/onboarding/OnboardingInEditor"; // ONBOARDING: import
 import { formatPhoneNumber } from "../utils/phone";
@@ -930,17 +929,6 @@ export default function Editor() {
     }
   }
 
-  async function handleSocialMediaSubmit(blocksData: SocialSubmitItem[]) {
-    try {
-      const createdBlocks = await Promise.all(blocksData.map(blockData => createBlock(blockData as any)));
-      appendCreatedBlocks(createdBlocks, { scrollTargetId: createdBlocks[0]?.id });
-    } catch (e) {
-      alert("Не удалось создать блоки");
-      console.error(e);
-      throw e;
-    }
-  }
-
   if (isAuthorized === false) return <Navigate to="/login" replace />;
   if (loading) return <div className="page-bg min-h-screen flex items-center justify-center">Загрузка…</div>;
   if (error) return <div className="page-bg min-h-screen flex items-center justify-center"><div className="ribbon error">{error}</div></div>;
@@ -1020,10 +1008,7 @@ export default function Editor() {
 
           {/* Правая колонка – сетка блоков */}
           <div className="editor-blocks-column" style={{ minWidth: 0, width: "100%" }}>
-            {!showOnboardingPanel && totalBlocks === 0 ? (
-              <SocialMediaForm onSubmit={handleSocialMediaSubmit} />
-            ) : (
-              <DndContext
+            <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
@@ -1088,7 +1073,6 @@ export default function Editor() {
                   {activeId ? <BlockCard b={blocks.find(b => b.id === activeId)!} isDragPreview colSpan={1} /> : null}
                 </DragOverlay>
               </DndContext>
-            )}
           </div>
         </div>
 

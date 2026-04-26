@@ -1,6 +1,8 @@
 import React from "react";
 import { login, type User } from "../api";
 import { useNavigate, Link } from "react-router-dom";
+import AuthSocialCollage from "../components/AuthSocialCollage";
+import "./LoginPage.css";
 
 export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
   const [username, setUsername] = React.useState("");
@@ -9,108 +11,82 @@ export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
   const [loading, setLoading] = React.useState(false);
   const nav = useNavigate();
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setErr(null); 
+    setErr(null);
     setLoading(true);
     try {
       const { user } = await login(username, password);
       onAuthed(user);
       nav("/editor");
-    } catch (error: any) {
-      const errorMessage = error?.message || "login_failed";
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "login_failed";
 
       if (errorMessage === "backend_api_not_configured") {
-        setErr("Frontend собран без VITE_BACKEND_API_URL. Для Render укажите полный URL backend с /api на конце.");
+        setErr("Frontend is built without VITE_BACKEND_API_URL. Set the full backend API URL (ending with /api) for production.");
       } else if (errorMessage === "api_returned_html") {
-        setErr("API вернул HTML вместо JSON. Проверьте URL backend и настройку прокси.");
+        setErr("The API returned HTML instead of JSON. Check the backend URL and proxy settings.");
       } else if (errorMessage === "network_error") {
-        setErr("Не удалось подключиться к API. Проверьте, что backend запущен и доступен.");
+        setErr("Could not connect to the API. Make sure the backend is running and reachable.");
       } else {
-        setErr("Неверный username или password");
+        setErr("Wrong username or password");
       }
-    }
-    finally { 
-      setLoading(false); 
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="page-bg min-h-screen" style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div className="reveal reveal-in" style={{ width: "100%", maxWidth: 420 }}>
-        <form onSubmit={submit} className="card" style={{ padding: 40 }}>
-          <div style={{ marginBottom: 32, textAlign: "center" }}>
-            <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.04em", marginBottom: 12 }}>
-              Вход
-            </h1>
-            <p style={{ fontSize: 16, color: "var(--muted)", lineHeight: 1.6 }}>
-              Войдите в свой аккаунт, чтобы продолжить
-            </p>
-          </div>
-          
-          <div className="field" style={{ marginBottom: 20 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
-              Username
-            </label>
-            <input 
-              className="input" 
-              placeholder="Введите username" 
-              value={username} 
-              onChange={(e)=>setUsername(e.target.value)}
-              required
-              autoFocus
-              style={{ fontSize: 15 }}
-            />
-          </div>
-          
-          <div className="field" style={{ marginBottom: 24 }}>
-            <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
-              Password
-            </label>
-            <input 
-              className="input" 
-              placeholder="Введите password" 
-              type="password" 
-              value={password} 
-              onChange={(e)=>setPassword(e.target.value)}
-              required
-              style={{ fontSize: 15 }}
-            />
-          </div>
-          
-          {err && (
-            <div className="ribbon error" style={{ marginBottom: 20 }}>
-              {err}
+    <div className="login-bento min-h-screen">
+      <div className="login-bento__inner">
+        <div className="login-bento__form-col">
+          <h1 className="login-bento__title">Log in to your Bento</h1>
+          <p className="login-bento__subtitle">Good to have you back!</p>
+
+          <form onSubmit={submit} noValidate>
+            {err && (
+              <p className="login-bento__error" role="alert">
+                {err}
+              </p>
+            )}
+            <div className="login-bento__row">
+              <input
+                className="login-bento__input"
+                name="username"
+                type="text"
+                inputMode="email"
+                autoComplete="username"
+                placeholder="Email address"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                autoFocus
+                spellCheck={false}
+              />
+              <input
+                className="login-bento__input"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
-          )}
-          
-          <button 
-            disabled={loading} 
-            className="btn btn-primary" 
-            style={{ width: "100%", fontSize: 15, padding: "14px 24px" }}
-            type="submit"
-          >
-            {loading ? "Вход..." : "Войти"}
-          </button>
-          
-          <div style={{ textAlign: "center", marginTop: 24, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
-            <p style={{ fontSize: 14, color: "var(--muted)" }}>
-              Нет аккаунта?{" "}
-              <Link 
-                to="/register" 
-                style={{ 
-                  color: "var(--text)", 
-                  fontWeight: 600, 
-                  textDecoration: "none",
-                  borderBottom: "1.5px solid currentColor",
-                  paddingBottom: 2
-                }}
-              >
-                Зарегистрироваться
-              </Link>
-            </p>
-          </div>
-        </form>
+
+            <button className="login-bento__submit" type="submit" disabled={loading}>
+              {loading ? "Logging in…" : "Log in"}
+            </button>
+          </form>
+
+          <p className="login-bento__foot">
+            or{" "}
+            <Link to="/register">sign up</Link>
+          </p>
+        </div>
+
+        <AuthSocialCollage />
       </div>
     </div>
   );

@@ -273,7 +273,7 @@ export async function register(username: string, password: string, email?: strin
   const r = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify(payload),
     })
     .catch((error: any) => {
       console.error('[API] Network error:', error);
