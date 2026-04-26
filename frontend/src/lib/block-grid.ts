@@ -258,7 +258,10 @@ function buildRects(
   rowUnit: number,
 ): Rect[] {
   return orderedIds.map((id) => {
-    const block = blocks.find((b) => b.id === id)!;
+    const block = blocks.find((b) => b.id === id);
+    if (!block) {
+      return { id, c0: 0, r0: 0, w: 1, h: 1 };
+    }
     const gs = getResolvedGridSize(block, blockSizes[id], gridColumns);
     const h = getGridRowSpan(block, gs, cellSize, gap, rowUnit);
     const w = gs.colSpan;
@@ -395,6 +398,11 @@ export function assignSparseAnchorsForBreakpoint(
   return next;
 }
 
+/** ID из layout, для которых есть запись в blocks (рассинхрон layout/удаление блока иначе ломает buildRects) */
+function orderedIdsForExistingBlocks(orderedIds: number[], blocks: Block[]): number[] {
+  return orderedIds.filter((id) => blocks.some((b) => b.id === id));
+}
+
 /** После изменения размера: сдвигаем нижние блоки при пересечении, порядок в orderedIds — приоритет сверху */
 export function resolveAnchorOverlaps(
   blockSizes: BlockSizes,
@@ -406,17 +414,18 @@ export function resolveAnchorOverlaps(
   gap: number,
   rowUnit = BENTO_ROW_UNIT,
 ): BlockSizes {
+  const validIds = orderedIdsForExistingBlocks(orderedIds, blocks);
   let next: BlockSizes = JSON.parse(JSON.stringify(blockSizes)) as BlockSizes;
 
   for (let iter = 0; iter < 80; iter++) {
-    const rects = buildRects(orderedIds, blocks, next, bp, gridColumns, cellSize, gap, rowUnit);
+    const rects = buildRects(validIds, blocks, next, bp, gridColumns, cellSize, gap, rowUnit);
     let moved = false;
 
-    for (let i = 0; i < orderedIds.length; i++) {
-      for (let j = i + 1; j < orderedIds.length; j++) {
+    for (let i = 0; i < validIds.length; i++) {
+      for (let j = i + 1; j < validIds.length; j++) {
         const A = rects[i];
         const B = rects[j];
-        if (!colsOverlap(A, B) || !rowsOverlap(A, B)) continue;
+        if (!A || !B || !colsOverlap(A, B) || !rowsOverlap(A, B)) continue;
 
         const bottomLine = A.r0 + A.h;
         const newRowStart = bottomLine + 1;
