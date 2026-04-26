@@ -24,6 +24,7 @@ pnpm-debug.log*
 .env.*
 !.env.example
 !.env*.example
+github-actions-deployer-key.json
 
 # Local databases and runtime data
 *.db

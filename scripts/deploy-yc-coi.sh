@@ -16,8 +16,8 @@ REGISTRY_HOST="${REGISTRY_HOST:-cr.yandex}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 VITE_BACKEND_API_URL="${VITE_BACKEND_API_URL:-/api}"
 FRONTEND_URL="${FRONTEND_URL:-}"
+DOMAIN="${DOMAIN:-}"
 COI_APP_DIR="${COI_APP_DIR:-/var/lib/${APP_NAME}}"
-COI_HTTP_PORT="${COI_HTTP_PORT:-80}"
 COI_BACKEND_PORT="${COI_BACKEND_PORT:-3000}"
 IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)}"
 
@@ -133,6 +133,7 @@ fi
 
 BACKEND_IMAGE="${REGISTRY_HOST}/${YC_REGISTRY_ID}/${APP_NAME}-backend:${IMAGE_TAG}"
 FRONTEND_IMAGE="${REGISTRY_HOST}/${YC_REGISTRY_ID}/${APP_NAME}-frontend:${IMAGE_TAG}"
+NGINX_IMAGE="${REGISTRY_HOST}/${YC_REGISTRY_ID}/${APP_NAME}-nginx:${IMAGE_TAG}"
 YC_INSTANCE_REF="${YC_INSTANCE_ID:-${YC_INSTANCE_NAME:-}}"
 
 if [[ "${DRY_RUN:-0}" != "1" && "${YC_CREATE_VM:-0}" != "1" ]]; then
@@ -178,7 +179,7 @@ services:
       DATABASE_PATH: "/app/data/db.sqlite"
       UPLOAD_DIR: "/app/uploads"
       JWT_SECRET: $(yaml_quote "$JWT_SECRET")
-      FRONTEND_URL: $(yaml_quote "$FRONTEND_URL")
+      FRONTEND_URL: $(yaml_quote "${FRONTEND_URL:-https://${DOMAIN}}")
     volumes:
       - ${COI_APP_DIR}/data:/app/data
       - ${COI_APP_DIR}/uploads:/app/uploads
@@ -191,8 +192,35 @@ services:
       - backend
     environment:
       PORT: "80"
+
+  nginx:
+    image: $(yaml_quote "$NGINX_IMAGE")
+    container_name: ${APP_NAME}-nginx
+    restart: always
+    depends_on:
+      - backend
+      - frontend
     ports:
-      - "${COI_HTTP_PORT}:80"
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: $(yaml_quote "$DOMAIN")
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+
+  certbot:
+    image: "certbot/certbot"
+    container_name: ${APP_NAME}-certbot
+    restart: unless-stopped
+    command: sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait \$\${!}; done"
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+
+volumes:
+  certbot_www:
+  certbot_conf:
 EOF
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
@@ -223,6 +251,12 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
     -t "$FRONTEND_IMAGE" \
     -f frontend/Dockerfile \
     frontend
+
+  log "Building nginx image: $NGINX_IMAGE"
+  docker build \
+    --platform "$PLATFORM" \
+    -t "$NGINX_IMAGE" \
+    nginx
 fi
 
 if [[ "${SKIP_PUSH:-0}" != "1" ]]; then
@@ -230,6 +264,8 @@ if [[ "${SKIP_PUSH:-0}" != "1" ]]; then
   docker push "$BACKEND_IMAGE"
   log "Pushing frontend image"
   docker push "$FRONTEND_IMAGE"
+  log "Pushing nginx image"
+  docker push "$NGINX_IMAGE"
 fi
 
 if [[ "${YC_CREATE_VM:-0}" == "1" ]]; then
