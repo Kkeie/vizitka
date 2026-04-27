@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { createBrowserRouter, RouterProvider, useLocation } from "react-router-dom";
+import { flushSync } from "react-dom";
+import { createBrowserRouter, RouterProvider, useLocation, useNavigate } from "react-router-dom";
 import "./index.css";
 import "./styles.css";
 import "./styles/drag-reorder.css";
@@ -15,9 +16,14 @@ import { SessionContext, useSession } from "./sessionContext";
 
 function NavLayout({ children }: { children: React.ReactNode }) {
   const { user, setUser } = useSession();
+  const navigate = useNavigate();
   const onLogout = () => {
     setToken(null);
-    setUser(null);
+    // Сначала сбрасываем user в контексте синхронно — иначе /login на мгновение видит старого user и уводит обратно в /editor.
+    flushSync(() => {
+      setUser(null);
+    });
+    navigate("/login", { replace: true });
   };
   return (
     <>
