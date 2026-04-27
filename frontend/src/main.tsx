@@ -14,15 +14,20 @@ import { getToken, me, setToken, subscribeAuthToken, type User } from "./api";
 
 function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
-
+  const [authReady, setAuthReady] = React.useState(false);
 
   React.useEffect(() => {
     let alive = true;
+    let firstAuthResolve = true;
 
     const loadCurrentUser = async () => {
       const requestToken = getToken();
       if (!requestToken) {
-        setUser(null);
+        if (alive) setUser(null);
+        if (alive && firstAuthResolve) {
+          setAuthReady(true);
+          firstAuthResolve = false;
+        }
         return;
       }
 
@@ -35,13 +40,18 @@ function Shell() {
         if (alive && getToken() === requestToken) {
           setUser(null);
         }
+      } finally {
+        if (alive && firstAuthResolve) {
+          setAuthReady(true);
+          firstAuthResolve = false;
+        }
       }
     };
 
     loadCurrentUser();
     const unsubscribe = subscribeAuthToken((nextToken) => {
       if (!nextToken) {
-        setUser(null);
+        if (alive) setUser(null);
         return;
       }
       loadCurrentUser();
@@ -98,8 +108,18 @@ function Shell() {
   const router = createBrowserRouter([
     { path: "/", element: withNav(<HomeWrapper />) },
     { path: "/index.html", element: withNav(<HomeWrapper />) }, // Обрабатываем /index.html как главную
-    { path: "/login", element: withNav(<Login onAuthed={(u)=>setUser(u)} />) },
-    { path: "/register", element: withNav(<Register onAuthed={(u)=>setUser(u)} />) },
+    {
+      path: "/login",
+      element: withNav(
+        <Login user={user} authReady={authReady} onAuthed={(u) => setUser(u)} />,
+      ),
+    },
+    {
+      path: "/register",
+      element: withNav(
+        <Register user={user} authReady={authReady} onAuthed={(u) => setUser(u)} />,
+      ),
+    },
     { path: "/editor", element: withNav(<EditorWrapper />) },
     // Публичные страницы должны быть ПЕРЕД catch-all маршрутом
     { path: "/public/:username", element: withNav(<Public />) }, // Публичная страница: /public/username

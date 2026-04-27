@@ -301,11 +301,13 @@ export async function register(username: string, password: string, email?: strin
   return data;
 }
 export async function login(username: string, password: string): Promise<{ token: string; user: User }> {
-  setToken(null);
   const r = await fetch(`${API}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
+  }).catch((error: unknown) => {
+    console.error("[API] Login network error:", error);
+    throw new Error("network_error");
   });
   if (!r.ok) {
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));

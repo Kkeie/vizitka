@@ -1,10 +1,18 @@
 import React from "react";
 import { login, type User } from "../api";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, Navigate } from "react-router-dom";
 import AuthSocialCollage from "../components/AuthSocialCollage";
 import "./LoginPage.css";
 
-export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
+export default function Login({
+  user,
+  authReady,
+  onAuthed,
+}: {
+  user: User | null;
+  authReady: boolean;
+  onAuthed: (u: User) => void;
+}) {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [err, setErr] = React.useState<string | null>(null);
@@ -35,6 +43,20 @@ export default function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
       setLoading(false);
     }
   };
+
+  if (!authReady) {
+    return (
+      <div className="login-bento min-h-screen" aria-busy="true">
+        <div className="login-bento__inner">
+          <p className="login-bento__subtitle">Checking your session…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user) {
+    return <Navigate to="/editor" replace />;
+  }
 
   return (
     <div className="login-bento min-h-screen">
