@@ -1,18 +1,12 @@
 import React from "react";
-import { login, type User } from "../api";
+import { login } from "../api";
 import { useNavigate, Link, Navigate } from "react-router-dom";
 import AuthSocialCollage from "../components/AuthSocialCollage";
+import { useSession } from "../sessionContext";
 import "./LoginPage.css";
 
-export default function Login({
-  user,
-  authReady,
-  onAuthed,
-}: {
-  user: User | null;
-  authReady: boolean;
-  onAuthed: (u: User) => void;
-}) {
+export default function Login() {
+  const { user, authReady, setUser: onAuthed } = useSession();
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [err, setErr] = React.useState<string | null>(null);

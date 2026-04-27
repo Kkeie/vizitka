@@ -11,10 +11,16 @@ import Register from "./pages/Register";
 import Editor from "./pages/Editor";
 import Public from "./pages/Public";
 import { getToken, me, setToken, subscribeAuthToken, type User } from "./api";
+import { SessionContext } from "./sessionContext";
 
 function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
   const [authReady, setAuthReady] = React.useState(false);
+
+  const sessionValue = React.useMemo(
+    () => ({ user, authReady, setUser }),
+    [user, authReady],
+  );
 
   React.useEffect(() => {
     let alive = true;
@@ -108,18 +114,8 @@ function Shell() {
   const router = createBrowserRouter([
     { path: "/", element: withNav(<HomeWrapper />) },
     { path: "/index.html", element: withNav(<HomeWrapper />) }, // Обрабатываем /index.html как главную
-    {
-      path: "/login",
-      element: withNav(
-        <Login user={user} authReady={authReady} onAuthed={(u) => setUser(u)} />,
-      ),
-    },
-    {
-      path: "/register",
-      element: withNav(
-        <Register user={user} authReady={authReady} onAuthed={(u) => setUser(u)} />,
-      ),
-    },
+    { path: "/login", element: withNav(<Login />) },
+    { path: "/register", element: withNav(<Register />) },
     { path: "/editor", element: withNav(<EditorWrapper />) },
     // Публичные страницы должны быть ПЕРЕД catch-all маршрутом
     { path: "/public/:username", element: withNav(<Public />) }, // Публичная страница: /public/username
@@ -129,9 +125,11 @@ function Shell() {
   ]);
 
   return (
-    <div className="page-bg min-h-screen">
-      <RouterProvider router={router} />
-    </div>
+    <SessionContext.Provider value={sessionValue}>
+      <div className="page-bg min-h-screen">
+        <RouterProvider router={router} />
+      </div>
+    </SessionContext.Provider>
   );
 }
 
