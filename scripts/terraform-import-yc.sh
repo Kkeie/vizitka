@@ -313,13 +313,13 @@ EOF
   }
 
   network_interface {
-    subnet_id = $subnet_ref
-    nat       = $(json_truthy "$nat")
+    subnet_id          = $subnet_ref
+    nat                = $(json_truthy "$nat")
 EOF
 
   if [[ -n "$private_ip" ]]; then
     cat >>"$TMP_TF" <<EOF
-    ip_address = $(hcl_string "$private_ip")
+    ip_address         = $(hcl_string "$private_ip")
 EOF
   fi
 

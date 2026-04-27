@@ -71,9 +71,9 @@ resource "yandex_compute_instance" "app" {
   }
 
   network_interface {
-    subnet_id = yandex_vpc_subnet.main.id
-    nat       = true
-    ip_address = "10.128.0.15"
+    subnet_id          = yandex_vpc_subnet.main.id
+    nat                = true
+    ip_address         = "10.128.0.15"
     security_group_ids = [yandex_vpc_security_group.sg_0.id]
   }
 
