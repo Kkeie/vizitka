@@ -61,6 +61,7 @@ jobs:
           terraform_version: "~1.14.0"
           terraform_wrapper: false
 
+
       - name: Validate required secrets
         env:
           YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
