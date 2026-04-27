@@ -11,7 +11,50 @@ import Register from "./pages/Register";
 import Editor from "./pages/Editor";
 import Public from "./pages/Public";
 import { getToken, me, setToken, subscribeAuthToken, type User } from "./api";
-import { SessionContext } from "./sessionContext";
+import { SessionContext, useSession } from "./sessionContext";
+
+function NavLayout({ children }: { children: React.ReactNode }) {
+  const { user, setUser } = useSession();
+  const onLogout = () => {
+    setToken(null);
+    setUser(null);
+  };
+  return (
+    <>
+      <Navbar user={user} onLogout={onLogout} />
+      <main style={{ width: "100%", maxWidth: "100%" }}>{children}</main>
+    </>
+  );
+}
+
+function HomeWrapper() {
+  const location = useLocation();
+  if (location.pathname !== "/") {
+    return null;
+  }
+  return <Home />;
+}
+
+function EditorWrapper() {
+  const location = useLocation();
+  if (location.pathname !== "/editor") {
+    return null;
+  }
+  return <Editor />;
+}
+
+/** Один экземпляр на всё приложение: иначе при каждом setUser RouterProvider сбрасывался и ломались /login и редиректы. */
+const router = createBrowserRouter([
+  { path: "/", element: <NavLayout><HomeWrapper /></NavLayout> },
+  { path: "/index.html", element: <NavLayout><HomeWrapper /></NavLayout> },
+  { path: "/login", element: <NavLayout><Login /></NavLayout> },
+  { path: "/register", element: <NavLayout><Register /></NavLayout> },
+  { path: "/editor", element: <NavLayout><EditorWrapper /></NavLayout> },
+  { path: "/public/:username", element: <NavLayout><Public /></NavLayout> },
+  { path: "/u/:username", element: <NavLayout><Public /></NavLayout> },
+  { path: "/:username", element: <NavLayout><Public /></NavLayout> },
+  { path: "*", element: <NavLayout><div className="p-6">404</div></NavLayout> },
+]);
 
 function Shell() {
   const [user, setUser] = React.useState<User | null>(null);
@@ -69,60 +112,17 @@ function Shell() {
     };
   }, []);
 
-  // Prevent accidental navigation when user drags an image/file onto the page
   React.useEffect(() => {
-    const stop = (e: DragEvent) => { e.preventDefault(); };
-    window.addEventListener('dragover', stop, false);
-    window.addEventListener('drop', stop, false);
+    const stop = (e: DragEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("dragover", stop, false);
+    window.addEventListener("drop", stop, false);
     return () => {
-      window.removeEventListener('dragover', stop, false);
-      window.removeEventListener('drop', stop, false);
+      window.removeEventListener("dragover", stop, false);
+      window.removeEventListener("drop", stop, false);
     };
   }, []);
-
-  const onLogout = () => { setToken(null); setUser(null); };
-
-  const withNav = (el: React.ReactNode) => (
-    <>
-      <Navbar user={user} onLogout={onLogout} />
-      <main style={{ width: "100%", maxWidth: "100%" }}>
-        {el}
-      </main>
-    </>
-  );
-
-  // Компонент-обертка для Home, который проверяет путь перед рендерингом
-  function HomeWrapper() {
-    const location = useLocation();
-    // Если путь не "/", не рендерим Home
-    if (location.pathname !== "/") {
-      return null;
-    }
-    return <Home />;
-  }
-
-  // Компонент-обертка для Editor, который проверяет путь перед рендерингом
-  function EditorWrapper() {
-    const location = useLocation();
-    // Если путь не "/editor", не рендерим Editor
-    if (location.pathname !== "/editor") {
-      return null;
-    }
-    return <Editor />;
-  }
-
-  const router = createBrowserRouter([
-    { path: "/", element: withNav(<HomeWrapper />) },
-    { path: "/index.html", element: withNav(<HomeWrapper />) }, // Обрабатываем /index.html как главную
-    { path: "/login", element: withNav(<Login />) },
-    { path: "/register", element: withNav(<Register />) },
-    { path: "/editor", element: withNav(<EditorWrapper />) },
-    // Публичные страницы должны быть ПЕРЕД catch-all маршрутом
-    { path: "/public/:username", element: withNav(<Public />) }, // Публичная страница: /public/username
-    { path: "/u/:username", element: withNav(<Public />) }, // Старый формат для обратной совместимости
-    { path: "/:username", element: withNav(<Public />) }, // Обратная совместимость: /username (публичная страница, доступна всем)
-    { path: "*", element: withNav(<div className="p-6">404</div>) },
-  ]);
 
   return (
     <SessionContext.Provider value={sessionValue}>
