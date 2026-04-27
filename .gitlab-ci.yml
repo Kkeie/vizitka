@@ -1,0 +1,27 @@
+stages:
+  - deploy
+
+deploy_yc:
+  stage: deploy
+  image: docker:27-cli
+  services:
+    - name: docker:27-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    VITE_BACKEND_API_URL: /api
+    PLATFORM: linux/amd64
+    IMAGE_TAG: $CI_COMMIT_SHA
+  before_script:
+    - apk add --no-cache bash coreutils curl
+    - curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+    - export PATH="$HOME/yandex-cloud/bin:$PATH"
+    - printf '%s' "$YC_SA_KEY_JSON_B64" | base64 -d > "$CI_PROJECT_DIR/yc-sa-key.json"
+    - yc config set service-account-key "$CI_PROJECT_DIR/yc-sa-key.json"
+    - if [ -n "${YC_CLOUD_ID:-}" ]; then yc config set cloud-id "$YC_CLOUD_ID"; fi
+    - if [ -n "${YC_FOLDER_ID:-}" ]; then yc config set folder-id "$YC_FOLDER_ID"; fi
+  script:
+    - scripts/deploy-yc-coi.sh
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
