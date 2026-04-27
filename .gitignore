@@ -41,6 +41,15 @@ frontend/uploads/
 .vite/
 .turbo/
 .eslintcache
+.terraform/
+**/.terraform/
+*.tfstate
+*.tfstate.*
+tfplan
+tfplan.txt
+*.tfplan
+*.tfvars
+*.tfvars.json
 
 # IDE/editor
 .idea/
