@@ -13,10 +13,220 @@ concurrency:
   group: deploy-yc-main
   cancel-in-progress: true
 
+env:
+  APP_NAME: vizitka
+  REGISTRY_HOST: cr.yandex
+  VITE_BACKEND_API_URL: /api
+  PLATFORM: linux/amd64
+
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      backend_image_tag: ${{ steps.meta.outputs.backend_image_tag }}
+      frontend_image_tag: ${{ steps.meta.outputs.frontend_image_tag }}
+      nginx_image_tag: ${{ steps.meta.outputs.nginx_image_tag }}
+      backup_image_tag: ${{ steps.meta.outputs.backup_image_tag }}
+      backend_built: ${{ steps.plan.outputs.backend }}
+      frontend_built: ${{ steps.plan.outputs.frontend }}
+      nginx_built: ${{ steps.plan.outputs.nginx }}
+      backup_built: ${{ steps.plan.outputs.backup }}
+    env:
+      YC_REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
+      BACKUP_ENABLED: ${{ secrets.BACKUP_ENABLED || '1' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate build secrets
+        env:
+          YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
+        run: |
+          set -Eeuo pipefail
+          missing=()
+
+          for name in YC_SA_KEY_JSON YC_REGISTRY_ID; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing GitHub secrets:\n' >&2
+            printf '  - %s\n' "${missing[@]}" >&2
+            exit 1
+          fi
+
+      - name: Install Yandex Cloud CLI
+        run: |
+          set -Eeuo pipefail
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+          echo "$HOME/yandex-cloud/bin" >> "$GITHUB_PATH"
+
+      - name: Configure Yandex Cloud auth
+        env:
+          YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
+          YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
+          YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+        run: |
+          set -Eeuo pipefail
+          key_file="$RUNNER_TEMP/yc-sa-key.json"
+          printf '%s' "$YC_SA_KEY_JSON" > "$key_file"
+
+          yc config set service-account-key "$key_file"
+
+          if [[ -n "${YC_CLOUD_ID:-}" ]]; then
+            yc config set cloud-id "$YC_CLOUD_ID"
+          fi
+
+          if [[ -n "${YC_FOLDER_ID:-}" ]]; then
+            yc config set folder-id "$YC_FOLDER_ID"
+          fi
+
+      - name: Configure Docker credentials
+        run: yc container registry configure-docker
+
+      - name: Compute image tags
+        id: meta
+        run: |
+          set -Eeuo pipefail
+
+          component_hash() {
+            local path="$1"
+            git ls-files -z -- "$path" | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-12
+          }
+
+          backend_hash="$(component_hash backend)"
+          frontend_hash="$({
+            git ls-files -z -- frontend | sort -z | xargs -0 sha256sum
+            printf '%s\n' "VITE_BACKEND_API_URL=${VITE_BACKEND_API_URL}"
+          } | sha256sum | cut -c1-12)"
+          nginx_hash="$(component_hash nginx)"
+          backup_hash="$(component_hash backup)"
+
+          {
+            echo "backend_image_tag=backend-${backend_hash}"
+            echo "frontend_image_tag=frontend-${frontend_hash}"
+            echo "nginx_image_tag=nginx-${nginx_hash}"
+            echo "backup_image_tag=backup-${backup_hash}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Plan image builds
+        id: plan
+        env:
+          BACKEND_IMAGE_TAG: ${{ steps.meta.outputs.backend_image_tag }}
+          FRONTEND_IMAGE_TAG: ${{ steps.meta.outputs.frontend_image_tag }}
+          NGINX_IMAGE_TAG: ${{ steps.meta.outputs.nginx_image_tag }}
+          BACKUP_IMAGE_TAG: ${{ steps.meta.outputs.backup_image_tag }}
+        run: |
+          set -Eeuo pipefail
+
+          is_disabled() {
+            case "${1:-}" in
+              0|false|FALSE|no|NO|off|OFF) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+
+          changed_files=""
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            before="${{ github.event.before }}"
+            if [[ -n "$before" && "$before" != "0000000000000000000000000000000000000000" ]] \
+              && git cat-file -e "${before}^{commit}" 2>/dev/null; then
+              base="$before"
+            else
+              base="$(git hash-object -t tree /dev/null)"
+            fi
+
+            changed_files="$(git diff --name-only "$base" "$GITHUB_SHA")"
+          fi
+
+          changed_under() {
+            local path="$1"
+            grep -Eq "^${path}/" <<<"$changed_files"
+          }
+
+          image_ref() {
+            local component="$1"
+            local tag="$2"
+            printf '%s/%s/%s-%s:%s' "$REGISTRY_HOST" "$YC_REGISTRY_ID" "$APP_NAME" "$component" "$tag"
+          }
+
+          image_missing() {
+            local image="$1"
+            ! docker manifest inspect "$image" >/dev/null 2>&1
+          }
+
+          backend_image="$(image_ref backend "$BACKEND_IMAGE_TAG")"
+          frontend_image="$(image_ref frontend "$FRONTEND_IMAGE_TAG")"
+          nginx_image="$(image_ref nginx "$NGINX_IMAGE_TAG")"
+          backup_image="$(image_ref backup "$BACKUP_IMAGE_TAG")"
+
+          backend=0
+          frontend=0
+          nginx=0
+          backup=0
+
+          if changed_under backend || image_missing "$backend_image"; then
+            backend=1
+          fi
+
+          if changed_under frontend || image_missing "$frontend_image"; then
+            frontend=1
+          fi
+
+          if changed_under nginx || image_missing "$nginx_image"; then
+            nginx=1
+          fi
+
+          if ! is_disabled "$BACKUP_ENABLED"; then
+            if changed_under backup || image_missing "$backup_image"; then
+              backup=1
+            fi
+          fi
+
+          any=0
+          if [[ "$backend" == "1" || "$frontend" == "1" || "$nginx" == "1" || "$backup" == "1" ]]; then
+            any=1
+          fi
+
+          {
+            echo "backend=$backend"
+            echo "frontend=$frontend"
+            echo "nginx=$nginx"
+            echo "backup=$backup"
+            echo "any=$any"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "backend=${backend_image} build=${backend}"
+            echo "frontend=${frontend_image} build=${frontend}"
+            echo "nginx=${nginx_image} build=${nginx}"
+            echo "backup=${backup_image} build=${backup}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Build and push changed images
+        if: steps.plan.outputs.any == '1'
+        env:
+          BACKEND_IMAGE_TAG: ${{ steps.meta.outputs.backend_image_tag }}
+          FRONTEND_IMAGE_TAG: ${{ steps.meta.outputs.frontend_image_tag }}
+          NGINX_IMAGE_TAG: ${{ steps.meta.outputs.nginx_image_tag }}
+          BACKUP_IMAGE_TAG: ${{ steps.meta.outputs.backup_image_tag }}
+          BUILD_BACKEND: ${{ steps.plan.outputs.backend }}
+          BUILD_FRONTEND: ${{ steps.plan.outputs.frontend }}
+          BUILD_NGINX: ${{ steps.plan.outputs.nginx }}
+          BUILD_BACKUP: ${{ steps.plan.outputs.backup }}
+          SKIP_DOCKER_LOGIN: "1"
+          SKIP_DEPLOY: "1"
+        run: scripts/deploy-yc-coi.sh
+
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: build
     env:
       YC_REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
       YC_INSTANCE_NAME: ${{ secrets.YC_INSTANCE_NAME }}
@@ -34,21 +244,25 @@ jobs:
       BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
       BACKUP_S3_ENDPOINT_URL: ${{ secrets.BACKUP_S3_ENDPOINT_URL }}
       BACKUP_S3_REGION: ${{ secrets.BACKUP_S3_REGION }}
-      VITE_BACKEND_API_URL: /api
-      PLATFORM: linux/amd64
-      IMAGE_TAG: ${{ github.sha }}
+      BACKEND_IMAGE_TAG: ${{ needs.build.outputs.backend_image_tag }}
+      FRONTEND_IMAGE_TAG: ${{ needs.build.outputs.frontend_image_tag }}
+      NGINX_IMAGE_TAG: ${{ needs.build.outputs.nginx_image_tag }}
+      BACKUP_IMAGE_TAG: ${{ needs.build.outputs.backup_image_tag }}
+      SKIP_DOCKER_LOGIN: "1"
+      SKIP_BUILD: "1"
+      SKIP_PUSH: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate required secrets
+      - name: Validate deploy secrets
         env:
           YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
         run: |
           set -Eeuo pipefail
           missing=()
 
-          for name in YC_SA_KEY_JSON YC_REGISTRY_ID JWT_SECRET; do
+          for name in YC_SA_KEY_JSON YC_REGISTRY_ID JWT_SECRET DOMAIN; do
             if [[ -z "${!name:-}" ]]; then
               missing+=("$name")
             fi

@@ -20,6 +20,18 @@ DOMAIN="${DOMAIN:-}"
 COI_APP_DIR="${COI_APP_DIR:-/var/lib/${APP_NAME}}"
 COI_BACKEND_PORT="${COI_BACKEND_PORT:-3000}"
 IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)}"
+BACKEND_IMAGE_TAG="${BACKEND_IMAGE_TAG:-$IMAGE_TAG}"
+FRONTEND_IMAGE_TAG="${FRONTEND_IMAGE_TAG:-$IMAGE_TAG}"
+NGINX_IMAGE_TAG="${NGINX_IMAGE_TAG:-$IMAGE_TAG}"
+BACKUP_IMAGE_TAG="${BACKUP_IMAGE_TAG:-$IMAGE_TAG}"
+BUILD_BACKEND="${BUILD_BACKEND:-1}"
+BUILD_FRONTEND="${BUILD_FRONTEND:-1}"
+BUILD_NGINX="${BUILD_NGINX:-1}"
+BUILD_BACKUP="${BUILD_BACKUP:-1}"
+PUSH_BACKEND="${PUSH_BACKEND:-$BUILD_BACKEND}"
+PUSH_FRONTEND="${PUSH_FRONTEND:-$BUILD_FRONTEND}"
+PUSH_NGINX="${PUSH_NGINX:-$BUILD_NGINX}"
+PUSH_BACKUP="${PUSH_BACKUP:-$BUILD_BACKUP}"
 BACKUP_ENABLED="${BACKUP_ENABLED:-1}"
 BACKUP_INTERVAL_SECONDS="${BACKUP_INTERVAL_SECONDS:-604800}"
 BACKUP_RETRY_SECONDS="${BACKUP_RETRY_SECONDS:-300}"
@@ -37,10 +49,15 @@ Required environment:
   YC_INSTANCE_NAME      Existing COI VM name, or VM name to create with YC_CREATE_VM=1.
                         For existing VMs, YC_INSTANCE_ID can be used instead.
   JWT_SECRET            Stable secret, at least 32 chars. Keep it unchanged between deploys.
+  DOMAIN                Public domain for nginx and Let's Encrypt certificates.
 
 Optional:
   YC_PROFILE            Yandex Cloud CLI profile.
   IMAGE_TAG             Docker tag. Default: git short SHA or timestamp.
+  BACKEND_IMAGE_TAG     Backend image tag. Default: IMAGE_TAG.
+  FRONTEND_IMAGE_TAG    Frontend image tag. Default: IMAGE_TAG.
+  NGINX_IMAGE_TAG       Nginx image tag. Default: IMAGE_TAG.
+  BACKUP_IMAGE_TAG      Backup image tag. Default: IMAGE_TAG.
   APP_NAME              Image/container prefix. Default: vizitka.
   PLATFORM              Docker build platform. Default: linux/amd64.
   FRONTEND_URL          Backend CORS origin, e.g. https://example.com.
@@ -62,6 +79,15 @@ Optional:
   SKIP_DOCKER_LOGIN=1   Skip yc registry Docker credential helper setup.
   SKIP_BUILD=1          Skip local docker build.
   SKIP_PUSH=1           Skip docker push.
+  SKIP_DEPLOY=1         Stop after optional build/push, do not update/create COI VM.
+  BUILD_BACKEND=0       Skip backend image build. Default: 1.
+  BUILD_FRONTEND=0      Skip frontend image build. Default: 1.
+  BUILD_NGINX=0         Skip nginx image build. Default: 1.
+  BUILD_BACKUP=0        Skip backup image build. Default: 1.
+  PUSH_BACKEND=0        Skip backend image push. Default: BUILD_BACKEND.
+  PUSH_FRONTEND=0       Skip frontend image push. Default: BUILD_FRONTEND.
+  PUSH_NGINX=0          Skip nginx image push. Default: BUILD_NGINX.
+  PUSH_BACKUP=0         Skip backup image push. Default: BUILD_BACKUP.
   DRY_RUN=1             Print generated compose and exit before yc update/create.
 
 Create VM mode:
@@ -146,13 +172,128 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
+needs_docker=0
+if [[ "${SKIP_BUILD:-0}" != "1" || "${SKIP_PUSH:-0}" != "1" ]]; then
+  needs_docker=1
+fi
+
+needs_yc=0
+if [[ "${SKIP_DEPLOY:-0}" != "1" ]]; then
+  needs_yc=1
+elif [[ "$needs_docker" == "1" && "${SKIP_DOCKER_LOGIN:-0}" != "1" ]]; then
+  needs_yc=1
+fi
+
 if [[ "${DRY_RUN:-0}" != "1" ]]; then
-  require_cmd yc
-  if [[ "${SKIP_DOCKER_LOGIN:-0}" != "1" || "${SKIP_BUILD:-0}" != "1" || "${SKIP_PUSH:-0}" != "1" ]]; then
+  if [[ "$needs_yc" == "1" ]]; then
+    require_cmd yc
+  fi
+  if [[ "$needs_docker" == "1" ]]; then
     require_cmd docker
   fi
 fi
+
 require_var YC_REGISTRY_ID
+
+BACKEND_IMAGE="${BACKEND_IMAGE:-${REGISTRY_HOST}/${YC_REGISTRY_ID}/${APP_NAME}-backend:${BACKEND_IMAGE_TAG}}"
+FRONTEND_IMAGE="${FRONTEND_IMAGE:-${REGISTRY_HOST}/${YC_REGISTRY_ID}/${APP_NAME}-frontend:${FRONTEND_IMAGE_TAG}}"
+NGINX_IMAGE="${NGINX_IMAGE:-${REGISTRY_HOST}/${YC_REGISTRY_ID}/${APP_NAME}-nginx:${NGINX_IMAGE_TAG}}"
+BACKUP_IMAGE="${BACKUP_IMAGE:-${REGISTRY_HOST}/${YC_REGISTRY_ID}/${APP_NAME}-backup:${BACKUP_IMAGE_TAG}}"
+YC_INSTANCE_REF="${YC_INSTANCE_ID:-${YC_INSTANCE_NAME:-}}"
+
+if [[ "${DRY_RUN:-0}" != "1" && "$needs_docker" == "1" && "${SKIP_DOCKER_LOGIN:-0}" != "1" ]]; then
+  log "Configuring Docker credentials for Yandex registry"
+  yc_call container registry configure-docker
+fi
+
+if [[ "${DRY_RUN:-0}" != "1" && "${SKIP_BUILD:-0}" != "1" ]]; then
+  if is_truthy "$BUILD_BACKEND"; then
+    log "Building backend image: $BACKEND_IMAGE"
+    docker build \
+      --platform "$PLATFORM" \
+      --build-arg "NPM_REGISTRY=${NPM_REGISTRY:-https://registry.npmjs.org/}" \
+      -t "$BACKEND_IMAGE" \
+      -f backend/Dockerfile \
+      backend
+  else
+    log "Skipping backend image build"
+  fi
+
+  if is_truthy "$BUILD_FRONTEND"; then
+    log "Building frontend image: $FRONTEND_IMAGE"
+    docker build \
+      --platform "$PLATFORM" \
+      --build-arg "NPM_REGISTRY=${NPM_REGISTRY:-https://registry.npmjs.org/}" \
+      --build-arg "VITE_BACKEND_API_URL=${VITE_BACKEND_API_URL}" \
+      -t "$FRONTEND_IMAGE" \
+      -f frontend/Dockerfile \
+      frontend
+  else
+    log "Skipping frontend image build"
+  fi
+
+  if is_truthy "$BUILD_NGINX"; then
+    log "Building nginx image: $NGINX_IMAGE"
+    docker build \
+      --platform "$PLATFORM" \
+      -t "$NGINX_IMAGE" \
+      nginx
+  else
+    log "Skipping nginx image build"
+  fi
+
+  if backup_enabled && is_truthy "$BUILD_BACKUP"; then
+    log "Building backup image: $BACKUP_IMAGE"
+    docker build \
+      --platform "$PLATFORM" \
+      -t "$BACKUP_IMAGE" \
+      backup
+  elif backup_enabled; then
+    log "Skipping backup image build"
+  fi
+fi
+
+if [[ "${DRY_RUN:-0}" != "1" && "${SKIP_PUSH:-0}" != "1" ]]; then
+  if is_truthy "$PUSH_BACKEND"; then
+    log "Pushing backend image"
+    docker push "$BACKEND_IMAGE"
+  else
+    log "Skipping backend image push"
+  fi
+
+  if is_truthy "$PUSH_FRONTEND"; then
+    log "Pushing frontend image"
+    docker push "$FRONTEND_IMAGE"
+  else
+    log "Skipping frontend image push"
+  fi
+
+  if is_truthy "$PUSH_NGINX"; then
+    log "Pushing nginx image"
+    docker push "$NGINX_IMAGE"
+  else
+    log "Skipping nginx image push"
+  fi
+
+  if backup_enabled && is_truthy "$PUSH_BACKUP"; then
+    log "Pushing backup image"
+    docker push "$BACKUP_IMAGE"
+  elif backup_enabled; then
+    log "Skipping backup image push"
+  fi
+fi
+
+if [[ "${SKIP_DEPLOY:-0}" == "1" ]]; then
+  log "SKIP_DEPLOY=1, stopping after build/push phase"
+  log "Backend image:  $BACKEND_IMAGE"
+  log "Frontend image: $FRONTEND_IMAGE"
+  log "Nginx image:    $NGINX_IMAGE"
+  if backup_enabled; then
+    log "Backup image:   $BACKUP_IMAGE"
+  fi
+  exit 0
+fi
+
 if [[ "${YC_CREATE_VM:-0}" == "1" ]]; then
   require_var YC_INSTANCE_NAME
 else
@@ -161,6 +302,7 @@ else
   fi
 fi
 require_var JWT_SECRET
+require_var DOMAIN
 
 if (( ${#JWT_SECRET} < 32 )); then
   die "JWT_SECRET must contain at least 32 characters"
@@ -175,12 +317,6 @@ if backup_enabled; then
   [[ "$BACKUP_RETRY_SECONDS" =~ ^[0-9]+$ ]] || die "BACKUP_RETRY_SECONDS must be an integer"
   (( BACKUP_RETRY_SECONDS > 0 )) || die "BACKUP_RETRY_SECONDS must be greater than 0"
 fi
-
-BACKEND_IMAGE="${REGISTRY_HOST}/${YC_REGISTRY_ID}/${APP_NAME}-backend:${IMAGE_TAG}"
-FRONTEND_IMAGE="${REGISTRY_HOST}/${YC_REGISTRY_ID}/${APP_NAME}-frontend:${IMAGE_TAG}"
-NGINX_IMAGE="${REGISTRY_HOST}/${YC_REGISTRY_ID}/${APP_NAME}-nginx:${IMAGE_TAG}"
-BACKUP_IMAGE="${REGISTRY_HOST}/${YC_REGISTRY_ID}/${APP_NAME}-backup:${IMAGE_TAG}"
-YC_INSTANCE_REF="${YC_INSTANCE_ID:-${YC_INSTANCE_NAME:-}}"
 
 if [[ "${DRY_RUN:-0}" != "1" && "${YC_CREATE_VM:-0}" != "1" ]]; then
   if [[ -n "${YC_SERVICE_ACCOUNT_NAME:-}" ]]; then
@@ -307,57 +443,6 @@ if [[ "${DRY_RUN:-0}" == "1" ]]; then
   exit 0
 fi
 
-if [[ "${SKIP_DOCKER_LOGIN:-0}" != "1" ]]; then
-  log "Configuring Docker credentials for Yandex registry"
-  yc_call container registry configure-docker
-fi
-
-if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
-  log "Building backend image: $BACKEND_IMAGE"
-  docker build \
-    --platform "$PLATFORM" \
-    --build-arg "NPM_REGISTRY=${NPM_REGISTRY:-https://registry.npmjs.org/}" \
-    -t "$BACKEND_IMAGE" \
-    -f backend/Dockerfile \
-    backend
-
-  log "Building frontend image: $FRONTEND_IMAGE"
-  docker build \
-    --platform "$PLATFORM" \
-    --build-arg "NPM_REGISTRY=${NPM_REGISTRY:-https://registry.npmjs.org/}" \
-    --build-arg "VITE_BACKEND_API_URL=${VITE_BACKEND_API_URL}" \
-    -t "$FRONTEND_IMAGE" \
-    -f frontend/Dockerfile \
-    frontend
-
-  log "Building nginx image: $NGINX_IMAGE"
-  docker build \
-    --platform "$PLATFORM" \
-    -t "$NGINX_IMAGE" \
-    nginx
-
-  if backup_enabled; then
-    log "Building backup image: $BACKUP_IMAGE"
-    docker build \
-      --platform "$PLATFORM" \
-      -t "$BACKUP_IMAGE" \
-      backup
-  fi
-fi
-
-if [[ "${SKIP_PUSH:-0}" != "1" ]]; then
-  log "Pushing backend image"
-  docker push "$BACKEND_IMAGE"
-  log "Pushing frontend image"
-  docker push "$FRONTEND_IMAGE"
-  log "Pushing nginx image"
-  docker push "$NGINX_IMAGE"
-  if backup_enabled; then
-    log "Pushing backup image"
-    docker push "$BACKUP_IMAGE"
-  fi
-fi
-
 if [[ "${YC_CREATE_VM:-0}" == "1" ]]; then
   require_var YC_ZONE
   require_var YC_SUBNET_NAME
@@ -393,6 +478,7 @@ fi
 log "Deploy finished"
 log "Backend image:  $BACKEND_IMAGE"
 log "Frontend image: $FRONTEND_IMAGE"
+log "Nginx image:    $NGINX_IMAGE"
 if backup_enabled; then
   log "Backup image:  $BACKUP_IMAGE"
 fi
