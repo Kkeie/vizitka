@@ -50,6 +50,7 @@ tfplan.txt
 *.tfplan
 *.tfvars
 *.tfvars.json
+!infra/terraform/app.auto.tfvars
 
 # IDE/editor
 .idea/
