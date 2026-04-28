@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     outputs:
+      deploy: ${{ steps.changes.outputs.deploy }}
       backend_image_tag: ${{ steps.meta.outputs.backend_image_tag }}
       frontend_image_tag: ${{ steps.meta.outputs.frontend_image_tag }}
       nginx_image_tag: ${{ steps.meta.outputs.nginx_image_tag }}
@@ -41,7 +42,88 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Detect deploy changes
+        id: changes
+        run: |
+          set -Eeuo pipefail
+
+          changed_files=""
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            before="${{ github.event.before }}"
+            if [[ -n "$before" && "$before" != "0000000000000000000000000000000000000000" ]] \
+              && git cat-file -e "${before}^{commit}" 2>/dev/null; then
+              base="$before"
+            else
+              base="$(git hash-object -t tree /dev/null)"
+            fi
+
+            changed_files="$(git diff --name-only "$base" "$GITHUB_SHA")"
+          fi
+
+          changed_matches() {
+            local pattern="$1"
+            grep -Eq "$pattern" <<<"$changed_files"
+          }
+
+          backend=0
+          frontend=0
+          nginx=0
+          backup=0
+          deploy_metadata=0
+          registry_check_all=0
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            deploy_metadata=1
+            registry_check_all=1
+          else
+            if changed_matches '^backend/(Dockerfile|package(-lock)?\.json|tsconfig\.json|start\.sh|src/)'; then
+              backend=1
+            fi
+
+            if changed_matches '^frontend/(Dockerfile|package(-lock)?\.json|tsconfig\.json|vite\.config\.ts|index\.html|nginx\.conf|public/|src/)'; then
+              frontend=1
+            fi
+
+            if changed_matches '^nginx/(Dockerfile|docker-entrypoint\.sh|templates/)'; then
+              nginx=1
+            fi
+
+            if changed_matches '^backup/(Dockerfile|backup-sqlite-to-s3\.sh)'; then
+              backup=1
+            fi
+
+            if changed_matches '^(\.github/workflows/deploy-yc\.yml|scripts/deploy-yc-coi\.sh)$'; then
+              deploy_metadata=1
+              registry_check_all=1
+            fi
+          fi
+
+          deploy=0
+          if [[ "$backend" == "1" || "$frontend" == "1" || "$nginx" == "1" || "$backup" == "1" || "$deploy_metadata" == "1" ]]; then
+            deploy=1
+          fi
+
+          {
+            echo "backend=$backend"
+            echo "frontend=$frontend"
+            echo "nginx=$nginx"
+            echo "backup=$backup"
+            echo "deploy_metadata=$deploy_metadata"
+            echo "registry_check_all=$registry_check_all"
+            echo "deploy=$deploy"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "deploy=${deploy}"
+            echo "backend_changed=${backend}"
+            echo "frontend_changed=${frontend}"
+            echo "nginx_changed=${nginx}"
+            echo "backup_changed=${backup}"
+            echo "deploy_metadata_changed=${deploy_metadata}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Validate build secrets
+        if: steps.changes.outputs.deploy == '1'
         env:
           YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
         run: |
@@ -61,12 +143,14 @@ jobs:
           fi
 
       - name: Install Yandex Cloud CLI
+        if: steps.changes.outputs.deploy == '1'
         run: |
           set -Eeuo pipefail
           curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
           echo "$HOME/yandex-cloud/bin" >> "$GITHUB_PATH"
 
       - name: Configure Yandex Cloud auth
+        if: steps.changes.outputs.deploy == '1'
         env:
           YC_SA_KEY_JSON: ${{ secrets.YC_SA_KEY_JSON }}
           YC_CLOUD_ID: ${{ secrets.YC_CLOUD_ID }}
@@ -87,25 +171,26 @@ jobs:
           fi
 
       - name: Configure Docker credentials
+        if: steps.changes.outputs.deploy == '1'
         run: yc container registry configure-docker
 
       - name: Compute image tags
+        if: steps.changes.outputs.deploy == '1'
         id: meta
         run: |
           set -Eeuo pipefail
 
-          component_hash() {
-            local path="$1"
-            git ls-files -z -- "$path" | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-12
+          hash_paths() {
+            git ls-files -z -- "$@" | sort -z | xargs -0 sha256sum | sha256sum | cut -c1-12
           }
 
-          backend_hash="$(component_hash backend)"
+          backend_hash="$(hash_paths backend/Dockerfile backend/package.json backend/package-lock.json backend/tsconfig.json backend/start.sh backend/src)"
           frontend_hash="$({
-            git ls-files -z -- frontend | sort -z | xargs -0 sha256sum
+            git ls-files -z -- frontend/Dockerfile frontend/package.json frontend/package-lock.json frontend/tsconfig.json frontend/vite.config.ts frontend/index.html frontend/nginx.conf frontend/public frontend/src | sort -z | xargs -0 sha256sum
             printf '%s\n' "VITE_BACKEND_API_URL=${VITE_BACKEND_API_URL}"
           } | sha256sum | cut -c1-12)"
-          nginx_hash="$(component_hash nginx)"
-          backup_hash="$(component_hash backup)"
+          nginx_hash="$(hash_paths nginx/Dockerfile nginx/docker-entrypoint.sh nginx/templates)"
+          backup_hash="$(hash_paths backup/Dockerfile backup/backup-sqlite-to-s3.sh)"
 
           {
             echo "backend_image_tag=backend-${backend_hash}"
@@ -115,12 +200,18 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Plan image builds
+        if: steps.changes.outputs.deploy == '1'
         id: plan
         env:
           BACKEND_IMAGE_TAG: ${{ steps.meta.outputs.backend_image_tag }}
           FRONTEND_IMAGE_TAG: ${{ steps.meta.outputs.frontend_image_tag }}
           NGINX_IMAGE_TAG: ${{ steps.meta.outputs.nginx_image_tag }}
           BACKUP_IMAGE_TAG: ${{ steps.meta.outputs.backup_image_tag }}
+          CHANGED_BACKEND: ${{ steps.changes.outputs.backend }}
+          CHANGED_FRONTEND: ${{ steps.changes.outputs.frontend }}
+          CHANGED_NGINX: ${{ steps.changes.outputs.nginx }}
+          CHANGED_BACKUP: ${{ steps.changes.outputs.backup }}
+          REGISTRY_CHECK_ALL: ${{ steps.changes.outputs.registry_check_all }}
         run: |
           set -Eeuo pipefail
 
@@ -129,24 +220,6 @@ jobs:
               0|false|FALSE|no|NO|off|OFF) return 0 ;;
               *) return 1 ;;
             esac
-          }
-
-          changed_files=""
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            before="${{ github.event.before }}"
-            if [[ -n "$before" && "$before" != "0000000000000000000000000000000000000000" ]] \
-              && git cat-file -e "${before}^{commit}" 2>/dev/null; then
-              base="$before"
-            else
-              base="$(git hash-object -t tree /dev/null)"
-            fi
-
-            changed_files="$(git diff --name-only "$base" "$GITHUB_SHA")"
-          fi
-
-          changed_under() {
-            local path="$1"
-            grep -Eq "^${path}/" <<<"$changed_files"
           }
 
           image_ref() {
@@ -170,21 +243,29 @@ jobs:
           nginx=0
           backup=0
 
-          if changed_under backend || image_missing "$backend_image"; then
-            backend=1
+          if [[ "$REGISTRY_CHECK_ALL" == "1" || "$CHANGED_BACKEND" == "1" ]]; then
+            if image_missing "$backend_image"; then
+              backend=1
+            fi
           fi
 
-          if changed_under frontend || image_missing "$frontend_image"; then
-            frontend=1
+          if [[ "$REGISTRY_CHECK_ALL" == "1" || "$CHANGED_FRONTEND" == "1" ]]; then
+            if image_missing "$frontend_image"; then
+              frontend=1
+            fi
           fi
 
-          if changed_under nginx || image_missing "$nginx_image"; then
-            nginx=1
+          if [[ "$REGISTRY_CHECK_ALL" == "1" || "$CHANGED_NGINX" == "1" ]]; then
+            if image_missing "$nginx_image"; then
+              nginx=1
+            fi
           fi
 
           if ! is_disabled "$BACKUP_ENABLED"; then
-            if changed_under backup || image_missing "$backup_image"; then
-              backup=1
+            if [[ "$REGISTRY_CHECK_ALL" == "1" || "$CHANGED_BACKUP" == "1" ]]; then
+              if image_missing "$backup_image"; then
+                backup=1
+              fi
             fi
           fi
 
@@ -209,7 +290,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build and push changed images
-        if: steps.plan.outputs.any == '1'
+        if: steps.changes.outputs.deploy == '1' && steps.plan.outputs.any == '1'
         env:
           BACKEND_IMAGE_TAG: ${{ steps.meta.outputs.backend_image_tag }}
           FRONTEND_IMAGE_TAG: ${{ steps.meta.outputs.frontend_image_tag }}
@@ -227,6 +308,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: build
+    if: needs.build.outputs.deploy == '1'
     env:
       YC_REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
       YC_INSTANCE_NAME: ${{ secrets.YC_INSTANCE_NAME }}
