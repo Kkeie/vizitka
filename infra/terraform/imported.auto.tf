@@ -51,6 +51,18 @@ resource "yandex_vpc_security_group" "sg_0" {
   }
 }
 
+resource "yandex_vpc_address" "app_public" {
+  count = var.app_enable_nat && var.app_reserve_public_ip && var.app_public_ip_address == null ? 1 : 0
+
+  name                = var.app_public_ip_name
+  folder_id           = var.folder_id
+  deletion_protection = var.app_public_ip_deletion_protection
+
+  external_ipv4_address {
+    zone_id = var.app_zone
+  }
+}
+
 resource "yandex_vpc_security_group" "app_managed" {
   count = var.manage_app_security_group ? 1 : 0
 
@@ -92,6 +104,8 @@ resource "yandex_vpc_security_group" "app_managed" {
 
 locals {
   app_security_group_ids = var.manage_app_security_group ? yandex_vpc_security_group.app_managed[*].id : [yandex_vpc_security_group.sg_0.id]
+  app_public_ip_address  = var.app_public_ip_address != null ? var.app_public_ip_address : try(yandex_vpc_address.app_public[0].external_ipv4_address[0].address, null)
+  app_nat_ip_address     = var.app_enable_nat && (var.app_reserve_public_ip || var.app_public_ip_address != null) ? local.app_public_ip_address : null
 }
 
 resource "yandex_compute_instance" "app" {
@@ -116,6 +130,7 @@ resource "yandex_compute_instance" "app" {
   network_interface {
     subnet_id          = yandex_vpc_subnet.main.id
     nat                = var.app_enable_nat
+    nat_ip_address     = local.app_nat_ip_address
     ip_address         = var.app_private_ip
     security_group_ids = local.app_security_group_ids
   }
