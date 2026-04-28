@@ -94,12 +94,11 @@ jobs:
 
             if changed_matches '^(\.github/workflows/deploy-yc\.yml|scripts/deploy-yc-coi\.sh)$'; then
               deploy_metadata=1
-              registry_check_all=1
             fi
           fi
 
           deploy=0
-          if [[ "$backend" == "1" || "$frontend" == "1" || "$nginx" == "1" || "$backup" == "1" || "$deploy_metadata" == "1" ]]; then
+          if [[ "$backend" == "1" || "$frontend" == "1" || "$nginx" == "1" || "$backup" == "1" ]]; then
             deploy=1
           fi
 
@@ -214,6 +213,7 @@ jobs:
           REGISTRY_CHECK_ALL: ${{ steps.changes.outputs.registry_check_all }}
         run: |
           set -Eeuo pipefail
+          : "${YC_REGISTRY_ID:?YC_REGISTRY_ID is not set}"
 
           is_disabled() {
             case "${1:-}" in
