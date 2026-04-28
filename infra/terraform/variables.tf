@@ -84,6 +84,30 @@ variable "app_enable_nat" {
   default     = true
 }
 
+variable "app_reserve_public_ip" {
+  description = "Reserve and attach a Terraform-managed static public IPv4 address. If false and app_public_ip_address is null, the VM uses an ephemeral public IP."
+  type        = bool
+  default     = false
+}
+
+variable "app_public_ip_address" {
+  description = "Existing reserved static public IPv4 address to attach to the COI VM. Use this to preserve the current public IP after converting it to static."
+  type        = string
+  default     = null
+}
+
+variable "app_public_ip_name" {
+  description = "Name for the Terraform-managed static public IPv4 address."
+  type        = string
+  default     = "vizitka-public-ip"
+}
+
+variable "app_public_ip_deletion_protection" {
+  description = "Protect the Terraform-managed static public IPv4 address from accidental deletion."
+  type        = bool
+  default     = true
+}
+
 variable "manage_app_security_group" {
   description = "Create and attach a Terraform-managed security group for the COI VM."
   type        = bool

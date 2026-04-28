@@ -73,7 +73,8 @@ by Terraform:
 
 - VM size: `app_cores`, `app_memory_gb`, `app_core_fraction`
 - VM placement/name: `app_vm_name`, `app_zone`, `app_platform_id`
-- VM network: `app_private_ip`, `app_enable_nat`
+- VM network: `app_private_ip`, `app_enable_nat`, `app_public_ip_address`,
+  `app_reserve_public_ip`
 - optional managed security group: `manage_app_security_group`,
   `app_http_cidr_blocks`, `app_https_cidr_blocks`, `app_ssh_cidr_blocks`,
   `app_egress_cidr_blocks`
@@ -99,6 +100,16 @@ To let Terraform create and attach a dedicated app security group, set:
 manage_app_security_group = true
 app_ssh_cidr_blocks       = ["203.0.113.10/32"]
 ```
+
+The current static public IP is configured in `app.auto.tfvars`:
+
+```hcl
+app_public_ip_address = "93.77.185.199"
+app_reserve_public_ip = false
+```
+
+The address must stay reserved/static in Yandex Cloud. If the VM is recreated in
+the same zone, Terraform attaches this IP through `nat_ip_address`.
 
 Review the plan before merging changes to `master`; the GitHub Actions workflow
 applies Terraform changes automatically on `master`.
