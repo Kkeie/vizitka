@@ -65,6 +65,44 @@ Then run:
 terraform plan
 ```
 
+## Managed infrastructure configuration
+
+The imported resources started with `lifecycle.ignore_changes = all` to avoid
+accidental changes during the first import. The app VM is now partially managed
+by Terraform:
+
+- VM size: `app_cores`, `app_memory_gb`, `app_core_fraction`
+- VM placement/name: `app_vm_name`, `app_zone`, `app_platform_id`
+- VM network: `app_private_ip`, `app_enable_nat`
+- optional managed security group: `manage_app_security_group`,
+  `app_http_cidr_blocks`, `app_https_cidr_blocks`, `app_ssh_cidr_blocks`,
+  `app_egress_cidr_blocks`
+
+`yandex_compute_instance.app` still ignores `metadata` and `boot_disk` changes.
+This is intentional: COI deploys update VM metadata with Docker Compose data,
+and imported boot disk changes can force destructive replacement.
+
+Non-secret app infrastructure settings live in `app.auto.tfvars`. Terraform
+loads this file automatically in GitHub Actions and locally.
+
+To change VM size, edit `app.auto.tfvars`:
+
+```hcl
+app_cores         = 4
+app_memory_gb     = 4
+app_core_fraction = 100
+```
+
+To let Terraform create and attach a dedicated app security group, set:
+
+```hcl
+manage_app_security_group = true
+app_ssh_cidr_blocks       = ["203.0.113.10/32"]
+```
+
+Review the plan before merging changes to `master`; the GitHub Actions workflow
+applies Terraform changes automatically on `master`.
+
 ## Import existing YC resources
 
 Requires local `yc`, `terraform`, and `jq`.

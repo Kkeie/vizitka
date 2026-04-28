@@ -51,18 +51,61 @@ resource "yandex_vpc_security_group" "sg_0" {
   }
 }
 
+resource "yandex_vpc_security_group" "app_managed" {
+  count = var.manage_app_security_group ? 1 : 0
+
+  name       = var.app_security_group_name
+  folder_id  = var.folder_id
+  network_id = yandex_vpc_network.main.id
+
+  ingress {
+    description    = "HTTP"
+    protocol       = "TCP"
+    port           = 80
+    v4_cidr_blocks = var.app_http_cidr_blocks
+  }
+
+  ingress {
+    description    = "HTTPS"
+    protocol       = "TCP"
+    port           = 443
+    v4_cidr_blocks = var.app_https_cidr_blocks
+  }
+
+  dynamic "ingress" {
+    for_each = length(var.app_ssh_cidr_blocks) > 0 ? [1] : []
+
+    content {
+      description    = "SSH"
+      protocol       = "TCP"
+      port           = 22
+      v4_cidr_blocks = var.app_ssh_cidr_blocks
+    }
+  }
+
+  egress {
+    description    = "Outbound"
+    protocol       = "ANY"
+    v4_cidr_blocks = var.app_egress_cidr_blocks
+  }
+}
+
+locals {
+  app_security_group_ids = var.manage_app_security_group ? yandex_vpc_security_group.app_managed[*].id : [yandex_vpc_security_group.sg_0.id]
+}
+
 resource "yandex_compute_instance" "app" {
-  name                      = "vizitka-coi"
+  name                      = var.app_vm_name
   folder_id                 = var.folder_id
-  zone                      = "ru-central1-a"
-  platform_id               = "standard-v3"
+  zone                      = var.app_zone
+  platform_id               = var.app_platform_id
   allow_stopping_for_update = true
   service_account_id        = yandex_iam_service_account.coi_puller.id
 
   resources {
-    cores         = 2
-    memory        = 2
-    core_fraction = 100
+    cores         = var.app_cores
+    memory        = var.app_memory_gb
+    core_fraction = var.app_core_fraction
   }
 
   boot_disk {
@@ -72,12 +115,17 @@ resource "yandex_compute_instance" "app" {
 
   network_interface {
     subnet_id          = yandex_vpc_subnet.main.id
-    nat                = true
-    ip_address         = "10.128.0.15"
-    security_group_ids = [yandex_vpc_security_group.sg_0.id]
+    nat                = var.app_enable_nat
+    ip_address         = var.app_private_ip
+    security_group_ids = local.app_security_group_ids
   }
 
   lifecycle {
-    ignore_changes = all
+    ignore_changes = [
+      boot_disk,
+      description,
+      labels,
+      metadata,
+    ]
   }
 }
