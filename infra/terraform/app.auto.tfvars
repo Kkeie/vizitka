@@ -2,7 +2,7 @@
 
 # VM sizing.
 app_cores         = 2
-app_memory_gb     = 4
+app_memory_gb     = 2
 app_core_fraction = 100
 
 # VM placement and addressing.
