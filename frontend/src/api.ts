@@ -533,3 +533,17 @@ export async function checkUsername(username: string): Promise<{ available: bool
   }
   return safeJsonParse<{ available: boolean; suggestions?: string[] }>(r);
 }
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ token: string }> {
+  const r = await fetch(`${API}/auth/change-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (!r.ok) {
+    const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
+    throw new Error(errorData.error || errorData.message || "change_password_failed");
+  }
+  const data = await safeJsonParse<{ ok: boolean; token: string }>(r);
+  return { token: data.token };
+}

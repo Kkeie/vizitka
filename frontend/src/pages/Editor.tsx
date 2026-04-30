@@ -23,6 +23,7 @@ import {
 import Avatar from "../components/Avatar";
 import MenuCard from "../components/MenuCard";
 import InlineEditCard from "../components/InlineEditCard";
+import PasswordChangeCard from "../components/PasswordChangeCard";
 import { DraggableBlockCard } from "../components/DraggableBlockCard";
 import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
@@ -169,6 +170,9 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [editingBio, setEditingBio] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tempBio, setTempBio] = useState("");
+
+  const [showPasswordCard, setShowPasswordCard] = useState(false);
+  const [passwordAnchor, setPasswordAnchor] = useState<DOMRect | null>(null);
 
   // Для быстрого добавления блоков
   const [inlineInput, setInlineInput] = useState<{
@@ -393,6 +397,42 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     const t = window.setTimeout(schedule, 80);
     return () => clearTimeout(t);
   }, [cellSize, breakpoint, loading, isDragging, currentGridColumns, currentGridGap, saveBlockSizesDebounced]);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    const handleCloseCards = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.closest('[data-inline-edit]') ||
+        target.closest('[data-menu-item]') ||
+        target.closest('[data-menu-button]')
+      ) return;
+      setActiveInlineField(null);
+      setInlineAnchor(null);
+      setShowPasswordCard(false);
+      setShowProfileMenu(false);
+    };
+    document.addEventListener("mousedown", handleCloseCards);
+    return () => document.removeEventListener("mousedown", handleCloseCards);
+  }, []);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActiveInlineField(null);
+        setShowPasswordCard(false);
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, []);
 
   const syncLayoutFromBlockSizes = useCallback((newBlockSizes: BlockSizes) => {
     // Собираем блоки, у которых есть якорь для текущего breakpoint
@@ -1095,8 +1135,17 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     setProfile(updated);
   };
 
+  const handlePasswordChangeSuccess = useCallback((newToken: string) => {
+    setToken(newToken);
+    // Необязательно: перезагрузить пользователя
+    loadData();
+    setToast("Пароль успешно изменён");
+  }, []);
+
   const MenuItem = ({ onClick, children }: { onClick: (rect: DOMRect) => void; children: React.ReactNode }) => (
     <button
+      data-menu-item
+      onMouseDown={(e) => e.stopPropagation()}  // ← не даём событию всплыть
       onClick={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         onClick(rect);
@@ -1342,55 +1391,59 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       )}
 
       {/* Фиксированная круглая кнопка настроек в левом нижнем углу */}
-      <button
-        onClick={(e) => {
-          if (showProfileMenu) {
-            // Если меню уже открыто – закрываем его и все подменю
-            setShowProfileMenu(false);
-            setActiveInlineField(null);
-            setInlineAnchor(null);
-          } else {
-            const rect = e.currentTarget.getBoundingClientRect();
-            setProfileMenuAnchor(rect);
-            setShowProfileMenu(true);
-          }
-        }}
-        style={{
-          position: "fixed",
-          bottom: "24px",
-          left: "24px",
-          width: "56px",
-          height: "56px",
-          borderRadius: "50%",
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "background 0.2s",
-          zIndex: 1000,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = "rgba(0,0,0,0.08)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = "transparent";
-        }}
-      >
-        <svg width="28" height="28" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
-          <rect x="10" y="15" width="30" height="3.5" rx="1.75" fill="black" />
-          <circle cx="17.5" cy="16.75" r="5.5" fill="black" />
-          <circle cx="17.5" cy="16.75" r="2.5" fill="white" />
-          <rect x="10" y="26.5" width="30" height="3.5" rx="1.75" fill="black" />
-          <circle cx="31.6" cy="28.25" r="5.5" fill="black" />
-          <circle cx="31.6" cy="28.25" r="2.5" fill="white" />
-        </svg>
-      </button>
+      {!showOnboardingPanel && (
+        <button
+          data-menu-button
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            if (showProfileMenu) {
+              // Если меню уже открыто – закрываем его и все подменю
+              setShowProfileMenu(false);
+              setActiveInlineField(null);
+              setInlineAnchor(null);
+            } else {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setProfileMenuAnchor(rect);
+              setShowProfileMenu(true);
+            }
+          }}
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            left: "24px",
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.2s",
+            zIndex: 1000,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(0,0,0,0.08)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <svg width="28" height="28" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="15" width="30" height="3.5" rx="1.75" fill="black" />
+            <circle cx="17.5" cy="16.75" r="5.5" fill="black" />
+            <circle cx="17.5" cy="16.75" r="2.5" fill="white" />
+            <rect x="10" y="26.5" width="30" height="3.5" rx="1.75" fill="black" />
+            <circle cx="31.6" cy="28.25" r="5.5" fill="black" />
+            <circle cx="31.6" cy="28.25" r="2.5" fill="white" />
+          </svg>
+        </button>
+      )}
 
       {/* Главное меню редактирования — появляется над кнопкой */}
       {showProfileMenu && profileMenuAnchor && (
-        <MenuCard 
+        <MenuCard
           anchorRect={profileMenuAnchor}
           onClose={() => {
             setShowProfileMenu(false);
@@ -1398,57 +1451,63 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             setInlineAnchor(null);
           }}
           position="top"
-          width={220}
+          width={260}
         >
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <MenuItem
-              onClick={(rect) => {
-                setInlineAnchor(rect);
-                setActiveInlineField("username");
-              }}
-            >
-              Изменить username
+          <div style={{ display: "flex", flexDirection: "column"}}>
+            <MenuItem onClick={(rect) => {
+              setInlineAnchor(rect);
+              setActiveInlineField("username");
+              setShowPasswordCard(false);
+            }}>
+              <div>Изменить username</div>
+              <div style={{ fontSize: 11, color: "var(--muted)"}}>{profile?.username || ""}</div>
             </MenuItem>
-            <MenuItem
-              onClick={(rect) => {
-                setInlineAnchor(rect);
-                setActiveInlineField("email");
-              }}
-            >
-              Изменить email
+
+            <MenuItem onClick={(rect) => {
+              setInlineAnchor(rect);
+              setActiveInlineField("email");
+              setShowPasswordCard(false);
+            }}>
+              <div>Изменить email</div>
+              <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.email || "не указан"}</div>
             </MenuItem>
-            <MenuItem
-              onClick={(rect) => {
-                setInlineAnchor(rect);
-                setActiveInlineField("phone");
-              }}
-            >
-              Изменить телефон
+
+            <MenuItem onClick={(rect) => {
+              setInlineAnchor(rect);
+              setActiveInlineField("phone");
+              setShowPasswordCard(false);
+            }}>
+              <div>Изменить телефон</div>
+              <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.phone || "не указан"}</div>
             </MenuItem>
-            <MenuItem
-              onClick={(rect) => {
-                setInlineAnchor(rect);
-                setActiveInlineField("telegram");
-              }}
-            >
-              Изменить telegram
+
+            <MenuItem onClick={(rect) => {
+              setInlineAnchor(rect);
+              setActiveInlineField("telegram");
+              setShowPasswordCard(false);
+            }}>
+              <div>Изменить telegram</div>
+              <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.telegram || "не указан"}</div>
             </MenuItem>
-            <MenuItem
-              onClick={() => {
-                setShowQr(true);
-              }}
-            >
-              Показать QR код
+
+            <MenuItem onClick={(rect) => {
+              setPasswordAnchor(rect);
+              setShowPasswordCard(true);
+              setActiveInlineField(null);
+              setInlineAnchor(null);
+            }}>
+              <div>Изменить пароль</div>
             </MenuItem>
-            <MenuItem onClick={() => alert("Функция в разработке")}>Изменить пароль</MenuItem>
-            <MenuItem onClick={() => alert("Экспорт данных в разработке")}>Экспорт данных</MenuItem>
             <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
-            <MenuItem
-              onClick={() => {
-                onLogout();
-              }}
-            >
-              Выйти из аккаунта
+            <MenuItem onClick={() => { setShowProfileMenu(false); setShowQr(true); }}>
+              <div>Показать QR код</div>
+            </MenuItem>
+            <MenuItem onClick={() => alert("Функция в разработке")}>
+              <div>Экспорт данных</div>
+            </MenuItem>
+            <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
+            <MenuItem onClick={() => { onLogout(); }}>
+              <div>Выйти из аккаунта</div>
             </MenuItem>
           </div>
         </MenuCard>
@@ -1457,6 +1516,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       {/* Подменю для выбранного поля */}
       {activeInlineField && inlineAnchor && (
         <InlineEditCard
+          key={activeInlineField}
           anchorRect={inlineAnchor}
           value={(() => {
             if (activeInlineField === "username") return profile?.username || "";
@@ -1486,7 +1546,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               ? "Телефон"
               : "Telegram"
           }
-          placeholder={activeInlineField === "username" ? "новый username" : ""}
+          placeholder={
+            activeInlineField === "username" ? "Введите username" :
+            activeInlineField === "email"    ? "email@example.com" :
+            activeInlineField === "phone"    ? "+7 (999) 123-45-67" :
+            activeInlineField === "telegram" ? "@username" : ""
+          }
           inputType={activeInlineField === "email" ? "email" : activeInlineField === "phone" ? "tel" : "text"}
           validation={(val) => {
             if (activeInlineField === "username") return val.length >= 3;
@@ -1499,6 +1564,19 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             if (activeInlineField === "username") return val.toLowerCase();
             return val;
           }}
+          prefix={activeInlineField === "username" ? "bento.me/" : undefined}
+        />
+      )}
+
+      {/* Карточка смены пароля */}
+      {showPasswordCard && passwordAnchor && (
+        <PasswordChangeCard
+          anchorRect={passwordAnchor}
+          onClose={() => {
+            setShowPasswordCard(false);
+            setPasswordAnchor(null);
+          }}
+          onSuccess={handlePasswordChangeSuccess}
         />
       )}
 
