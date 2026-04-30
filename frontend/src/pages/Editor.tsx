@@ -1,36 +1,39 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Navigate, useLocation, useSearchParams } from "react-router-dom"; // ONBOARDING: added useSearchParams
-import { 
-  listBlocks, 
-  deleteBlock, 
+import { Navigate, useLocation, useSearchParams } from "react-router-dom";
+import {
+  listBlocks,
+  deleteBlock,
   updateBlock,
-  getProfile, 
-  updateProfile, 
+  getProfile,
+  updateProfile,
   createBlock,
-  publicUrl, 
+  publicUrl,
   qrUrlForPublic,
-  type Block, 
+  type Block,
   type BlockGridSize,
-  type Profile, 
+  type Profile,
   type BlockType,
   type BlockSizes,
   type Layout,
   getToken,
   setToken,
   BlockGridAnchor,
+  checkUsername,
 } from "../api";
 import Avatar from "../components/Avatar";
+import MenuCard from "../components/MenuCard";
+import InlineEditCard from "../components/InlineEditCard";
 import { DraggableBlockCard } from "../components/DraggableBlockCard";
 import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
 import MobileVisitPreviewModal from "../components/MobileVisitPreviewModal";
 import InlineInputCard from "../components/InlineInputCard";
-import OnboardingInEditor from "../components/onboarding/OnboardingInEditor"; // ONBOARDING: import
-import { formatPhoneNumber } from "../utils/phone";
-import { measureBlockRects, animateFlip } from '../utils/flipAnimation';
+import OnboardingInEditor from "../components/onboarding/OnboardingInEditor";
+import { formatPhoneNumber, validatePhoneNumber } from "../utils/phone";
+import { measureBlockRects, animateFlip } from "../utils/flipAnimation";
 import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
-import { getSocialInfo } from '../lib/social-preview';
+import { getSocialInfo } from "../lib/social-preview";
 import {
   BENTO_ROW_UNIT,
   GRID_COLUMNS,
@@ -41,10 +44,8 @@ import {
   getResolvedGridSize,
   resolveAnchorOverlaps,
   sanitizeBlockSizes,
-  stripAnchorsForBreakpoint,
 } from "../lib/block-grid";
 
-// dnd-kit imports – только для перетаскивания оверлея
 import {
   DndContext,
   DragOverlay,
@@ -57,7 +58,7 @@ import {
   DragStartEvent,
   DragMoveEvent,
   DragEndEvent,
-} from '@dnd-kit/core';
+} from "@dnd-kit/core";
 
 import "../styles/drag-reorder.css";
 
@@ -88,16 +89,19 @@ function debounce<T extends (...args: any[]) => void>(fn: T, wait: number): T & 
     if (timeoutId) clearTimeout(timeoutId);
     timeoutId = window.setTimeout(() => fn(...args), wait);
   }) as T & { cancel: () => void };
-  debounced.cancel = () => { if (timeoutId) clearTimeout(timeoutId); };
+  debounced.cancel = () => {
+    if (timeoutId) clearTimeout(timeoutId);
+  };
   return debounced;
 }
 
-export default function Editor() {
+export default function Editor({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams(); // ONBOARDING
+  const [searchParams, setSearchParams] = useSearchParams();
   const profileRef = useRef<HTMLDivElement>(null);
   const breakpoint = useBreakpoint();
 
+  // Основные данные
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [blockSizes, setBlockSizes] = useState<BlockSizes>({});
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -156,7 +160,17 @@ export default function Editor() {
     setEditorCanvasPadBottom(canvasPadDesiredRef.current);
   }, []);
 
-  // State для инлайн-ввода
+  // Состояния для меню и inline-редактирования профиля
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [profileMenuAnchor, setProfileMenuAnchor] = useState<DOMRect | null>(null);
+  const [activeInlineField, setActiveInlineField] = useState<"username" | "email" | "phone" | "telegram" | null>(null);
+  const [inlineAnchor, setInlineAnchor] = useState<DOMRect | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [editingBio, setEditingBio] = useState(false);
+  const [tempName, setTempName] = useState("");
+  const [tempBio, setTempBio] = useState("");
+
+  // Для быстрого добавления блоков
   const [inlineInput, setInlineInput] = useState<{
     type: 'link' | 'video' | 'music';
     buttonRect: DOMRect;
@@ -169,12 +183,12 @@ export default function Editor() {
   const lastResizeSizeRef = useRef<BlockGridSize | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { 
+    useSensor(PointerSensor, {
       activationConstraint: { delay: 100, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: () => ({ x: 0, y: 0 }),
-    })
+    }),
   );
 
   if (location.pathname !== "/editor") return null;
@@ -218,10 +232,13 @@ export default function Editor() {
       setError(null);
       const [b, p] = await Promise.all([listBlocks(), getProfile()]);
       const sorted = [...b].sort((a, b) => a.sort - b.sort);
-      const normalizedBlockSizes = sanitizeBlockSizes(p.blockSizes, sorted.map(block => block.id));
+      const normalizedBlockSizes = sanitizeBlockSizes(p.blockSizes, sorted.map((block) => block.id));
       setBlocks(sorted);
       setBlockSizes(normalizedBlockSizes);
       setProfile(p);
+
+      setTempName(p.name ?? "");
+      setTempBio(p.bio ?? "");
 
       if (p.layout) {
         setLayout(normalizeLayout(p.layout, sorted.map(b => b.id)));
@@ -287,20 +304,46 @@ export default function Editor() {
   const { gridRef, cellSize } = useBentoGridMetrics(currentGridColumns, currentGridGap);
 
   const saveLayoutDebounced = useMemo(
-    () => debounce(async (newLayout: Layout) => {
-      try { await updateProfile({ layout: newLayout }); } catch (e) { console.error(e); }
-    }, 500),
-    []
+    () =>
+      debounce(async (newLayout: Layout) => {
+        try {
+          await updateProfile({ layout: newLayout });
+        } catch (e) {
+          console.error(e);
+        }
+      }, 500),
+    [],
   );
   const saveBlockSizesDebounced = useMemo(
-    () => debounce(async (newBlockSizes: BlockSizes) => {
-      try { await updateProfile({ blockSizes: newBlockSizes }); } catch (e) { console.error(e); }
-    }, 500),
-    []
+    () =>
+      debounce(async (newBlockSizes: BlockSizes) => {
+        try {
+          await updateProfile({ blockSizes: newBlockSizes });
+        } catch (e) {
+          console.error(e);
+        }
+      }, 500),
+    [],
   );
 
   const currentOrderRef = useRef(currentOrder);
   const blocksRef = useRef(blocks);
+  const bioTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (bioTextareaRef.current) {
+      bioTextareaRef.current.style.height = "auto";
+      bioTextareaRef.current.style.height = bioTextareaRef.current.scrollHeight + "px";
+    }
+  }, [tempBio])
+
+  useEffect(() => {
+    if (profile) {
+      setTempName(profile.name ?? "");
+      setTempBio(profile.bio ?? "");
+    }
+  }, [profile]);
+
   useEffect(() => {
     currentOrderRef.current = currentOrder;
   }, [currentOrder]);
@@ -353,23 +396,23 @@ export default function Editor() {
 
   const syncLayoutFromBlockSizes = useCallback((newBlockSizes: BlockSizes) => {
     // Собираем блоки, у которых есть якорь для текущего breakpoint
-    const blocksWithAnchor = blocks
+      const blocksWithAnchor = blocks
       .map(block => ({
-        id: block.id,
-        anchor: newBlockSizes[block.id]?.anchorsByBreakpoint?.[breakpoint],
-      }))
-      .filter((item): item is { id: number; anchor: BlockGridAnchor } => item.anchor !== undefined);
+          id: block.id,
+          anchor: newBlockSizes[block.id]?.anchorsByBreakpoint?.[breakpoint],
+        }))
+        .filter((item): item is { id: number; anchor: BlockGridAnchor } => item.anchor !== undefined);
 
     // Сортируем по строке, затем по колонке
-    blocksWithAnchor.sort((a, b) => {
+      blocksWithAnchor.sort((a, b) => {
       if (a.anchor.gridRowStart !== b.anchor.gridRowStart) {
         return a.anchor.gridRowStart - b.anchor.gridRowStart;
       }
-      return a.anchor.gridColumnStart - b.anchor.gridColumnStart;
-    });
+        return a.anchor.gridColumnStart - b.anchor.gridColumnStart;
+      });
 
     // Блоки без якоря добавляем в конец
-    const blocksWithoutAnchor = blocks
+      const blocksWithoutAnchor = blocks
       .filter(block => !newBlockSizes[block.id]?.anchorsByBreakpoint?.[breakpoint])
       .map(block => block.id);
 
@@ -378,24 +421,24 @@ export default function Editor() {
     // Обновляем layout только если порядок изменился
     setLayout(prev => {
       if (!prev) return prev; // защита от null
-      const currentOrderForBp = prev[breakpoint]?.[0] ?? [];
-      if (JSON.stringify(currentOrderForBp) === JSON.stringify(newOrder)) return prev;
+        const currentOrderForBp = prev[breakpoint]?.[0] ?? [];
+        if (JSON.stringify(currentOrderForBp) === JSON.stringify(newOrder)) return prev;
       // Возвращаем новый объект, сохраняя все брейкпоинты
-      return {
-        mobile: prev.mobile,
-        tablet: prev.tablet,
-        desktop: prev.desktop,
-        [breakpoint]: [newOrder],
-      };
-    });
+        return {
+          mobile: prev.mobile,
+          tablet: prev.tablet,
+          desktop: prev.desktop,
+          [breakpoint]: [newOrder],
+        };
+      });
 
     // Сохраняем layout в БД только если он существует
-    if (layout) {
-      saveLayoutDebounced({
-        ...layout,
-        [breakpoint]: [newOrder],
-      });
-    }
+      if (layout) {
+        saveLayoutDebounced({
+          ...layout,
+          [breakpoint]: [newOrder],
+        });
+      }
   }, [blocks, breakpoint, layout, saveLayoutDebounced]);
 
   // Функция перестроения по координатам курсора, используя базовое состояние (originalBlockSizes)
@@ -406,7 +449,7 @@ export default function Editor() {
     baseSizes: BlockSizes,
   ) => {
 
-    const gridEl = gridRef.current;
+      const gridEl = gridRef.current;
     if (!gridEl) {
       return;
     }
@@ -415,50 +458,50 @@ export default function Editor() {
       return;
     }
 
-    const beforeRects = measureBlockRects(currentOrder);
+      const beforeRects = measureBlockRects(currentOrder);
 
-    const gs = getResolvedGridSize(draggedBlock, baseSizes[draggedId], currentGridColumns);
-    let anchor = clientPointToGridAnchor(
+      const gs = getResolvedGridSize(draggedBlock, baseSizes[draggedId], currentGridColumns);
+      let anchor = clientPointToGridAnchor(
       cursorX, cursorY, gridEl, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, gs.colSpan
-    );
-    const maxStartCol = currentGridColumns - gs.colSpan + 1;
-    if (anchor.gridColumnStart > maxStartCol) anchor.gridColumnStart = Math.max(1, maxStartCol);
+      );
+      const maxStartCol = currentGridColumns - gs.colSpan + 1;
+      if (anchor.gridColumnStart > maxStartCol) anchor.gridColumnStart = Math.max(1, maxStartCol);
 
-    let newSizes: BlockSizes = {
-      ...baseSizes,
-      [draggedId]: {
-        ...(baseSizes[draggedId] || {}),
-        colSpan: gs.colSpan,
-        rowSpan: gs.rowSpan,
-        anchorsByBreakpoint: {
-          ...(baseSizes[draggedId]?.anchorsByBreakpoint || {}),
-          [breakpoint]: anchor,
+      let newSizes: BlockSizes = {
+        ...baseSizes,
+        [draggedId]: {
+          ...(baseSizes[draggedId] || {}),
+          colSpan: gs.colSpan,
+          rowSpan: gs.rowSpan,
+          anchorsByBreakpoint: {
+            ...(baseSizes[draggedId]?.anchorsByBreakpoint || {}),
+            [breakpoint]: anchor,
+          },
         },
-      },
-    };
+      };
 
-    let assigned = assignSparseAnchorsForBreakpoint(
+      let assigned = assignSparseAnchorsForBreakpoint(
       currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
       { onlyMissing: true, priorityBlockId: draggedId }
-    );
+      );
     let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
 
-    setBlockSizes(resolved);
-    syncLayoutFromBlockSizes(resolved); // синхронизация порядка
-    lastVirtualBlockSizesRef.current = resolved;
-    hasVirtualLayoutRef.current = true;
+      setBlockSizes(resolved);
+      syncLayoutFromBlockSizes(resolved); // синхронизация порядка
+      lastVirtualBlockSizesRef.current = resolved;
+      hasVirtualLayoutRef.current = true;
 
-    requestAnimationFrame(() => {
-      window.setTimeout(() => {
-        const afterRects = measureBlockRects(currentOrder);
-        if (flipAnimationRef.current) flipAnimationRef.current.cancel();
-        flipAnimationRef.current = animateFlip(beforeRects, afterRects, 300, () => {
-          if (flipAnimationRef.current?.cancel === flipAnimationRef.current?.cancel) {
-            flipAnimationRef.current = null;
-          }
-        });
-      }, 0);
-    });
+      requestAnimationFrame(() => {
+        window.setTimeout(() => {
+          const afterRects = measureBlockRects(currentOrder);
+          if (flipAnimationRef.current) flipAnimationRef.current.cancel();
+          flipAnimationRef.current = animateFlip(beforeRects, afterRects, 300, () => {
+            if (flipAnimationRef.current?.cancel === flipAnimationRef.current?.cancel) {
+              flipAnimationRef.current = null;
+            }
+          });
+        }, 0);
+      });
   }, [blocks, currentOrder, breakpoint, currentGridColumns, cellSize, currentGridGap, gridRef, syncLayoutFromBlockSizes]);
 
   // Обработчики перетаскивания
@@ -696,7 +739,7 @@ export default function Editor() {
     // Активный ресайз (через хендлы)
     if (isResizingRef.current && resizeBlockIdRef.current === id) {
       if (lastResizeSizeRef.current &&
-          lastResizeSizeRef.current.colSpan === nextDimensions.colSpan &&
+        lastResizeSizeRef.current.colSpan === nextDimensions.colSpan &&
           lastResizeSizeRef.current.rowSpan === nextDimensions.rowSpan) {
         return;
       }
@@ -847,86 +890,86 @@ export default function Editor() {
         );
       }, 100);
     },
-    [revealCreatedBlock, saveLayoutDebounced], 
+    [revealCreatedBlock, saveLayoutDebounced],
   );
 
   const createEmptyBlock = useCallback(async (type: BlockType, initialData: Partial<Block> = {}) => {
     console.log('createEmptyBlock called with type:', type);
-    try {
-      const newBlock = await createBlock({ type, ...initialData } as any);
-      appendCreatedBlocks([newBlock], { focusType: type });
-    } catch (e) {
-      console.error(e);
-      setToast("Не удалось создать блок");
-    }
+      try {
+        const newBlock = await createBlock({ type, ...initialData } as any);
+        appendCreatedBlocks([newBlock], { focusType: type });
+      } catch (e) {
+        console.error(e);
+        setToast("Не удалось создать блок");
+      }
   }, [appendCreatedBlocks]);
 
   const addOnboardingBlock = useCallback(async (type: "social" | "link", data: any) => {
-    try {
-      if (type === "social") {
-        let url = data.socialUrl?.trim();
-        if (!url) {
-          setToast("Введите username или ссылку");
-          return;
-        }
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-          const platform = data.socialType;
-          if (platform === "telegram") url = `https://t.me/${url.replace(/^@/, "")}`;
-          else if (platform === "vk") url = `https://vk.com/${url}`;
-          else if (platform === "instagram") url = `https://instagram.com/${url.replace(/^@/, "")}`;
-          else if (platform === "twitter") url = `https://twitter.com/${url.replace(/^@/, "")}`;
-          else if (platform === "linkedin") url = `https://linkedin.com/in/${url}`;
-          else if (platform === "github") url = `https://github.com/${url}`;
-          else if (platform === "youtube") url = `https://youtube.com/@${url.replace(/^@/, "")}`;
-          else if (platform === "dribbble") url = `https://dribbble.com/${url}`;
-          else if (platform === "behance") url = `https://behance.net/${url}`;
-          else url = `https://${url}`;
-        }
+      try {
+        if (type === "social") {
+          let url = data.socialUrl?.trim();
+          if (!url) {
+            setToast("Введите username или ссылку");
+            return;
+          }
+          if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            const platform = data.socialType;
+            if (platform === "telegram") url = `https://t.me/${url.replace(/^@/, "")}`;
+            else if (platform === "vk") url = `https://vk.com/${url}`;
+            else if (platform === "instagram") url = `https://instagram.com/${url.replace(/^@/, "")}`;
+            else if (platform === "twitter") url = `https://twitter.com/${url.replace(/^@/, "")}`;
+            else if (platform === "linkedin") url = `https://linkedin.com/in/${url}`;
+            else if (platform === "github") url = `https://github.com/${url}`;
+            else if (platform === "youtube") url = `https://youtube.com/@${url.replace(/^@/, "")}`;
+            else if (platform === "dribbble") url = `https://dribbble.com/${url}`;
+            else if (platform === "behance") url = `https://behance.net/${url}`;
+            else url = `https://${url}`;
+          }
         try { new URL(url); } catch { throw new Error("invalid_url"); }
-        const newBlock = await createBlock({
-          type: "social",
-          socialType: data.socialType,
-          socialUrl: url,
-          sort: blocks.length,
-        });
+          const newBlock = await createBlock({
+            type: "social",
+            socialType: data.socialType,
+            socialUrl: url,
+            sort: blocks.length,
+          });
         setBlocks(prev => [...prev, newBlock]);
         setLayout(prev => {
-          if (!prev) return prev;
-          const next = { ...prev };
+            if (!prev) return prev;
+            const next = { ...prev };
           (Object.keys(next) as Breakpoint[]).forEach(bp => {
             next[bp] = next[bp].map(col => [...col, newBlock.id]);
+            });
+            return next;
           });
-          return next;
-        });
-      } else if (type === "link") {
-        let url = data.linkUrl?.trim();
-        if (!url) {
-          setToast("Введите URL ссылки");
-          return;
-        }
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-          url = "https://" + url;
-        }
+        } else if (type === "link") {
+          let url = data.linkUrl?.trim();
+          if (!url) {
+            setToast("Введите URL ссылки");
+            return;
+          }
+          if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            url = "https://" + url;
+          }
         try { new URL(url); } catch { throw new Error("invalid_url"); }
-        const newBlock = await createBlock({
-          type: "link",
-          linkUrl: url,
-          sort: blocks.length,
-        });
+          const newBlock = await createBlock({
+            type: "link",
+            linkUrl: url,
+            sort: blocks.length,
+          });
         setBlocks(prev => [...prev, newBlock]);
         setLayout(prev => {
-          if (!prev) return prev;
-          const next = { ...prev };
+            if (!prev) return prev;
+            const next = { ...prev };
           (Object.keys(next) as Breakpoint[]).forEach(bp => {
             next[bp] = next[bp].map(col => [...col, newBlock.id]);
+            });
+            return next;
           });
-          return next;
-        });
+        }
+      } catch (err) {
+        console.error(err);
+        setToast("Не удалось создать блок. Проверьте ссылку.");
       }
-    } catch (err) {
-      console.error(err);
-      setToast("Не удалось создать блок. Проверьте ссылку.");
-    }
   }, [blocks.length]);
 
   const handleAddWithInline = (type: 'link' | 'video' | 'music', buttonElement: HTMLElement) => {
@@ -967,12 +1010,12 @@ export default function Editor() {
     } else if (type === 'note') {
       createEmptyBlock('note', { note: '' });
     } else if (type === 'link' || type === 'video' || type === 'music') {
-      const btn = document.querySelector(`[data-add-type="${type}"]`) as HTMLElement;
-      if (btn) handleAddWithInline(type, btn);
-    } else {
-      setModalType(type);
-      setModalOpen(true);
-    }
+        const btn = document.querySelector(`[data-add-type="${type}"]`) as HTMLElement;
+        if (btn) handleAddWithInline(type, btn);
+      } else {
+        setModalType(type);
+        setModalOpen(true);
+      }
   }, [createEmptyBlock, handleAddWithInline]);
 
   async function handleBlockSubmit(data: Partial<Block>) {
@@ -984,6 +1027,97 @@ export default function Editor() {
       console.error(e);
     }
   }
+
+  // ---------- Обработчики для inline-редактирования профиля ----------
+  const handleSaveName = async () => {
+    if (!profile) return;
+    const newName = tempName.trim() || null;
+    if (newName === profile.name) {
+      setEditingName(false);
+      return;
+    }
+    try {
+      const updated = await updateProfile({ name: newName });
+      setProfile(updated);
+    } catch (err) {
+      alert("Не удалось сохранить имя");
+    } finally {
+      setEditingName(false);
+    }
+  };
+
+  const handleSaveBio = async () => {
+    if (!profile) return;
+    const newBio = tempBio.trim() || null;
+    if (newBio === profile.bio) {
+      setEditingBio(false);
+      return;
+    }
+    try {
+      const updated = await updateProfile({ bio: newBio });
+      setProfile(updated);
+    } catch (err) {
+      alert("Не удалось сохранить описание");
+    } finally {
+      setEditingBio(false);
+    }
+  };
+
+  const handleUpdateUsername = async (newUsername: string) => {
+    if (!profile) return;
+    const normalized = newUsername.toLowerCase();
+    if (normalized.length < 3) throw new Error("Минимум 3 символа");
+    const check = await checkUsername(normalized);
+    if (!check.available) throw new Error("Username уже занят");
+    const updated = await updateProfile({ username: normalized });
+    setProfile(updated);
+  };
+
+  const handleUpdateEmail = async (newEmail: string) => {
+    if (!profile) return;
+    if (!/^\S+@\S+\.\S+$/.test(newEmail)) throw new Error("Некорректный email");
+    const updated = await updateProfile({ email: newEmail });
+    setProfile(updated);
+  };
+
+  const handleUpdatePhone = async (newPhone: string) => {
+    if (!profile) return;
+    const formatted = formatPhoneNumber(newPhone);
+    if (formatted && !validatePhoneNumber(formatted)) throw new Error("Некорректный номер телефона");
+    const updated = await updateProfile({ phone: formatted });
+    setProfile(updated);
+  };
+
+  const handleUpdateTelegram = async (newTelegram: string) => {
+    if (!profile) return;
+    let cleaned = newTelegram.replace(/^@/, "").trim();
+    const updated = await updateProfile({ telegram: cleaned });
+    setProfile(updated);
+  };
+
+  const MenuItem = ({ onClick, children }: { onClick: (rect: DOMRect) => void; children: React.ReactNode }) => (
+    <button
+      onClick={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        onClick(rect);
+      }}
+      style={{
+        width: "100%",
+        textAlign: "left",
+        padding: "8px 16px",
+        background: "transparent",
+        border: "none",
+        cursor: "pointer",
+        fontSize: 14,
+        transition: "background 0.2s",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--accent)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      {children}
+    </button>
+  );
+  // ---------------------------------------------------------------
 
   if (isAuthorized === false) return <Navigate to="/login" replace />;
   if (loading) return <div className="page-bg min-h-screen flex items-center justify-center">Загрузка…</div>;
@@ -1009,126 +1143,153 @@ export default function Editor() {
                 }}
               />
             ) : (
-              <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%" }}>
-                <div className="reveal reveal-in">
-                  <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%", alignItems: "flex-start" }}>
-                    <Avatar
-                      src={profile.avatarUrl}
-                      size={120}
-                      editable={true}
-                      onChange={async (url: string) => {
+            <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%", position: "relative", minHeight: "100%" }}>
+              <div className="reveal reveal-in">
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", alignItems: "flex-start" }}>
+                  <Avatar
+                    src={profile.avatarUrl}
+                    size={120}
+                    editable={true}
+                    onChange={async (url: string) => {
+                      try {
+                        const updated = await updateProfile({ avatarUrl: url } as any);
+                        setProfile({ ...updated, avatarUrl: updated.avatarUrl ? `${updated.avatarUrl}?t=${Date.now()}` : updated.avatarUrl });
+                      } catch { alert("Не удалось сохранить аватар"); }
+                    }}
+                    onRemove={async () => {
+                      if (confirm("Удалить фото?")) {
                         try {
-                          const updated = await updateProfile({ avatarUrl: url } as any);
-                          setProfile({ ...updated, avatarUrl: updated.avatarUrl ? `${updated.avatarUrl}?t=${Date.now()}` : updated.avatarUrl });
-                        } catch { alert("Не удалось сохранить аватар"); }
+                          const updated = await updateProfile({ avatarUrl: null } as any);
+                          setProfile(updated);
+                        } catch { alert("Не удалось удалить фото"); }
+                      }
+                    }}
+                  />
+
+                  {/* Имя – всегда инпут, без рамки */}
+                  <div style={{ width: "100%" }}>
+                    <input
+                      type="text"
+                      value={tempName ?? profile.name ?? ""}
+                      onChange={(e) => setTempName(e.target.value)}
+                      onBlur={handleSaveName}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") handleSaveName(); }}
+                      placeholder="Ваше имя"
+                      style={{
+                        fontSize: 32,
+                        fontWeight: 800,
+                        letterSpacing: "-0.03em",
+                        width: "100%",
+                        padding: "0",
+                        border: "none",
+                        background: "transparent",
+                        outline: "none",
+                        color: "var(--text)",
                       }}
                     />
-                    {editingProfile ? (
-                      <form onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-                        <div><label>Имя</label><input className="input" value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))} style={{ width: "100%" }} /></div>
-                        <div><label>Username</label><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }}>@</span><input className="input" value={profileForm.username} onChange={e => setProfileForm(p => ({ ...p, username: e.target.value }))} style={{ paddingLeft: 28, width: "100%" }} required /></div></div>
-                        <div><label>Описание</label><textarea className="textarea" value={profileForm.bio} onChange={e => setProfileForm(p => ({ ...p, bio: e.target.value }))} rows={4} /></div>
-                        <div><label>Телефон</label><input className="input" value={profileForm.phone || ""} onChange={e => setProfileForm(p => ({ ...p, phone: formatPhoneNumber(e.target.value) }))} /></div>
-                        <div><label>Email</label><input className="input" value={profileForm.email || ""} onChange={e => setProfileForm(p => ({ ...p, email: e.target.value }))} /></div>
-                        <div><label>Telegram</label><div style={{ position: "relative" }}><span style={{ position: "absolute", left: 12, top: "50%" }}>@</span><input className="input" value={profileForm.telegram || ""} onChange={e => setProfileForm(p => ({ ...p, telegram: e.target.value }))} style={{ paddingLeft: 28, width: "100%" }} /></div></div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          <button type="submit" disabled={savingProfile} className="btn btn-primary" style={{ width: "100%" }}>{savingProfile ? "Сохранение..." : "Сохранить"}</button>
-                          <button type="button" onClick={() => { setEditingProfile(false); setProfileForm({ username: profile.username || "", name: profile.name || "", bio: profile.bio || "", phone: (profile as any).phone || "", email: (profile as any).email || "", telegram: (profile as any).telegram || "" }); }} className="btn btn-ghost" style={{ width: "100%" }}>Отмена</button>
-                        </div>
-                      </form>
-                    ) : (
-                      <>
-                        <h1 style={{ fontSize: 32, fontWeight: 800, letterSpacing: "-0.03em" }}>{profile.name || profile.username}</h1>
-                        <p style={{ fontSize: 16, fontWeight: 500, marginBottom: 16 }}>@{profile.username}</p>
-                        {profile.bio && <p style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", marginBottom: 16 }}>{profile.bio}</p>}
-                        {(profile.phone || profile.email || profile.telegram) && (
-                          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-                            {profile.phone && <div>📞 {profile.phone}</div>}
-                            {profile.email && <div>✉️ {profile.email}</div>}
-                            {profile.telegram && <div>✈️ {profile.telegram}</div>}
-                          </div>
-                        )}
-                        <div style={{ marginTop: 20 }}>
-                          <button className="btn" style={{ fontSize: 13 }} onClick={() => setShowQr(true)}>📱 Показать QR визитки</button>
-                          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>Публичная ссылка: {publicUrl(profile.username)}</div>
-                        </div>
-                        <button onClick={() => setEditingProfile(true)} className="btn btn-ghost" style={{ marginTop: 16, background: "var(--accent)", border: "1px solid var(--border)" }}>✏️ Редактировать</button>
-                      </>
-                    )}
                   </div>
+
+                  {/* Био – Enter = перенос строки, сохранение при потере фокуса */}
+                  <textarea
+                    ref={bioTextareaRef}
+                    value={tempBio ?? profile.bio ?? ""}
+                    onChange={(e) => setTempBio(e.target.value)}
+                    onBlur={handleSaveBio}
+                    placeholder="Расскажите о себе..."
+                    rows={1}
+                    spellCheck={false}
+                    style={{
+                      fontSize: 14,
+                      lineHeight: 1.6,
+                      width: "100%",
+                      padding: "0",
+                      border: "none",
+                      background: "transparent",
+                      outline: "none",
+                      resize: "none",
+                      overflow: "hidden",
+                      color: "var(--muted)",  // Серый цвет
+                    }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = "auto";
+                      target.style.height = target.scrollHeight + "px";
+                    }}
+                  />
                 </div>
               </div>
+            </div>
             )}
-            <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }}></div>
+            <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }} />
           </div>
 
           {/* Правая колонка – сетка блоков */}
           <div className="editor-blocks-column" style={{ minWidth: 0, width: "100%" }}>
             <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
-                onDragStart={handleDragStart}
-                onDragMove={handleDragMove}
-                onDragEnd={handleDragEnd}
-                onDragCancel={() => {
-                  setIsDragging(false);
-                  setDragCellSize(null);
-                  setActiveId(null);
-                  if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
-                  if (flipAnimationRef.current) {
-                    flipAnimationRef.current.cancel();
-                    flipAnimationRef.current = null;
-                  }
-                  originalBlockSizesRef.current = {};
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+              onDragStart={handleDragStart}
+              onDragMove={handleDragMove}
+              onDragEnd={handleDragEnd}
+              onDragCancel={() => {
+                setIsDragging(false);
+                setDragCellSize(null);
+                setActiveId(null);
+                if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+                if (flipAnimationRef.current) {
+                  flipAnimationRef.current.cancel();
+                  flipAnimationRef.current = null;
+                }
+                originalBlockSizesRef.current = {};
                   // Сброс ресайза
-                  if (isResizingRef.current) {
-                    isResizingRef.current = false;
-                    resizeOriginalBlockSizesRef.current = {};
-                    resizeBlockIdRef.current = null;
-                    lastResizeSizeRef.current = null;
-                  }
+                if (isResizingRef.current) {
+                  isResizingRef.current = false;
+                  resizeOriginalBlockSizesRef.current = {};
+                  resizeBlockIdRef.current = null;
+                  lastResizeSizeRef.current = null;
+                }
+              }}
+            >
+              <div
+                ref={gridRef}
+                className="bento-grid"
+                style={{
+                    display: 'grid',
+                  gridTemplateColumns: `repeat(${currentGridColumns}, minmax(0, 1fr))`,
+                  gap: `${currentGridGap}px`,
+                  gridAutoRows: `${BENTO_ROW_UNIT}px`,
+                    gridAutoFlow: 'row',
+                  paddingBottom: editorCanvasPadBottom,
+                    boxSizing: 'border-box',
                 }}
               >
-                <div
-                  ref={gridRef}
-                  className="bento-grid"
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${currentGridColumns}, minmax(0, 1fr))`,
-                    gap: `${currentGridGap}px`,
-                    gridAutoRows: `${BENTO_ROW_UNIT}px`,
-                    gridAutoFlow: 'row',
-                    paddingBottom: editorCanvasPadBottom,
-                    boxSizing: 'border-box',
-                  }}
-                >
                   {currentOrder.map(blockId => {
                     const block = blocks.find(b => b.id === blockId);
-                    if (!block) return null;
-                    const gridSize = getResolvedGridSize(block, blockSizes[blockId], currentGridColumns);
-                    const anchor = blockSizes[blockId]?.anchorsByBreakpoint?.[breakpoint];
-                    return (
-                      <DraggableBlockCard
-                        key={block.id}
-                        block={block}
-                        gridColumns={currentGridColumns}
-                        cellSize={isDragging && dragCellSize !== null ? dragCellSize : cellSize}
-                        gridGap={currentGridGap}
-                        gridSize={gridSize}
-                        gridAnchor={anchor}
-                        onGridSizeChange={(dimensions) => handleBlockDimensionsChange(block.id, dimensions)}
-                        onResizeEnd={handleResizeEnd}
-                        onDelete={() => handleDeleteBlock(block.id)}
-                        onUpdate={(partial) => handleUpdateBlock(block.id, partial)}
-                      />
-                    );
-                  })}
-                </div>
+                  if (!block) return null;
+                  const gridSize = getResolvedGridSize(block, blockSizes[blockId], currentGridColumns);
+                  const anchor = blockSizes[blockId]?.anchorsByBreakpoint?.[breakpoint];
+                  return (
+                    <DraggableBlockCard
+                      key={block.id}
+                      block={block}
+                      gridColumns={currentGridColumns}
+                      cellSize={isDragging && dragCellSize !== null ? dragCellSize : cellSize}
+                      gridGap={currentGridGap}
+                      gridSize={gridSize}
+                      gridAnchor={anchor}
+                      onGridSizeChange={(dimensions) => handleBlockDimensionsChange(block.id, dimensions)}
+                      onResizeEnd={handleResizeEnd}
+                      onDelete={() => handleDeleteBlock(block.id)}
+                      onUpdate={(partial) => handleUpdateBlock(block.id, partial)}
+                    />
+                  );
+                })}
+              </div>
                 <DragOverlay>
                   {activeId ? <BlockCard b={blocks.find(b => b.id === activeId)!} isDragPreview colSpan={1} /> : null}
                 </DragOverlay>
-              </DndContext>
+            </DndContext>
           </div>
         </div>
 
@@ -1179,6 +1340,168 @@ export default function Editor() {
           </div>
         </div>
       )}
+
+      {/* Фиксированная круглая кнопка настроек в левом нижнем углу */}
+      <button
+        onClick={(e) => {
+          if (showProfileMenu) {
+            // Если меню уже открыто – закрываем его и все подменю
+            setShowProfileMenu(false);
+            setActiveInlineField(null);
+            setInlineAnchor(null);
+          } else {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setProfileMenuAnchor(rect);
+            setShowProfileMenu(true);
+          }
+        }}
+        style={{
+          position: "fixed",
+          bottom: "24px",
+          left: "24px",
+          width: "56px",
+          height: "56px",
+          borderRadius: "50%",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "background 0.2s",
+          zIndex: 1000,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(0,0,0,0.08)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "transparent";
+        }}
+      >
+        <svg width="28" height="28" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="15" width="30" height="3.5" rx="1.75" fill="black" />
+          <circle cx="17.5" cy="16.75" r="5.5" fill="black" />
+          <circle cx="17.5" cy="16.75" r="2.5" fill="white" />
+          <rect x="10" y="26.5" width="30" height="3.5" rx="1.75" fill="black" />
+          <circle cx="31.6" cy="28.25" r="5.5" fill="black" />
+          <circle cx="31.6" cy="28.25" r="2.5" fill="white" />
+        </svg>
+      </button>
+
+      {/* Главное меню редактирования — появляется над кнопкой */}
+      {showProfileMenu && profileMenuAnchor && (
+        <MenuCard 
+          anchorRect={profileMenuAnchor}
+          onClose={() => {
+            setShowProfileMenu(false);
+            setActiveInlineField(null);
+            setInlineAnchor(null);
+          }}
+          position="top"
+          width={220}
+        >
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <MenuItem
+              onClick={(rect) => {
+                setInlineAnchor(rect);
+                setActiveInlineField("username");
+              }}
+            >
+              Изменить username
+            </MenuItem>
+            <MenuItem
+              onClick={(rect) => {
+                setInlineAnchor(rect);
+                setActiveInlineField("email");
+              }}
+            >
+              Изменить email
+            </MenuItem>
+            <MenuItem
+              onClick={(rect) => {
+                setInlineAnchor(rect);
+                setActiveInlineField("phone");
+              }}
+            >
+              Изменить телефон
+            </MenuItem>
+            <MenuItem
+              onClick={(rect) => {
+                setInlineAnchor(rect);
+                setActiveInlineField("telegram");
+              }}
+            >
+              Изменить telegram
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setShowQr(true);
+              }}
+            >
+              Показать QR код
+            </MenuItem>
+            <MenuItem onClick={() => alert("Функция в разработке")}>Изменить пароль</MenuItem>
+            <MenuItem onClick={() => alert("Экспорт данных в разработке")}>Экспорт данных</MenuItem>
+            <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
+            <MenuItem
+              onClick={() => {
+                onLogout();
+              }}
+            >
+              Выйти из аккаунта
+            </MenuItem>
+          </div>
+        </MenuCard>
+      )}
+
+      {/* Подменю для выбранного поля */}
+      {activeInlineField && inlineAnchor && (
+        <InlineEditCard
+          anchorRect={inlineAnchor}
+          value={(() => {
+            if (activeInlineField === "username") return profile?.username || "";
+            if (activeInlineField === "email") return (profile as any)?.email || "";
+            if (activeInlineField === "phone") return (profile as any)?.phone || "";
+            if (activeInlineField === "telegram") return (profile as any)?.telegram || "";
+            return "";
+          })()}
+          onSave={async (newValue) => {
+            if (activeInlineField === "username") await handleUpdateUsername(newValue);
+            if (activeInlineField === "email") await handleUpdateEmail(newValue);
+            if (activeInlineField === "phone") await handleUpdatePhone(newValue);
+            if (activeInlineField === "telegram") await handleUpdateTelegram(newValue);
+            setActiveInlineField(null);
+            setInlineAnchor(null);
+          }}
+          onCancel={() => {
+            setActiveInlineField(null);
+            setInlineAnchor(null);
+          }}
+          label={
+            activeInlineField === "username"
+              ? "Username"
+              : activeInlineField === "email"
+              ? "Email"
+              : activeInlineField === "phone"
+              ? "Телефон"
+              : "Telegram"
+          }
+          placeholder={activeInlineField === "username" ? "новый username" : ""}
+          inputType={activeInlineField === "email" ? "email" : activeInlineField === "phone" ? "tel" : "text"}
+          validation={(val) => {
+            if (activeInlineField === "username") return val.length >= 3;
+            if (activeInlineField === "email") return /^\S+@\S+\.\S+$/.test(val);
+            if (activeInlineField === "phone") return validatePhoneNumber(formatPhoneNumber(val));
+            return true;
+          }}
+          format={(val) => {
+            if (activeInlineField === "phone") return formatPhoneNumber(val);
+            if (activeInlineField === "username") return val.toLowerCase();
+            return val;
+          }}
+        />
+      )}
+
       <style>{`
         @keyframes slideIn {
           from { opacity: 0; transform: translateX(20px); }
