@@ -1,4 +1,3 @@
-// frontend/src/components/MenuCard.tsx
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -66,6 +65,7 @@ export default function MenuCard({ anchorRect, onClose, children, align = "left"
     <div
       ref={cardRef}
       className="card"
+      data-inline-edit="true"
       data-menu-card="true"
       style={{
         position: "fixed",

@@ -408,14 +408,30 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     const handleCloseCards = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      // Закрываем карточки только если клик не на элементе с data-inline-edit
-      if (target.closest('[data-inline-edit]')) return;
+      if (
+        target.closest('[data-inline-edit]') ||
+        target.closest('[data-menu-item]') ||
+        target.closest('[data-menu-button]')
+      ) return;
       setActiveInlineField(null);
+      setInlineAnchor(null);
       setShowPasswordCard(false);
-      // inlineAnchor и passwordAnchor сбрасывать не обязательно – они перезапишутся при открытии
+      setShowProfileMenu(false);
     };
     document.addEventListener("mousedown", handleCloseCards);
     return () => document.removeEventListener("mousedown", handleCloseCards);
+  }, []);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActiveInlineField(null);
+        setShowPasswordCard(false);
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
   }, []);
 
   const syncLayoutFromBlockSizes = useCallback((newBlockSizes: BlockSizes) => {
@@ -1128,6 +1144,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   const MenuItem = ({ onClick, children }: { onClick: (rect: DOMRect) => void; children: React.ReactNode }) => (
     <button
+      data-menu-item
+      onMouseDown={(e) => e.stopPropagation()}  // ← не даём событию всплыть
       onClick={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         onClick(rect);
@@ -1375,6 +1393,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       {/* Фиксированная круглая кнопка настроек в левом нижнем углу */}
       {!showOnboardingPanel && (
         <button
+          data-menu-button
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             if (showProfileMenu) {
               // Если меню уже открыто – закрываем его и все подменю
@@ -1391,8 +1411,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             position: "fixed",
             bottom: "24px",
             left: "24px",
-            width: "56px",
-            height: "56px",
+            width: "40px",
+            height: "40px",
             borderRadius: "50%",
             background: "transparent",
             border: "none",
@@ -1433,32 +1453,49 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           position="top"
           width={260}
         >
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <MenuItem onClick={(rect) => { setInlineAnchor(rect); setActiveInlineField("username"); }}>
-              <div>
-                <div>Изменить username</div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{profile?.username || ""}</div>
-              </div>
+          <div style={{ display: "flex", flexDirection: "column"}}>
+            <MenuItem onClick={(rect) => {
+              setInlineAnchor(rect);
+              setActiveInlineField("username");
+              setShowPasswordCard(false);
+            }}>
+              <div>Изменить username</div>
+              <div style={{ fontSize: 11, color: "var(--muted)"}}>{profile?.username || ""}</div>
             </MenuItem>
-            <MenuItem onClick={(rect) => { setInlineAnchor(rect); setActiveInlineField("email"); }}>
-              <div>
-                <div>Изменить email</div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{(profile as any)?.email || "не указан"}</div>
-              </div>
+
+            <MenuItem onClick={(rect) => {
+              setInlineAnchor(rect);
+              setActiveInlineField("email");
+              setShowPasswordCard(false);
+            }}>
+              <div>Изменить email</div>
+              <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.email || "не указан"}</div>
             </MenuItem>
-            <MenuItem onClick={(rect) => { setInlineAnchor(rect); setActiveInlineField("phone"); }}>
-              <div>
-                <div>Изменить телефон</div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{(profile as any)?.phone || "не указан"}</div>
-              </div>
+
+            <MenuItem onClick={(rect) => {
+              setInlineAnchor(rect);
+              setActiveInlineField("phone");
+              setShowPasswordCard(false);
+            }}>
+              <div>Изменить телефон</div>
+              <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.phone || "не указан"}</div>
             </MenuItem>
-            <MenuItem onClick={(rect) => { setInlineAnchor(rect); setActiveInlineField("telegram"); }}>
-              <div>
-                <div>Изменить telegram</div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{(profile as any)?.telegram || "не указан"}</div>
-              </div>
+
+            <MenuItem onClick={(rect) => {
+              setInlineAnchor(rect);
+              setActiveInlineField("telegram");
+              setShowPasswordCard(false);
+            }}>
+              <div>Изменить telegram</div>
+              <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.telegram || "не указан"}</div>
             </MenuItem>
-            <MenuItem onClick={(rect) => { setPasswordAnchor(rect); setShowPasswordCard(true); }}>
+
+            <MenuItem onClick={(rect) => {
+              setPasswordAnchor(rect);
+              setShowPasswordCard(true);
+              setActiveInlineField(null);
+              setInlineAnchor(null);
+            }}>
               <div>Изменить пароль</div>
             </MenuItem>
             <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
@@ -1479,6 +1516,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       {/* Подменю для выбранного поля */}
       {activeInlineField && inlineAnchor && (
         <InlineEditCard
+          key={activeInlineField}
           anchorRect={inlineAnchor}
           value={(() => {
             if (activeInlineField === "username") return profile?.username || "";
