@@ -65,6 +65,7 @@ export default function MenuCard({ anchorRect, onClose, children, align = "left"
     <div
       ref={cardRef}
       className="card"
+      data-menu-card="true"
       style={{
         position: "fixed",
         top: positionStyle?.top ?? 0,

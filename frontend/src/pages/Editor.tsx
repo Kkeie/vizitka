@@ -1342,55 +1342,57 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       )}
 
       {/* Фиксированная круглая кнопка настроек в левом нижнем углу */}
-      <button
-        onClick={(e) => {
-          if (showProfileMenu) {
-            // Если меню уже открыто – закрываем его и все подменю
-            setShowProfileMenu(false);
-            setActiveInlineField(null);
-            setInlineAnchor(null);
-          } else {
-            const rect = e.currentTarget.getBoundingClientRect();
-            setProfileMenuAnchor(rect);
-            setShowProfileMenu(true);
-          }
-        }}
-        style={{
-          position: "fixed",
-          bottom: "24px",
-          left: "24px",
-          width: "56px",
-          height: "56px",
-          borderRadius: "50%",
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "background 0.2s",
-          zIndex: 1000,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = "rgba(0,0,0,0.08)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = "transparent";
-        }}
-      >
-        <svg width="28" height="28" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
-          <rect x="10" y="15" width="30" height="3.5" rx="1.75" fill="black" />
-          <circle cx="17.5" cy="16.75" r="5.5" fill="black" />
-          <circle cx="17.5" cy="16.75" r="2.5" fill="white" />
-          <rect x="10" y="26.5" width="30" height="3.5" rx="1.75" fill="black" />
-          <circle cx="31.6" cy="28.25" r="5.5" fill="black" />
-          <circle cx="31.6" cy="28.25" r="2.5" fill="white" />
-        </svg>
-      </button>
+      {!showOnboardingPanel && (
+        <button
+          onClick={(e) => {
+            if (showProfileMenu) {
+              // Если меню уже открыто – закрываем его и все подменю
+              setShowProfileMenu(false);
+              setActiveInlineField(null);
+              setInlineAnchor(null);
+            } else {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setProfileMenuAnchor(rect);
+              setShowProfileMenu(true);
+            }
+          }}
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            left: "24px",
+            width: "56px",
+            height: "56px",
+            borderRadius: "50%",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.2s",
+            zIndex: 1000,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(0,0,0,0.08)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <svg width="28" height="28" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="15" width="30" height="3.5" rx="1.75" fill="black" />
+            <circle cx="17.5" cy="16.75" r="5.5" fill="black" />
+            <circle cx="17.5" cy="16.75" r="2.5" fill="white" />
+            <rect x="10" y="26.5" width="30" height="3.5" rx="1.75" fill="black" />
+            <circle cx="31.6" cy="28.25" r="5.5" fill="black" />
+            <circle cx="31.6" cy="28.25" r="2.5" fill="white" />
+          </svg>
+        </button>
+      )}
 
       {/* Главное меню редактирования — появляется над кнопкой */}
       {showProfileMenu && profileMenuAnchor && (
-        <MenuCard 
+        <MenuCard
           anchorRect={profileMenuAnchor}
           onClose={() => {
             setShowProfileMenu(false);
@@ -1398,7 +1400,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             setInlineAnchor(null);
           }}
           position="top"
-          width={220}
+          width={260}
         >
           <div style={{ display: "flex", flexDirection: "column" }}>
             <MenuItem
@@ -1407,7 +1409,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 setActiveInlineField("username");
               }}
             >
-              Изменить username
+              <div>
+                <div>Изменить username</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                  {profile?.username || ""}
+                </div>
+              </div>
             </MenuItem>
             <MenuItem
               onClick={(rect) => {
@@ -1415,7 +1422,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 setActiveInlineField("email");
               }}
             >
-              Изменить email
+              <div>
+                <div>Изменить email</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                  {(profile as any)?.email || "не указан"}
+                </div>
+              </div>
             </MenuItem>
             <MenuItem
               onClick={(rect) => {
@@ -1423,7 +1435,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 setActiveInlineField("phone");
               }}
             >
-              Изменить телефон
+              <div>
+                <div>Изменить телефон</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                  {(profile as any)?.phone || "не указан"}
+                </div>
+              </div>
             </MenuItem>
             <MenuItem
               onClick={(rect) => {
@@ -1431,24 +1448,35 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 setActiveInlineField("telegram");
               }}
             >
-              Изменить telegram
+              <div>
+                <div>Изменить telegram</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                  {(profile as any)?.telegram || "не указан"}
+                </div>
+              </div>
             </MenuItem>
+            <MenuItem onClick={() => alert("Функция в разработке")}>
+              <div>Изменить пароль</div>
+            </MenuItem>
+            <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
             <MenuItem
               onClick={() => {
+                setShowProfileMenu(false);
                 setShowQr(true);
               }}
             >
-              Показать QR код
+              <div>Показать QR код</div>
             </MenuItem>
-            <MenuItem onClick={() => alert("Функция в разработке")}>Изменить пароль</MenuItem>
-            <MenuItem onClick={() => alert("Экспорт данных в разработке")}>Экспорт данных</MenuItem>
+            <MenuItem onClick={() => alert("Экспорт данных в разработке")}>
+              <div>Экспорт данных</div>
+            </MenuItem>
             <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
             <MenuItem
               onClick={() => {
                 onLogout();
               }}
             >
-              Выйти из аккаунта
+              <div>Выйти из аккаунта</div>
             </MenuItem>
           </div>
         </MenuCard>

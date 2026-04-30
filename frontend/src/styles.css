@@ -780,3 +780,9 @@ body {
     padding-right: 16px;
   }
 }
+
+[data-inline-edit="true"]:hover,
+[data-menu-card="true"]:hover {
+  transform: none !important;
+  transition: none !important;
+}
