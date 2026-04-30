@@ -13,6 +13,7 @@ interface InlineEditCardProps {
   inputType?: "text" | "email" | "tel";
   validation?: (value: string) => boolean;
   format?: (value: string) => string;
+  prefix?: string; // необязательный префикс, например "bento.me/"
 }
 
 export default function InlineEditCard({
@@ -26,6 +27,7 @@ export default function InlineEditCard({
   inputType = "text",
   validation,
   format,
+  prefix,
 }: InlineEditCardProps) {
   const [inputValue, setInputValue] = useState(value);
   const [loading, setLoading] = useState(false);
@@ -118,19 +120,65 @@ export default function InlineEditCard({
         <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 8 }}>
           {label}
         </label>
-        <input
-          ref={inputRef}
-          type={inputType}
-          className="input"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder={placeholder}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSave();
-            if (e.key === "Escape") onCancel();
-          }}
-          style={{ marginBottom: hint ? 8 : 0 }}
-        />
+        {prefix ? (
+          <div
+            className="prefixed-input"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              border: "1.5px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--surface)",
+              padding: "0 12px",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 15,
+                color: "var(--muted)",
+                fontFamily: "monospace",
+                userSelect: "none",
+              }}
+            >
+              {prefix}
+            </span>
+            <input
+              ref={inputRef}
+              type={inputType}
+              className="input"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder={placeholder}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSave();
+                if (e.key === "Escape") onCancel();
+              }}
+              style={{
+                flex: 1,
+                border: "none",
+                padding: "14px 8px",
+                fontSize: 15,
+                outline: "none",
+                background: "transparent",
+                marginBottom: 0,
+              }}
+            />
+          </div>
+        ) : (
+          <input
+            ref={inputRef}
+            type={inputType}
+            className="input"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder={placeholder}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSave();
+              if (e.key === "Escape") onCancel();
+            }}
+            style={{ marginBottom: hint ? 8 : 0 }}
+          />
+        )}
         {hint && (
           <div style={{ fontSize: 12, color: "var(--muted)" }}>
             {hint}

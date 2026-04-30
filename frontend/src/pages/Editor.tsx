@@ -1526,6 +1526,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             if (activeInlineField === "username") return val.toLowerCase();
             return val;
           }}
+          prefix={activeInlineField === "username" ? "bento.me/" : undefined}
         />
       )}
 
