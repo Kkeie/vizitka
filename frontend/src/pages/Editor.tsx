@@ -1508,7 +1508,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               ? "Телефон"
               : "Telegram"
           }
-          placeholder={activeInlineField === "username" ? "новый username" : ""}
+          placeholder={
+            activeInlineField === "username" ? "Введите username" :
+            activeInlineField === "email"    ? "email@example.com" :
+            activeInlineField === "phone"    ? "+7 (999) 123-45-67" :
+            activeInlineField === "telegram" ? "@username" : ""
+          }
           inputType={activeInlineField === "email" ? "email" : activeInlineField === "phone" ? "tel" : "text"}
           validation={(val) => {
             if (activeInlineField === "username") return val.length >= 3;
