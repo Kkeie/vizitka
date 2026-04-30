@@ -23,6 +23,7 @@ import {
 import Avatar from "../components/Avatar";
 import MenuCard from "../components/MenuCard";
 import InlineEditCard from "../components/InlineEditCard";
+import PasswordChangeCard from "../components/PasswordChangeCard";
 import { DraggableBlockCard } from "../components/DraggableBlockCard";
 import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
@@ -169,6 +170,9 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [editingBio, setEditingBio] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tempBio, setTempBio] = useState("");
+
+  const [showPasswordCard, setShowPasswordCard] = useState(false);
+  const [passwordAnchor, setPasswordAnchor] = useState<DOMRect | null>(null);
 
   // Для быстрого добавления блоков
   const [inlineInput, setInlineInput] = useState<{
@@ -393,6 +397,26 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     const t = window.setTimeout(schedule, 80);
     return () => clearTimeout(t);
   }, [cellSize, breakpoint, loading, isDragging, currentGridColumns, currentGridGap, saveBlockSizesDebounced]);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    const handleCloseCards = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Закрываем карточки только если клик не на элементе с data-inline-edit
+      if (target.closest('[data-inline-edit]')) return;
+      setActiveInlineField(null);
+      setShowPasswordCard(false);
+      // inlineAnchor и passwordAnchor сбрасывать не обязательно – они перезапишутся при открытии
+    };
+    document.addEventListener("mousedown", handleCloseCards);
+    return () => document.removeEventListener("mousedown", handleCloseCards);
+  }, []);
 
   const syncLayoutFromBlockSizes = useCallback((newBlockSizes: BlockSizes) => {
     // Собираем блоки, у которых есть якорь для текущего breakpoint
@@ -1095,6 +1119,13 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     setProfile(updated);
   };
 
+  const handlePasswordChangeSuccess = useCallback((newToken: string) => {
+    setToken(newToken);
+    // Необязательно: перезагрузить пользователя
+    loadData();
+    setToast("Пароль успешно изменён");
+  }, []);
+
   const MenuItem = ({ onClick, children }: { onClick: (rect: DOMRect) => void; children: React.ReactNode }) => (
     <button
       onClick={(e) => {
@@ -1403,79 +1434,42 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           width={260}
         >
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <MenuItem
-              onClick={(rect) => {
-                setInlineAnchor(rect);
-                setActiveInlineField("username");
-              }}
-            >
+            <MenuItem onClick={(rect) => { setInlineAnchor(rect); setActiveInlineField("username"); }}>
               <div>
                 <div>Изменить username</div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                  {profile?.username || ""}
-                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{profile?.username || ""}</div>
               </div>
             </MenuItem>
-            <MenuItem
-              onClick={(rect) => {
-                setInlineAnchor(rect);
-                setActiveInlineField("email");
-              }}
-            >
+            <MenuItem onClick={(rect) => { setInlineAnchor(rect); setActiveInlineField("email"); }}>
               <div>
                 <div>Изменить email</div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                  {(profile as any)?.email || "не указан"}
-                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{(profile as any)?.email || "не указан"}</div>
               </div>
             </MenuItem>
-            <MenuItem
-              onClick={(rect) => {
-                setInlineAnchor(rect);
-                setActiveInlineField("phone");
-              }}
-            >
+            <MenuItem onClick={(rect) => { setInlineAnchor(rect); setActiveInlineField("phone"); }}>
               <div>
                 <div>Изменить телефон</div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                  {(profile as any)?.phone || "не указан"}
-                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{(profile as any)?.phone || "не указан"}</div>
               </div>
             </MenuItem>
-            <MenuItem
-              onClick={(rect) => {
-                setInlineAnchor(rect);
-                setActiveInlineField("telegram");
-              }}
-            >
+            <MenuItem onClick={(rect) => { setInlineAnchor(rect); setActiveInlineField("telegram"); }}>
               <div>
                 <div>Изменить telegram</div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                  {(profile as any)?.telegram || "не указан"}
-                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{(profile as any)?.telegram || "не указан"}</div>
               </div>
             </MenuItem>
-            <MenuItem onClick={() => alert("Функция в разработке")}>
+            <MenuItem onClick={(rect) => { setPasswordAnchor(rect); setShowPasswordCard(true); }}>
               <div>Изменить пароль</div>
             </MenuItem>
             <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
-            <MenuItem
-              onClick={() => {
-                setShowProfileMenu(false);
-                setShowQr(true);
-              }}
-            >
+            <MenuItem onClick={() => { setShowProfileMenu(false); setShowQr(true); }}>
               <div>Показать QR код</div>
             </MenuItem>
-            <MenuItem onClick={() => alert("Экспорт данных в разработке")}>
+            <MenuItem onClick={() => alert("Функция в разработке")}>
               <div>Экспорт данных</div>
             </MenuItem>
             <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
-            <MenuItem
-              onClick={() => {
-                onLogout();
-              }}
-            >
+            <MenuItem onClick={() => { onLogout(); }}>
               <div>Выйти из аккаунта</div>
             </MenuItem>
           </div>
@@ -1527,6 +1521,18 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             if (activeInlineField === "username") return val.toLowerCase();
             return val;
           }}
+        />
+      )}
+
+      {/* Карточка смены пароля */}
+      {showPasswordCard && passwordAnchor && (
+        <PasswordChangeCard
+          anchorRect={passwordAnchor}
+          onClose={() => {
+            setShowPasswordCard(false);
+            setPasswordAnchor(null);
+          }}
+          onSuccess={handlePasswordChangeSuccess}
         />
       )}
 

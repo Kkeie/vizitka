@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../utils/db";
-import { hashPassword, verifyPassword, signToken } from "../utils/auth";
+import { hashPassword, verifyPassword, signToken, requireAuth, AuthedRequest } from "../utils/auth";
 import { findAvailableUsernames, isValidUsernameFormat  } from '../utils/usernameGenerator';
 import { RESERVED_USERNAMES } from "../constants";
 
@@ -176,6 +176,44 @@ router.post("/check-username", async (req, res) => {
   // генерируем предложения на основе исходного ввода (с поддержкой кириллицы и т.д.)
   const suggestions = await findAvailableUsernames(db, raw, 42);
   return res.json({ available: false, suggestions });
+});
+
+router.post("/change-password", requireAuth, async (req: AuthedRequest, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body as { currentPassword?: string; newPassword?: string };
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: "current_password_and_new_password_required" });
+    }
+    if (newPassword.length < 4) {
+      return res.status(400).json({ error: "new_password_too_short" });
+    }
+
+    const userId = req.user!.id;
+    const user = db.prepare("SELECT id, passwordHash, createdAt FROM User WHERE id = ?").get(userId) as any;
+    if (!user) return res.status(404).json({ error: "user_not_found" });
+
+    const isValid = await verifyPassword(currentPassword, user.passwordHash);
+    if (!isValid) return res.status(401).json({ error: "invalid_current_password" });
+
+    const newHash = await hashPassword(newPassword);
+    db.prepare("UPDATE User SET passwordHash = ? WHERE id = ?").run(newHash, userId);
+
+    // Получаем username для нового токена
+    const profile = db.prepare("SELECT username FROM Profile WHERE userId = ?").get(userId) as any;
+    const username = profile?.username || req.user!.username;
+
+    const newToken = signToken({
+      id: userId,
+      username,
+      userCreatedAt: user.createdAt,
+      passwordHash: newHash,
+    });
+
+    res.json({ ok: true, token: newToken });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "internal_error" });
+  }
 });
 
 export default router;

@@ -1,3 +1,4 @@
+// frontend/src/components/InlineEditCard.tsx
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 
@@ -7,6 +8,7 @@ interface InlineEditCardProps {
   onSave: (newValue: string) => Promise<void>;
   onCancel: () => void;
   label: string;
+  hint?: string;
   placeholder?: string;
   inputType?: "text" | "email" | "tel";
   validation?: (value: string) => boolean;
@@ -19,6 +21,7 @@ export default function InlineEditCard({
   onSave,
   onCancel,
   label,
+  hint,
   placeholder = "",
   inputType = "text",
   validation,
@@ -112,7 +115,9 @@ export default function InlineEditCard({
       }}
     >
       <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 13, fontWeight: 600 }}>{label}</label>
+        <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 8 }}>
+          {label}
+        </label>
         <input
           ref={inputRef}
           type={inputType}
@@ -124,8 +129,13 @@ export default function InlineEditCard({
             if (e.key === "Enter") handleSave();
             if (e.key === "Escape") onCancel();
           }}
-          style={{ marginTop: 4 }}
+          style={{ marginBottom: hint ? 8 : 0 }}
         />
+        {hint && (
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+            {hint}
+          </div>
+        )}
         {error && <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{error}</div>}
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>

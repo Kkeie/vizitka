@@ -1,3 +1,4 @@
+// frontend/src/components/MenuCard.tsx
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -43,7 +44,7 @@ export default function MenuCard({ anchorRect, onClose, children, align = "left"
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      // Если клик был на элементе InlineEditCard (data-inline-edit) или внутри него – не закрываем меню
+      // Не закрывать, если клик на InlineEditCard или PasswordChangeCard
       if (target.closest('[data-inline-edit="true"]')) return;
 
       if (cardRef.current && !cardRef.current.contains(target)) {
