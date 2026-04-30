@@ -14,7 +14,6 @@ import {
   resolveAnchorOverlaps,
   sortBlockIdsByDesktopVisualOrder,
 } from "../lib/block-grid";
-import Avatar from "../components/Avatar";
 
 // Системные маршруты, которые не должны обрабатываться как username
 // Примечание: "public" удален из списка, так как теперь мы используем маршрут /public/:username
@@ -293,49 +292,78 @@ export default function PublicPage() {
           pointerEvents: "none",
         }} />
       )}
-      <div className="container" style={{ paddingTop: 40, paddingBottom: 80, position: "relative", zIndex: 1 }}>
+      <div className="container" style={{ paddingTop: 60, paddingBottom: 80, position: "relative", zIndex: 1 }}>
         {/* Two Column Layout: Profile Left, Blocks Right */}
         <div className="two-column-layout" style={{ alignItems: "start" }}>
           {/* Left Column: Profile (fixed) + Placeholder for grid */}
           <div style={{ width: "100%", maxWidth: "100%" }}>
             {/* Profile that scrolls with page */}
-            <div className="profile-column" style={{ width: "100%", maxWidth: "100%", position: "relative" }}>
+            <div className="profile-column public-profile" style={{ maxWidth: "100%" }}>
               <div className="reveal reveal-in">
-                <div className="public-profile-inner" style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start", textAlign: "left", width: "100%", maxWidth: "100%" }}>
+                <div className="public-profile-inner" style={{ display: "flex", flexDirection: "column", gap: 24, alignItems: "flex-start", textAlign: "left", width: "100%", maxWidth: "100%" }}>
                   {state.avatarUrl && (
-                    <Avatar src={state.avatarUrl} size={120} editable={false} />
-                  )}
-                  <h1 style={{
-                    fontSize: 32,
-                    fontWeight: 800,
-                    letterSpacing: "-0.03em",
-                    width: "100%",
-                    margin: 0,
-                    padding: 0,
-                    color: "var(--text)",
-                  }}>
-                    {state.name}
-                  </h1>
-                  {state.bio && (
-                    <p style={{
-                      fontSize: 14,
-                      lineHeight: 1.6,
-                      width: "100%",
-                      margin: 0,
-                      padding: 0,
-                      color: "var(--muted)",
-                      whiteSpace: "pre-wrap",
+                    <div className="public-profile-avatar" style={{
+                      width: 120,
+                      height: 120,
+                      borderRadius: "50%",
+                      border: "3px solid rgba(255,255,255,0.9)",
+                      boxShadow: state.backgroundUrl ? "0 4px 16px rgba(0,0,0,0.2), 0 0 32px rgba(255,255,255,0.5)" : "var(--shadow-md)",
+                      padding: "3px",
+                      background: state.backgroundUrl ? "rgba(255,255,255,0.9)" : "transparent"
                     }}>
-                      {state.bio}
-                    </p>
-                  )}
-                  {/* {(state.phone || state.email || state.telegram) && (
-                    <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-                      {state.phone && <div style={{ fontSize: 14, color: "var(--text)" }}>📞 {state.phone}</div>}
-                      {state.email && <div style={{ fontSize: 14, color: "var(--text)" }}>✉️ {state.email}</div>}
-                      {state.telegram && <div style={{ fontSize: 14, color: "var(--text)" }}>✈️ {state.telegram}</div>}
+                      <img
+                        src={getImageUrl(state.avatarUrl)}
+                        alt=""
+                      style={{ 
+                        width: "100%", 
+                        height: "100%", 
+                        borderRadius: "50%", 
+                        objectFit: "cover", 
+                        display: "block"
+                      }}
+                      onError={(e)=>{ (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                        loading="lazy"
+                      />
                     </div>
-                  )} */}
+                  )}
+                  <div style={{ width: "100%", maxWidth: "100%" }}>
+                    <h1 style={{
+                      fontSize: 32,
+                      fontWeight: 800,
+                      letterSpacing: "-0.03em",
+                      lineHeight: 1.2,
+                      color: "var(--text)",
+                      marginBottom: 8,
+                      wordBreak: "break-word",
+                      textAlign: "left",
+                      textShadow: state.backgroundUrl ? "0 2px 8px rgba(255,255,255,0.9), 0 0 16px rgba(255,255,255,0.5)" : undefined
+                    }}>
+                      {state.name}
+                    </h1>
+                    {state.bio && (
+                      <p style={{
+                        color: "var(--text)",
+                        fontSize: 14,
+                        lineHeight: 1.6,
+                        textAlign: "left",
+                        marginTop: 12,
+                        wordBreak: "break-word",
+                        whiteSpace: "pre-wrap",
+                        width: "100%",
+                        maxWidth: "100%",
+                        textShadow: state.backgroundUrl ? "0 1px 4px rgba(255,255,255,0.9)" : undefined
+                      }}>
+                        {state.bio}
+                      </p>
+                    )}
+                    {(state.phone || state.email || state.telegram) && (
+                      <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+                        {state.phone && <div style={{ fontSize: 14, color: "var(--text)" }}>📞 {state.phone}</div>}
+                        {state.email && <div style={{ fontSize: 14, color: "var(--text)" }}>✉️ {state.email}</div>}
+                        {state.telegram && <div style={{ fontSize: 14, color: "var(--text)" }}>✈️ {state.telegram}</div>}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

@@ -2,7 +2,6 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { getImageUrl, type Block, type BlockSizes, type Layout, type Profile } from "../api";
 import BlockCard from "./BlockCard";
-import Avatar from "./Avatar";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
 import {
   BENTO_ROW_UNIT,
@@ -234,45 +233,91 @@ export default function MobileVisitPreviewModal({
                   width: "100%",
                 }}
               >
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start", width: "100%" }}>
-                  {profile.avatarUrl && (
-                    <Avatar src={profile.avatarUrl} size={120} editable={false} />
-                  )}
-                  <h1 style={{
-                    fontSize: 32,
-                    fontWeight: 800,
-                    letterSpacing: "-0.03em",
-                    margin: 0,
-                    padding: 0,
-                    color: "var(--text)",
-                  }}>
-                    {profile.name || profile.username}
-                  </h1>
-                  {profile.bio && (
-                    <p style={{
-                      fontSize: 14,
-                      lineHeight: 1.6,
-                      margin: 0,
-                      padding: 0,
-                      color: "var(--muted)",
-                      whiteSpace: "pre-wrap",
-                    }}>
-                      {profile.bio}
-                    </p>
-                  )}
-                  {/* {(profile.phone || profile.email || profile.telegram) && (
-                    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
-                      {profile.phone && (
-                        <div style={{ fontSize: 13, color: "var(--text)" }}>📞 {profile.phone}</div>
+                <div style={{ width: "100%" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 20,
+                      alignItems: "flex-start",
+                      textAlign: "left",
+                    }}
+                  >
+                    {profile.avatarUrl && (
+                      <div
+                        style={{
+                          width: 96,
+                          height: 96,
+                          borderRadius: "50%",
+                          border: "3px solid rgba(255,255,255,0.9)",
+                          boxShadow: bgUrl
+                            ? "0 4px 16px rgba(0,0,0,0.2), 0 0 32px rgba(255,255,255,0.5)"
+                            : "var(--shadow-md)",
+                          padding: 3,
+                          background: bgUrl ? "rgba(255,255,255,0.9)" : "transparent",
+                        }}
+                      >
+                        <img
+                          src={getImageUrl(profile.avatarUrl)}
+                          alt=""
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      </div>
+                    )}
+                    <div style={{ width: "100%" }}>
+                      <h1
+                        style={{
+                          fontSize: 22,
+                          fontWeight: 800,
+                          letterSpacing: "-0.03em",
+                          lineHeight: 1.2,
+                          color: "var(--text)",
+                          marginBottom: 6,
+                          wordBreak: "break-word",
+                          textAlign: "left",
+                        }}
+                      >
+                        {profile.name || profile.username}
+                      </h1>
+                      {profile.bio && (
+                        <p
+                          style={{
+                            color: "var(--text)",
+                            fontSize: 13,
+                            lineHeight: 1.55,
+                            textAlign: "left",
+                            marginTop: 8,
+                            wordBreak: "break-word",
+                            whiteSpace: "pre-wrap",
+                          }}
+                        >
+                          {profile.bio}
+                        </p>
                       )}
-                      {profile.email && (
-                        <div style={{ fontSize: 13, color: "var(--text)" }}>✉️ {profile.email}</div>
-                      )}
-                      {profile.telegram && (
-                        <div style={{ fontSize: 13, color: "var(--text)" }}>✈️ {profile.telegram}</div>
+                      {(profile.phone || profile.email || profile.telegram) && (
+                        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+                          {profile.phone && (
+                            <div style={{ fontSize: 13, color: "var(--text)" }}>📞 {profile.phone}</div>
+                          )}
+                          {profile.email && (
+                            <div style={{ fontSize: 13, color: "var(--text)" }}>✉️ {profile.email}</div>
+                          )}
+                          {profile.telegram && (
+                            <div style={{ fontSize: 13, color: "var(--text)" }}>✈️ {profile.telegram}</div>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )} */}
+                  </div>
                 </div>
 
                 <div style={{ minWidth: 0, width: "100%" }}>
@@ -341,6 +386,6 @@ export default function MobileVisitPreviewModal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

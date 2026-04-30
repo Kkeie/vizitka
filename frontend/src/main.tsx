@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React from "react";
 import ReactDOM from "react-dom/client";
 import { flushSync } from "react-dom";
 import { createBrowserRouter, RouterProvider, useLocation, useNavigate } from "react-router-dom";
@@ -43,18 +43,10 @@ function HomeWrapper() {
 
 function EditorWrapper() {
   const location = useLocation();
-  const { user, setUser } = useSession();
-  const navigate = useNavigate();
-  const onLogout = useCallback(() => {
-    setToken(null);
-    flushSync(() => {
-      setUser(null);
-    });
-    navigate("/login", { replace: true });
-  }, [setUser, navigate]);
-
-  if (location.pathname !== "/editor") return null;
-  return <Editor onLogout={onLogout} />;
+  if (location.pathname !== "/editor") {
+    return null;
+  }
+  return <Editor />;
 }
 
 /** Один экземпляр на всё приложение: иначе при каждом setUser RouterProvider сбрасывался и ломались /login и редиректы. */
