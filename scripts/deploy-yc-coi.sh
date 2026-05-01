@@ -395,7 +395,13 @@ services:
     image: "certbot/certbot"
     container_name: ${APP_NAME}-certbot
     restart: unless-stopped
-    command: sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait \$\${!}; done"
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      trap 'exit 0' TERM INT;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h;
+      done
     volumes:
       - certbot_www:/var/www/certbot
       - certbot_conf:/etc/letsencrypt
