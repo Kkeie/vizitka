@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { getToken } from "../api";
-import BlockCard, { Block } from "./BlockCard";
+import BlockCard from './BlockCard';
+import type { Block } from '../api';
 
 type CreatePayload =
   | { type: "section"; note: string }
