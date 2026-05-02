@@ -11,11 +11,24 @@ import {
   YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX,
 } from "../lib/embed";
 import { getSocialInfo } from '../lib/social-preview';
-import { 
-  TwitterIcon, InstagramIcon, LinkedInIcon, GitHubIcon, 
-  YouTubeIcon, DribbbleIcon, BehanceIcon, TelegramIcon, VKIcon 
-} from './SocialIcons';
-import { getLinkMetadata, getImageUrl } from "../api";
+import {
+  TwitterIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  GitHubIcon,
+  YouTubeIcon,
+  DribbbleIcon,
+  BehanceIcon,
+  TelegramIcon,
+  VKIcon,
+  MaxIcon,
+  DprofileIcon,
+  FigmaIcon,
+  PinterestIcon,
+  TikTokIcon,
+  SpotifyIcon
+} from './SocialIconsWithBg';
+import { getLinkMetadata, getImageUrl, Block } from "../api";
 import type { NoteTextStyle } from "../api";
 import { noteStyleToTextCss } from "../lib/noteStyle";
 import { sanitizeNoteHtml, looksLikeHtml } from "../lib/sanitizeNoteHtml";
@@ -43,21 +56,6 @@ function EditorIframeEdgeDragHandles({ show }: { show: boolean }) {
     </>
   );
 }
-
-export type Block = {
-  id: number;
-  type: "section" | "note" | "link" | "photo" | "video" | "music" | "map" | "social";
-  note?: string | null;
-  noteStyle?: NoteTextStyle | null;
-  linkUrl?: string | null;
-  photoUrl?: string | null;
-  videoUrl?: string | null;
-  musicEmbed?: string | null;
-  mapLat?: number | null;
-  mapLng?: number | null;
-  socialType?: "telegram" | "vk" | "instagram" | "twitter" | "linkedin" | "github" | "youtube" | "dribbble" | "behance" | null;
-  socialUrl?: string | null;
-};
 
 export default function BlockCard({
   b,
@@ -515,13 +513,21 @@ export default function BlockCard({
               case 'youtube': IconComponent = YouTubeIcon; break;
               case 'dribbble': IconComponent = DribbbleIcon; break;
               case 'behance': IconComponent = BehanceIcon; break;
+              case 'max': IconComponent = MaxIcon; break;
+              case 'dprofile': IconComponent = DprofileIcon; break;
+              case 'figma': IconComponent = FigmaIcon; break;
+              case 'pinterest': IconComponent = PinterestIcon; break;
+              case 'tiktok': IconComponent = TikTokIcon; break;
+              case 'spotify': IconComponent = SpotifyIcon; break;
+              default: break;
             }
+
+            if (!IconComponent) return null;
+
             return (
               <a href={b.linkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block', ...scrollableContentStyle }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: socialIconSize, height: socialIconSize, borderRadius: '12px', background: socialInfo.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {IconComponent && <IconComponent width={32} height={32} fill="white" />}
-                  </div>
+                  <IconComponent width={socialIconSize} height={socialIconSize} fill="white" />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)', marginBottom: 4 }}>{socialInfo.name}</div>
                     {socialInfo.username && <div style={{ fontSize: 14, color: 'var(--muted)' }}>{socialInfo.username}</div>}
@@ -656,57 +662,42 @@ export default function BlockCard({
           const platform = b.socialType;
           
           switch (platform) {
-            case 'telegram':
-              IconComponent = TelegramIcon;
-              gradient = 'linear-gradient(135deg, #0088cc 0%, #229ED9 100%)';
-              name = 'Telegram';
-              break;
-            case 'instagram':
-              IconComponent = InstagramIcon;
-              gradient = 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)';
-              name = 'Instagram';
-              break;
-            case 'vk':
-              IconComponent = VKIcon;
-              gradient = 'linear-gradient(135deg, #0077FF 0%, #4680C2 100%)';
-              name = 'VK';
-              break;
-            case 'twitter':
-              IconComponent = TwitterIcon;
-              gradient = 'linear-gradient(135deg, #1DA1F2 0%, #0d8de4 100%)';
-              name = 'Twitter';
-              break;
-            case 'linkedin':
-              IconComponent = LinkedInIcon;
-              gradient = 'linear-gradient(135deg, #0A66C2 0%, #0a5aa5 100%)';
-              name = 'LinkedIn';
-              break;
-            case 'github':
-              IconComponent = GitHubIcon;
-              gradient = 'linear-gradient(135deg, #333 0%, #24292e 100%)';
-              name = 'GitHub';
-              break;
-            case 'youtube':
-              IconComponent = YouTubeIcon;
-              gradient = 'linear-gradient(135deg, #FF0000 0%, #cc0000 100%)';
-              name = 'YouTube';
-              break;
-            case 'dribbble':
-              IconComponent = DribbbleIcon;
-              gradient = 'linear-gradient(135deg, #EA4C89 0%, #d33a72 100%)';
-              name = 'Dribbble';
-              break;
-            case 'behance':
-              IconComponent = BehanceIcon;
-              gradient = 'linear-gradient(135deg, #1769FF 0%, #0f5be5 100%)';
-              name = 'Behance';
-              break;
-            default:
-              return null;
+            case 'telegram': IconComponent = TelegramIcon; name = 'Telegram'; break;
+            case 'instagram': IconComponent = InstagramIcon; name = 'Instagram'; break;
+            case 'vk': IconComponent = VKIcon; name = 'VK'; break;
+            case 'twitter': IconComponent = TwitterIcon; name = 'Twitter'; break;
+            case 'linkedin': IconComponent = LinkedInIcon; name = 'LinkedIn'; break;
+            case 'github': IconComponent = GitHubIcon; name = 'GitHub'; break;
+            case 'youtube': IconComponent = YouTubeIcon; name = 'YouTube'; break;
+            case 'dribbble': IconComponent = DribbbleIcon; name = 'Dribbble'; break;
+            case 'behance': IconComponent = BehanceIcon; name = 'Behance'; break;
+            case 'max': IconComponent = MaxIcon; name = 'Max'; break;
+            case 'dprofile': IconComponent = DprofileIcon; name = 'Dprofile'; break;
+            case 'figma': IconComponent = FigmaIcon; name = 'Figma'; break;
+            case 'pinterest': IconComponent = PinterestIcon; name = 'Pinterest'; break;
+            case 'tiktok': IconComponent = TikTokIcon; name = 'TikTok'; break;
+            case 'spotify': IconComponent = SpotifyIcon; name = 'Spotify'; break;
+            default: return null;
           }
           
-          const username = b.socialUrl.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/^t\.me\//, '').replace(/^vk\.com\//, '').replace(/^instagram\.com\//, '').replace(/^twitter\.com\//, '').replace(/^linkedin\.com\/in\//, '').replace(/^github\.com\//, '').replace(/^youtube\.com\/@/, '').replace(/^dribbble\.com\//, '').replace(/^behance\.net\//, '');
-          
+          const username = b.socialUrl.replace(/^https?:\/\//, '')
+              .replace(/^www\./, '')
+              .replace(/^t\.me\//, '')
+              .replace(/^vk\.com\//, '')
+              .replace(/^instagram\.com\//, '')
+              .replace(/^twitter\.com\//, '')
+              .replace(/^linkedin\.com\/in\//, '')
+              .replace(/^github\.com\//, '')
+              .replace(/^youtube\.com\/@/, '')
+              .replace(/^dribbble\.com\//, '')
+              .replace(/^behance\.net\//, '')
+              .replace(/^max\.ru\//, '')
+              .replace(/^dprofile\.ru\//, '')
+              .replace(/^figma\.com\/@/, '')
+              .replace(/^pinterest\.com\//, '')
+              .replace(/^tiktok\.com\/@/, '')
+              .replace(/^spotify\.com\//, '');     
+
           const isVertical = colSpan === 1;
           
           return (
@@ -717,19 +708,7 @@ export default function BlockCard({
                 alignItems: isVertical ? 'flex-start' : 'center',
                 gap: 12
               }}>
-                <div style={{ 
-                  width: socialIconSize, 
-                  height: socialIconSize, 
-                  borderRadius: '12px', 
-                  background: gradient, 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  flexShrink: 0,
-                  margin: isVertical ? 0 : undefined
-                }}>
-                  {IconComponent && <IconComponent width={32} height={32} fill="white" />}
-                </div>
+                <IconComponent width={socialIconSize} height={socialIconSize} fill="white" />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)', marginBottom: 4 }}>{name}</div>
                   <div style={{ fontSize: 14, color: 'var(--muted)' }}>{username || 'Профиль'}</div>

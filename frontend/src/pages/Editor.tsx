@@ -954,16 +954,52 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           }
           if (!url.startsWith("http://") && !url.startsWith("https://")) {
             const platform = data.socialType;
-            if (platform === "telegram") url = `https://t.me/${url.replace(/^@/, "")}`;
-            else if (platform === "vk") url = `https://vk.com/${url}`;
-            else if (platform === "instagram") url = `https://instagram.com/${url.replace(/^@/, "")}`;
-            else if (platform === "twitter") url = `https://twitter.com/${url.replace(/^@/, "")}`;
-            else if (platform === "linkedin") url = `https://linkedin.com/in/${url}`;
-            else if (platform === "github") url = `https://github.com/${url}`;
-            else if (platform === "youtube") url = `https://youtube.com/@${url.replace(/^@/, "")}`;
-            else if (platform === "dribbble") url = `https://dribbble.com/${url}`;
-            else if (platform === "behance") url = `https://behance.net/${url}`;
-            else url = `https://${url}`;
+            switch (platform) {
+              case "telegram":
+                url = `https://t.me/${url.replace(/^@/, "")}`;
+                break;
+              case "vk":
+                url = `https://vk.com/${url}`;
+                break;
+              case "max":
+                url = `https://max.ru/${url}`;
+                break;
+              case "github":
+                url = `https://github.com/${url}`;
+                break;
+              case "behance":
+                url = `https://behance.net/${url}`;
+                break;
+              case "dprofile":
+                url = `https://dprofile.ru/${url}`;
+                break;
+              case "figma":
+                url = `https://figma.com/@${url}`;
+                break;
+              case "pinterest":
+                url = `https://pinterest.com/${url}`;
+                break;
+              case "instagram":
+                url = `https://instagram.com/${url.replace(/^@/, "")}`;
+                break;
+              case "youtube":
+                url = `https://youtube.com/@${url.replace(/^@/, "")}`;
+                break;
+              case "tiktok":
+                url = `https://tiktok.com/@${url.replace(/^@/, "")}`;
+                break;
+              case "linkedin":
+                url = `https://linkedin.com/in/${url}`;
+                break;
+              case "twitter":
+                url = `https://twitter.com/${url.replace(/^@/, "")}`;
+                break;
+              case "spotify":
+                url = `https://spotify.com/${url}`;
+                break;
+              default:
+                url = `https://${url}`;
+            }
           }
         try { new URL(url); } catch { throw new Error("invalid_url"); }
           const newBlock = await createBlock({

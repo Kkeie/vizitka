@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import {
   TelegramIcon, VKIcon, YouTubeIcon, InstagramIcon, GitHubIcon, LinkedInIcon,
   TwitterIcon, DribbbleIcon, BehanceIcon,
-} from "../SocialIcons";
+  MaxIcon, DprofileIcon, FigmaIcon, PinterestIcon, TikTokIcon, SpotifyIcon  // новые иконки
+} from "../SocialIconsWithBg";
 import CongratsStep from "./CongratsStep";
 
-type SocialType = "telegram" | "vk" | "instagram" | "twitter" | "linkedin" | "github" | "youtube" | "dribbble" | "behance";
+type SocialType = "telegram" | "vk" | "max" | "github" | "behance" | "dprofile" | "figma" | "pinterest" | "instagram" | "youtube" | "tiktok" | "linkedin" | "twitter" | "spotify";
 
 const SOCIAL_OPTIONS: Array<{
   type: SocialType;
@@ -14,15 +15,20 @@ const SOCIAL_OPTIONS: Array<{
   color: string;
   placeholder: string;
 }> = [
-  { type: "telegram", label: "Telegram", icon: TelegramIcon, color: "#0088cc", placeholder: "@username" },
+  { type: "telegram", label: "Telegram", icon: TelegramIcon, color: "#419FD9", placeholder: "@username" },
   { type: "vk", label: "VK", icon: VKIcon, color: "#0077FF", placeholder: "username" },
-  { type: "youtube", label: "YouTube", icon: YouTubeIcon, color: "#FF0000", placeholder: "@channel or link" },
-  { type: "instagram", label: "Instagram", icon: InstagramIcon, color: "#E4405F", placeholder: "@username" },
+  { type: "max", label: "Max", icon: MaxIcon, color: "#000000", placeholder: "username" },
   { type: "github", label: "GitHub", icon: GitHubIcon, color: "#24292e", placeholder: "username" },
+  { type: "behance", label: "Behance", icon: BehanceIcon, color: "#1769FF", placeholder: "username" },
+  { type: "dprofile", label: "Dprofile", icon: DprofileIcon, color: "#101010", placeholder: "username" },
+  { type: "figma", label: "Figma", icon: FigmaIcon, color: "#161616", placeholder: "username" },
+  { type: "pinterest", label: "Pinterest", icon: PinterestIcon, color: "#cb2027", placeholder: "username" },
+  { type: "instagram", label: "Instagram", icon: InstagramIcon, color: "#E4405F", placeholder: "@username" },
+  { type: "youtube", label: "YouTube", icon: YouTubeIcon, color: "#FF0000", placeholder: "@channel or link" },
+  { type: "tiktok", label: "TikTok", icon: TikTokIcon, color: "#070201", placeholder: "@username" },
   { type: "linkedin", label: "LinkedIn", icon: LinkedInIcon, color: "#0A66C2", placeholder: "username" },
   { type: "twitter", label: "Twitter", icon: TwitterIcon, color: "#1DA1F2", placeholder: "@username" },
-  { type: "dribbble", label: "Dribbble", icon: DribbbleIcon, color: "#EA4C89", placeholder: "username" },
-  { type: "behance", label: "Behance", icon: BehanceIcon, color: "#1769FF", placeholder: "username" },
+  { type: "spotify", label: "Spotify", icon: SpotifyIcon, color: "#3bd75f", placeholder: "artist/url" },
 ];
 
 interface OnboardingInEditorProps {
@@ -91,9 +97,7 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
                 const value = socialValues[opt.type] || "";
                 return (
                   <div key={opt.type} className="oe-row">
-                    <div className="oe-icon" style={{ backgroundColor: opt.color }}>
-                      <Icon width={24} height={24} fill="white" />
-                    </div>
+                    <Icon width={44} height={44} fill="white" />
                     <div className="oe-input-wrapper">
                       <input
                         type="text"
