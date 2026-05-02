@@ -19,6 +19,7 @@ import {
   setToken,
   BlockGridAnchor,
   checkUsername,
+  getTodayViews,
 } from "../api";
 import Avatar from "../components/Avatar";
 import MenuCard from "../components/MenuCard";
@@ -173,6 +174,9 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   const [showPasswordCard, setShowPasswordCard] = useState(false);
   const [passwordAnchor, setPasswordAnchor] = useState<DOMRect | null>(null);
+
+  const [todayViews, setTodayViews] = useState<number | null>(null);
+  const [viewsLoading, setViewsLoading] = useState(false);
 
   // Для быстрого добавления блоков
   const [inlineInput, setInlineInput] = useState<{
@@ -434,6 +438,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     return () => document.removeEventListener("keydown", handleEscape);
   }, []);
 
+  useEffect(() => {
+    getTodayViews()
+      .then(setTodayViews)
+      .catch(err => console.error("Failed to load today views:", err));
+  }, []);
+
   const syncLayoutFromBlockSizes = useCallback((newBlockSizes: BlockSizes) => {
     // Собираем блоки, у которых есть якорь для текущего breakpoint
       const blocksWithAnchor = blocks
@@ -543,6 +553,18 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         }, 0);
       });
   }, [blocks, currentOrder, breakpoint, currentGridColumns, cellSize, currentGridGap, gridRef, syncLayoutFromBlockSizes]);
+
+  const refreshViews = useCallback(async () => {
+    setViewsLoading(true);
+    try {
+      const views = await getTodayViews();
+      setTodayViews(views);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setViewsLoading(false);
+    }
+  }, []);
 
   // Обработчики перетаскивания
   const handleDragStart = (event: DragStartEvent) => {
@@ -1426,55 +1448,91 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         </div>
       )}
 
-      {/* Фиксированная круглая кнопка настроек в левом нижнем углу */}
+      {/* Фиксированная панель слева внизу: настройки + счётчик просмотров */}
       {!showOnboardingPanel && (
-        <button
-          data-menu-button
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            if (showProfileMenu) {
-              // Если меню уже открыто – закрываем его и все подменю
-              setShowProfileMenu(false);
-              setActiveInlineField(null);
-              setInlineAnchor(null);
-            } else {
-              const rect = e.currentTarget.getBoundingClientRect();
-              setProfileMenuAnchor(rect);
-              setShowProfileMenu(true);
-            }
-          }}
+        <div
           style={{
             position: "fixed",
             bottom: "24px",
             left: "24px",
-            width: "40px",
-            height: "40px",
-            borderRadius: "50%",
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            transition: "background 0.2s",
+            gap: "8px",
             zIndex: 1000,
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(0,0,0,0.08)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-          }}
         >
-          <svg width="28" height="28" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
-            <rect x="10" y="15" width="30" height="3.5" rx="1.75" fill="black" />
-            <circle cx="17.5" cy="16.75" r="5.5" fill="black" />
-            <circle cx="17.5" cy="16.75" r="2.5" fill="white" />
-            <rect x="10" y="26.5" width="30" height="3.5" rx="1.75" fill="black" />
-            <circle cx="31.6" cy="28.25" r="5.5" fill="black" />
-            <circle cx="31.6" cy="28.25" r="2.5" fill="white" />
-          </svg>
-        </button>
+          {/* Кнопка настроек (оставляем как есть) */}
+          <button
+            data-menu-button
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              if (showProfileMenu) {
+                setShowProfileMenu(false);
+                setActiveInlineField(null);
+                setInlineAnchor(null);
+              } else {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setProfileMenuAnchor(rect);
+                setShowProfileMenu(true);
+              }
+            }}
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "background 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(0,0,0,0.08)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            <svg width="28" height="28" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+              <rect x="10" y="15" width="30" height="3.5" rx="1.75" fill="black" />
+              <circle cx="17.5" cy="16.75" r="5.5" fill="black" />
+              <circle cx="17.5" cy="16.75" r="2.5" fill="white" />
+              <rect x="10" y="26.5" width="30" height="3.5" rx="1.75" fill="black" />
+              <circle cx="31.6" cy="28.25" r="5.5" fill="black" />
+              <circle cx="31.6" cy="28.25" r="2.5" fill="white" />
+            </svg>
+          </button>
+
+          {/* Вертикальный разделитель */}
+          <div style={{ width: 1, height: 24, background: "#ccc" }} />
+          
+          {todayViews !== null && (
+            <div
+              style={{
+                background: "#f0f0f0",
+                borderRadius: "20px",
+                padding: "6px 14px",
+                fontSize: "13px",
+                fontWeight: 500,
+                color: "#333",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                cursor: "pointer",
+                transition: "background 0.2s",
+              }}
+              onClick={refreshViews}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#e6e6e6")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#f0f0f0")}
+              title="Просмотры за день"
+            >
+              <span>👁</span>
+              <span>{todayViews}</span>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Главное меню редактирования — появляется над кнопкой */}
