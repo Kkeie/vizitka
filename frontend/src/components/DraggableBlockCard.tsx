@@ -1,8 +1,8 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useDraggable } from '@dnd-kit/core';
-import type { BlockGridAnchor, BlockGridSize, NoteTextStyle } from '../api';
-import BlockCard, { Block } from './BlockCard';
+import type { BlockGridAnchor, BlockGridSize, NoteTextStyle, Block } from '../api';
+import BlockCard from './BlockCard';
 import { clampGridSize, getGridRowSpan, getResolvedGridSize } from '../lib/block-grid';
 import SizeMenu from './SizeMenu';
 import TextStyleMenu from './TextStyleMenu';
