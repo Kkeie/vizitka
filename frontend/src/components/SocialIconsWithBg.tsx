@@ -58,7 +58,7 @@ export const LinkedInIcon = (props: React.SVGProps<SVGSVGElement>) => {
       </defs>
       <rect width="100%" height="100%" rx="25%" fill="#0A66C2" />
       <g clipPath="url(#linkedinClip)" transform={`translate(${translate}, ${translate}) scale(${scale})`}>
-        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22" />
+        <path d="M 20.447 20.452 L 16.893 20.452 L 16.893 14.883 C 16.893 13.555 16.866 11.846 15.041 11.846 C 13.188 11.846 12.905 13.291 12.905 14.785 L 12.905 20.452 L 9.351 20.452 L 9.351 9 L 12.765 9 L 12.765 10.561 L 12.811 10.561 C 13.288 9.661 14.448 8.711 16.181 8.711 C 19.782 8.711 20.448 11.081 20.448 14.166 L 20.448 20.452 L 20.447 20.452 Z M 5.337 7.433 C 4.193 7.433 3.274 6.507 3.274 5.368 C 3.274 4.23 4.194 3.305 5.337 3.305 C 6.477 3.305 7.401 4.23 7.401 5.368 C 7.401 6.507 6.476 7.433 5.337 7.433 Z M 7.119 20.452 L 3.555 20.452 L 3.555 9 L 7.119 9 L 7.119 20.452 Z" />
       </g>
     </svg>
   );
@@ -261,10 +261,10 @@ export const SpotifyIcon = (props: React.SVGProps<SVGSVGElement>) => (
     </defs>
     <rect width="100%" height="100%" rx="25%" fill="#3bd75f" />
     <g clipPath="url(#spotifyClip)">    <circle cx="256" cy="256" r="192" fill="#fff"></circle>
-      <g fill="none" stroke="#3bd75f" stroke-linecap="round">
-        <path stroke-width="36" d="m141 195c75-20 164-15 238 24"></path>
-        <path stroke-width="31" d="m152 257c61-17 144-13 203 24"></path>
-        <path stroke-width="24" d="m156 315c54-12 116-17 178 20"></path>
+      <g fill="none" stroke="#3bd75f" strokeLinecap="round">
+        <path strokeWidth="36" d="m141 195c75-20 164-15 238 24"></path>
+        <path strokeWidth="31" d="m152 257c61-17 144-13 203 24"></path>
+        <path strokeWidth="24" d="m156 315c54-12 116-17 178 20"></path>
       </g>
     </g>
   </svg>
