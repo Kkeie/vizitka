@@ -547,3 +547,15 @@ export async function changePassword(currentPassword: string, newPassword: strin
   const data = await safeJsonParse<{ ok: boolean; token: string }>(r);
   return { token: data.token };
 }
+
+export async function getTodayViews(): Promise<number> {
+  const r = await fetch(`${API}/stats/today`, {
+    headers: authHeaders(),
+  });
+  if (!r.ok) {
+    if (r.status === 401) setToken(null);
+    throw new Error("failed_to_get_views");
+  }
+  const data = await r.json();
+  return data.today;
+}

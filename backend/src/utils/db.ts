@@ -197,6 +197,16 @@ export function initDatabase() {
       UPDATE Block SET updatedAt = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END
   `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS daily_views (
+      user_id INTEGER NOT NULL,
+      view_date TEXT NOT NULL,   -- формат 'YYYY-MM-DD'
+      count INTEGER DEFAULT 1,
+      PRIMARY KEY (user_id, view_date)
+    );
+    CREATE INDEX IF NOT EXISTS idx_daily_views_user_date ON daily_views(user_id, view_date);
+  `);
 }
 
 // Инициализируем БД при импорте

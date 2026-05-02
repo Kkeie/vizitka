@@ -11,6 +11,7 @@ import uploadsRouter from "./routes/uploads";
 import profileRouter from "./routes/profile";
 import metadataRouter from "./routes/metadata";
 import qrRouter from "./routes/qr";
+import statsRouter from "./routes/stats";
 
 const app = express();
 
@@ -94,6 +95,7 @@ app.use("/api/storage", uploadsRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/metadata", metadataRouter);
 app.use("/api/qr", qrRouter);
+app.use("/api/stats", statsRouter);
 
 // обработчик 404 для /api/*
 app.use("/api", (_req, res) => res.status(404).json({ error: "not_found" }));
