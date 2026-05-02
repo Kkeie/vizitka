@@ -1,4 +1,4 @@
-export type SupportedSocial = 'telegram' | 'instagram' | 'vk' | 'twitter' | 'linkedin' | 'github' | 'youtube' | 'dribbble' | 'behance';
+export type SupportedSocial = 'telegram' | 'instagram' | 'vk' | 'twitter' | 'linkedin' | 'github' | 'youtube' | 'dribbble' | 'behance' | 'max' | 'dprofile' | 'figma' | 'pinterest' | 'tiktok' | 'spotify';
 
 export interface SocialInfo {
   platform: SupportedSocial | 'other';
@@ -19,6 +19,13 @@ const SOCIAL_DATA: Record<SupportedSocial, Omit<SocialInfo, 'platform' | 'userna
   youtube: { name: 'YouTube', icon: 'youtube', gradient: 'linear-gradient(135deg, #FF0000 0%, #cc0000 100%)', urlPrefix: 'https://youtube.com/' },
   dribbble: { name: 'Dribbble', icon: 'dribbble', gradient: 'linear-gradient(135deg, #EA4C89 0%, #d33a72 100%)', urlPrefix: 'https://dribbble.com/' },
   behance: { name: 'Behance', icon: 'behance', gradient: 'linear-gradient(135deg, #1769FF 0%, #0f5be5 100%)', urlPrefix: 'https://behance.net/' },
+  // НОВЫЕ ПЛАТФОРМЫ
+  max: { name: 'Max', icon: 'max', gradient: 'linear-gradient(135deg, #000000 0%, #1a1a1a 100%)', urlPrefix: 'https://max.ru/' },
+  dprofile: { name: 'Dprofile', icon: 'dprofile', gradient: 'linear-gradient(135deg, #1E2A3A 0%, #2c3e50 100%)', urlPrefix: 'https://dprofile.ru/' },
+  figma: { name: 'Figma', icon: 'figma', gradient: 'linear-gradient(135deg, #0ACF83 0%, #00a86b 100%)', urlPrefix: 'https://figma.com/@' },
+  pinterest: { name: 'Pinterest', icon: 'pinterest', gradient: 'linear-gradient(135deg, #E60023 0%, #bd081c 100%)', urlPrefix: 'https://pinterest.com/' },
+  tiktok: { name: 'TikTok', icon: 'tiktok', gradient: 'linear-gradient(135deg, #000000 0%, #2b2b2b 100%)', urlPrefix: 'https://tiktok.com/@' },
+  spotify: { name: 'Spotify', icon: 'spotify', gradient: 'linear-gradient(135deg, #1DB954 0%, #1ed760 100%)', urlPrefix: 'https://spotify.com/' },
 };
 
 export function detectSocialPlatform(url: string): SupportedSocial | 'other' {
@@ -33,6 +40,13 @@ export function detectSocialPlatform(url: string): SupportedSocial | 'other' {
     if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) return 'youtube';
     if (hostname.includes('dribbble.com')) return 'dribbble';
     if (hostname.includes('behance.net')) return 'behance';
+    // НОВЫЕ ДОМЕНЫ
+    if (hostname.includes('max.ru')) return 'max';
+    if (hostname.includes('dprofile.ru')) return 'dprofile';
+    if (hostname.includes('figma.com')) return 'figma';
+    if (hostname.includes('pinterest.com')) return 'pinterest';
+    if (hostname.includes('tiktok.com')) return 'tiktok';
+    if (hostname.includes('spotify.com')) return 'spotify';
     return 'other';
   } catch {
     return 'other';
@@ -57,6 +71,12 @@ export function getSocialInfo(url: string): SocialInfo {
       case 'vk':
       case 'twitter':
       case 'github':
+      case 'max':
+      case 'dprofile':
+      case 'figma':
+      case 'pinterest':
+      case 'tiktok':
+      case 'spotify':
         username = path.split('/')[0];
         break;
       case 'linkedin':
