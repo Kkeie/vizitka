@@ -15,6 +15,7 @@ const uploads_1 = __importDefault(require("./routes/uploads"));
 const profile_1 = __importDefault(require("./routes/profile"));
 const metadata_1 = __importDefault(require("./routes/metadata"));
 const qr_1 = __importDefault(require("./routes/qr"));
+const stats_1 = __importDefault(require("./routes/stats"));
 const app = (0, express_1.default)();
 // CORS настройки для production и development
 // Временно разрешаем все origins для отладки, потом можно ограничить
@@ -84,6 +85,7 @@ app.use("/api/storage", uploads_1.default);
 app.use("/api/profile", profile_1.default);
 app.use("/api/metadata", metadata_1.default);
 app.use("/api/qr", qr_1.default);
+app.use("/api/stats", stats_1.default);
 // обработчик 404 для /api/*
 app.use("/api", (_req, res) => res.status(404).json({ error: "not_found" }));
 // Глобальный обработчик ошибок — последний middleware

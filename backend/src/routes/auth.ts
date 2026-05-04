@@ -8,18 +8,31 @@ const router = Router();
 
 /**
  * POST /api/auth/register
- * { username, password }
+ * { username, email, password }
  */
 router.post("/register", async (req, res) => {
   try {
-    const { username, password } = req.body as { username?: string; password?: string };
-    console.log("[REGISTER] Attempt:", { username: username?.substring(0, 3) + "***" });
+    const { username, email, password } = req.body as {
+      username?: string;
+      email?: string;
+      password?: string;
+    };
+    console.log("[REGISTER] Attempt:", {
+      username: username?.substring(0, 3) + "***",
+      email: email?.substring(0, 3) + "***",
+    });
     
-    if (!username || !password) return res.status(400).json({ error: "username_and_password_required" });
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: "username_email_and_password_required" });
+    }
     const uname = username.trim().toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
     if (uname.length < 3) return res.status(400).json({ error: "username_too_short" });
     if (!isValidUsernameFormat(uname)) {
       return res.status(400).json({ error: "invalid_username_format", message: "Only latin letters, numbers and underscore are allowed" });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: "invalid_email_format" });
     }
     if (password.length < 4) return res.status(400).json({ error: "password_too_short" });
 
@@ -45,6 +58,13 @@ router.post("/register", async (req, res) => {
       });
     }
 
+    const existingUserByEmail = db
+      .prepare("SELECT id FROM User WHERE email = ? COLLATE NOCASE")
+      .get(normalizedEmail);
+    if (existingUserByEmail) {
+      return res.status(409).json({ error: "email_taken" });
+    }
+
     const passwordHash = await hashPassword(password);
 
     // Создаем пользователя и профиль в транзакции
@@ -53,7 +73,7 @@ router.post("/register", async (req, res) => {
     const selectUser = db.prepare("SELECT createdAt FROM User WHERE id = ?");
     
     const transaction = db.transaction(() => {
-      const userResult = insertUser.run(`${uname}@local`, passwordHash);
+      const userResult = insertUser.run(normalizedEmail, passwordHash);
       const userId = userResult.lastInsertRowid as number;
       const profileResult = insertProfile.run(uname, uname, userId);
       const profileId = profileResult.lastInsertRowid as number;
@@ -100,21 +120,24 @@ router.post("/register", async (req, res) => {
 
 /**
  * POST /api/auth/login
- * { username, password }
+ * { email, password }
  */
 router.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body as { username?: string; password?: string };
-    if (!username || !password) return res.status(400).json({ error: "username_and_password_required" });
-    const uname = username.trim().toLowerCase();
+    const { email, password } = req.body as { email?: string; password?: string };
+    if (!email || !password) return res.status(400).json({ error: "email_and_password_required" });
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({ error: "invalid_email_format" });
+    }
 
-    // Получаем профиль с пользователем
+    // Получаем пользователя с профилем по email
     const profile = db.prepare(`
       SELECT p.*, u.id as userId, u.passwordHash, u.createdAt as userCreatedAt
       FROM Profile p
       JOIN User u ON p.userId = u.id
-      WHERE p.username = ?
-    `).get(uname) as any;
+      WHERE u.email = ? COLLATE NOCASE
+    `).get(normalizedEmail) as any;
 
     if (!profile || !profile.passwordHash) return res.status(401).json({ error: "invalid_credentials" });
 
@@ -123,7 +146,7 @@ router.post("/login", async (req, res) => {
 
     const token = signToken({
       id: profile.userId,
-      username: uname,
+      username: profile.username,
       userCreatedAt: profile.userCreatedAt,
       passwordHash: profile.passwordHash,
     });
@@ -131,7 +154,7 @@ router.post("/login", async (req, res) => {
       token,
       user: {
         id: profile.userId,
-        username: uname,
+        username: profile.username,
         createdAt: profile.userCreatedAt,
         profile: {
           id: profile.id,

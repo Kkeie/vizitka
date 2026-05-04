@@ -8,19 +8,27 @@ const constants_1 = require("../constants");
 const router = (0, express_1.Router)();
 /**
  * POST /api/auth/register
- * { username, password }
+ * { username, email, password }
  */
 router.post("/register", async (req, res) => {
     try {
-        const { username, password } = req.body;
-        console.log("[REGISTER] Attempt:", { username: (username === null || username === void 0 ? void 0 : username.substring(0, 3)) + "***" });
-        if (!username || !password)
-            return res.status(400).json({ error: "username_and_password_required" });
+        const { username, email, password } = req.body;
+        console.log("[REGISTER] Attempt:", {
+            username: (username === null || username === void 0 ? void 0 : username.substring(0, 3)) + "***",
+            email: (email === null || email === void 0 ? void 0 : email.substring(0, 3)) + "***",
+        });
+        if (!username || !email || !password) {
+            return res.status(400).json({ error: "username_email_and_password_required" });
+        }
         const uname = username.trim().toLowerCase();
+        const normalizedEmail = email.trim().toLowerCase();
         if (uname.length < 3)
             return res.status(400).json({ error: "username_too_short" });
         if (!(0, usernameGenerator_1.isValidUsernameFormat)(uname)) {
             return res.status(400).json({ error: "invalid_username_format", message: "Only latin letters, numbers and underscore are allowed" });
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+            return res.status(400).json({ error: "invalid_email_format" });
         }
         if (password.length < 4)
             return res.status(400).json({ error: "password_too_short" });
@@ -44,13 +52,19 @@ router.post("/register", async (req, res) => {
                 suggestions,
             });
         }
+        const existingUserByEmail = db_1.db
+            .prepare("SELECT id FROM User WHERE email = ? COLLATE NOCASE")
+            .get(normalizedEmail);
+        if (existingUserByEmail) {
+            return res.status(409).json({ error: "email_taken" });
+        }
         const passwordHash = await (0, auth_1.hashPassword)(password);
         // Создаем пользователя и профиль в транзакции
         const insertUser = db_1.db.prepare("INSERT INTO User (email, passwordHash) VALUES (?, ?)");
         const insertProfile = db_1.db.prepare("INSERT INTO Profile (username, name, userId) VALUES (?, ?, ?)");
         const selectUser = db_1.db.prepare("SELECT createdAt FROM User WHERE id = ?");
         const transaction = db_1.db.transaction(() => {
-            const userResult = insertUser.run(`${uname}@local`, passwordHash);
+            const userResult = insertUser.run(normalizedEmail, passwordHash);
             const userId = userResult.lastInsertRowid;
             const profileResult = insertProfile.run(uname, uname, userId);
             const profileId = profileResult.lastInsertRowid;
@@ -94,21 +108,24 @@ router.post("/register", async (req, res) => {
 });
 /**
  * POST /api/auth/login
- * { username, password }
+ * { email, password }
  */
 router.post("/login", async (req, res) => {
     try {
-        const { username, password } = req.body;
-        if (!username || !password)
-            return res.status(400).json({ error: "username_and_password_required" });
-        const uname = username.trim().toLowerCase();
-        // Получаем профиль с пользователем
+        const { email, password } = req.body;
+        if (!email || !password)
+            return res.status(400).json({ error: "email_and_password_required" });
+        const normalizedEmail = email.trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+            return res.status(400).json({ error: "invalid_email_format" });
+        }
+        // Получаем пользователя с профилем по email
         const profile = db_1.db.prepare(`
       SELECT p.*, u.id as userId, u.passwordHash, u.createdAt as userCreatedAt
       FROM Profile p
       JOIN User u ON p.userId = u.id
-      WHERE p.username = ?
-    `).get(uname);
+      WHERE u.email = ? COLLATE NOCASE
+    `).get(normalizedEmail);
         if (!profile || !profile.passwordHash)
             return res.status(401).json({ error: "invalid_credentials" });
         const ok = await (0, auth_1.verifyPassword)(password, profile.passwordHash);
@@ -116,7 +133,7 @@ router.post("/login", async (req, res) => {
             return res.status(401).json({ error: "invalid_credentials" });
         const token = (0, auth_1.signToken)({
             id: profile.userId,
-            username: uname,
+            username: profile.username,
             userCreatedAt: profile.userCreatedAt,
             passwordHash: profile.passwordHash,
         });
@@ -124,7 +141,7 @@ router.post("/login", async (req, res) => {
             token,
             user: {
                 id: profile.userId,
-                username: uname,
+                username: profile.username,
                 createdAt: profile.userCreatedAt,
                 profile: {
                     id: profile.id,
@@ -166,5 +183,39 @@ router.post("/check-username", async (req, res) => {
     // генерируем предложения на основе исходного ввода (с поддержкой кириллицы и т.д.)
     const suggestions = await (0, usernameGenerator_1.findAvailableUsernames)(db_1.db, raw, 42);
     return res.json({ available: false, suggestions });
+});
+router.post("/change-password", auth_1.requireAuth, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: "current_password_and_new_password_required" });
+        }
+        if (newPassword.length < 4) {
+            return res.status(400).json({ error: "new_password_too_short" });
+        }
+        const userId = req.user.id;
+        const user = db_1.db.prepare("SELECT id, passwordHash, createdAt FROM User WHERE id = ?").get(userId);
+        if (!user)
+            return res.status(404).json({ error: "user_not_found" });
+        const isValid = await (0, auth_1.verifyPassword)(currentPassword, user.passwordHash);
+        if (!isValid)
+            return res.status(401).json({ error: "invalid_current_password" });
+        const newHash = await (0, auth_1.hashPassword)(newPassword);
+        db_1.db.prepare("UPDATE User SET passwordHash = ? WHERE id = ?").run(newHash, userId);
+        // Получаем username для нового токена
+        const profile = db_1.db.prepare("SELECT username FROM Profile WHERE userId = ?").get(userId);
+        const username = (profile === null || profile === void 0 ? void 0 : profile.username) || req.user.username;
+        const newToken = (0, auth_1.signToken)({
+            id: userId,
+            username,
+            userCreatedAt: user.createdAt,
+            passwordHash: newHash,
+        });
+        res.json({ ok: true, token: newToken });
+    }
+    catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "internal_error" });
+    }
 });
 exports.default = router;

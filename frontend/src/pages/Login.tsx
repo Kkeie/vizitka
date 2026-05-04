@@ -7,7 +7,7 @@ import "./LoginPage.css";
 
 export default function Login() {
   const { user, authReady, setUser: onAuthed } = useSession();
-  const [username, setUsername] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [err, setErr] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -18,7 +18,7 @@ export default function Login() {
     setErr(null);
     setLoading(true);
     try {
-      const { user } = await login(username, password);
+      const { user } = await login(email, password);
       onAuthed(user);
       nav("/editor");
     } catch (error: unknown) {
@@ -31,7 +31,7 @@ export default function Login() {
       } else if (errorMessage === "network_error") {
         setErr("Could not connect to the API. Make sure the backend is running and reachable.");
       } else {
-        setErr("Wrong username or password");
+        setErr("Wrong email or password");
       }
     } finally {
       setLoading(false);
@@ -68,13 +68,13 @@ export default function Login() {
             <div className="login-bento__row">
               <input
                 className="login-bento__input"
-                name="username"
-                type="text"
+                name="email"
+                type="email"
                 inputMode="email"
-                autoComplete="username"
+                autoComplete="email"
                 placeholder="Email address"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 autoFocus
                 spellCheck={false}

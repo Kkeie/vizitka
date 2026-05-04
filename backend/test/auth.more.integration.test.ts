@@ -10,9 +10,10 @@ import { register, auth, login, uniqueName } from "./helpers";
 describe("Регистрация — поведение, которое должен заметить пользователь", () => {
   it("ник сохраняется в нижнем регистре, если ввести буквы по-разному", async () => {
     const base = uniqueName("MiXeD");
+    const email = `${base}@example.test`;
     const res = await request(app)
       .post("/api/auth/register")
-      .send({ username: base.toUpperCase(), password: "password123" });
+      .send({ username: base.toUpperCase(), email, password: "password123" });
     expect(res.status).toBe(200);
     expect(res.body.user.username).toBe(base.toLowerCase());
   });
@@ -20,13 +21,17 @@ describe("Регистрация — поведение, которое долж
   it("нельзя зарегистрироваться с символом @ в нике — сервер отклоняет формат", async () => {
     const res = await request(app)
       .post("/api/auth/register")
-      .send({ username: "bad@nick", password: "password123" });
+      .send({ username: "bad@nick", email: "badnick@example.test", password: "password123" });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("invalid_username_format");
   });
 
   it("зарезервированное слово «login» как ник — как будто ник занят (нужно другое имя)", async () => {
-    const res = await request(app).post("/api/auth/register").send({ username: "login", password: "password123" });
+    const res = await request(app).post("/api/auth/register").send({
+      username: "login",
+      email: `login_${Date.now()}@example.test`,
+      password: "password123",
+    });
     expect(res.status).toBe(409);
     expect(res.body.error).toBe("username_taken");
     expect(Array.isArray(res.body.suggestions)).toBe(true);
@@ -35,7 +40,9 @@ describe("Регистрация — поведение, которое долж
 
   it("после успешной регистрации выдаётся длинная строка-токен — это «пропуск» в личный кабинет", async () => {
     const u = uniqueName("tok");
-    const res = await request(app).post("/api/auth/register").send({ username: u, password: "password123" });
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({ username: u, email: `${u}@example.test`, password: "password123" });
     expect(res.status).toBe(200);
     expect(res.body.token.length).toBeGreaterThan(20);
     const me = await request(app).get("/api/user/me").set(auth(res.body.token));
@@ -47,28 +54,30 @@ describe("Вход — защита от пустых полей и неверн
   it("если не передать логин и пароль вообще — сервер просит заполнить поля", async () => {
     const res = await request(app).post("/api/auth/login").send({});
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe("username_and_password_required");
+    expect(res.body.error).toBe("email_and_password_required");
   });
 
   it("если передать только логин без пароля — тоже ошибка «нужны оба поля»", async () => {
-    const res = await request(app).post("/api/auth/login").send({ username: "someone" });
+    const res = await request(app).post("/api/auth/login").send({ email: "someone@example.test" });
     expect(res.status).toBe(400);
-    expect(res.body.error).toBe("username_and_password_required");
+    expect(res.body.error).toBe("email_and_password_required");
   });
 
   it("пароль можно ввести с другим регистром букв в логине — ищется тот же ник в базе", async () => {
     const u = uniqueName("case_login");
-    await register(app, u, "secret5678");
-    const res = await login(app, u.toUpperCase(), "secret5678");
+    const email = `${u}@example.test`;
+    await register(app, u, email, "secret5678");
+    const res = await login(app, email.toUpperCase(), "secret5678");
     expect(res.status).toBe(200);
     expect(res.token).toBeTruthy();
   });
 
   it("один и тот же человек может войти повторно — каждый раз выдаётся новый токен (сессия обновляется)", async () => {
     const u = uniqueName("twice");
-    await register(app, u, "password123");
-    const a = await login(app, u, "password123");
-    const b = await login(app, u, "password123");
+    const email = `${u}@example.test`;
+    await register(app, u, email, "password123");
+    const a = await login(app, email, "password123");
+    const b = await login(app, email, "password123");
     expect(a.status).toBe(200);
     expect(b.status).toBe(200);
     expect(typeof a.token).toBe("string");
