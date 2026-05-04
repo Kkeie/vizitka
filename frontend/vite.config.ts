@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 // Проксируем /api на бэкенд, чтобы фронт и бэк работали в docker-compose без CORS
 export default defineConfig({
   plugins: [react()],
+  envPrefix: ["VITE_", "DOMAIN"],
   // Base path для GitHub Pages (если репозиторий не в корне, укажите '/repo-name/')
   // Для корневого репозитория или custom domain используйте '/'
   base: process.env.VITE_BASE_PATH || '/',
