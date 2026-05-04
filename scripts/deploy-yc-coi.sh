@@ -220,11 +220,13 @@ if [[ "${DRY_RUN:-0}" != "1" && "${SKIP_BUILD:-0}" != "1" ]]; then
   fi
 
   if is_truthy "$BUILD_FRONTEND"; then
+    require_var DOMAIN
     log "Building frontend image: $FRONTEND_IMAGE"
     docker build \
       --platform "$PLATFORM" \
       --build-arg "NPM_REGISTRY=${NPM_REGISTRY:-https://registry.npmjs.org/}" \
       --build-arg "VITE_BACKEND_API_URL=${VITE_BACKEND_API_URL}" \
+      --build-arg "DOMAIN=${DOMAIN}" \
       -t "$FRONTEND_IMAGE" \
       -f frontend/Dockerfile \
       frontend

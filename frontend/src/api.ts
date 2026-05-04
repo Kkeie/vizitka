@@ -103,6 +103,13 @@ const missingProductionApiConfig =
   !import.meta.env.VITE_BACKEND_API_URL &&
   !isLocalRuntime;
 
+function publicOrigin() {
+  const domain = import.meta.env.DOMAIN?.trim().replace(/\/+$/, "");
+  if (!domain) return runtimeOrigin;
+  if (/^https?:\/\//i.test(domain)) return domain;
+  return `https://${domain}`;
+}
+
 // Логирование для отладки
 if (import.meta.env.PROD) {
   console.log('[API] getImageUrl config:', {
@@ -499,7 +506,7 @@ export async function getPublic(username: string): Promise<{
   return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; phone: string | null; email: string | null; telegram: string | null; blocks: Block[]; layout: Layout | null; blockSizes: BlockSizes | null }>(r);
 }
 export function publicUrl(username: string) {
-  return `${window.location.origin}/${encodeURIComponent(username)}`;
+  return `${publicOrigin()}/${encodeURIComponent(username)}`;
 }
 
 // QR

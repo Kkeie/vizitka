@@ -35,6 +35,7 @@ jobs:
       backup_built: ${{ steps.plan.outputs.backup }}
     env:
       YC_REGISTRY_ID: ${{ secrets.YC_REGISTRY_ID }}
+      DOMAIN: ${{ secrets.DOMAIN }}
       BACKUP_ENABLED: ${{ secrets.BACKUP_ENABLED || '1' }}
     steps:
       - name: Checkout
@@ -187,6 +188,7 @@ jobs:
           frontend_hash="$({
             git ls-files -z -- frontend/Dockerfile frontend/package.json frontend/package-lock.json frontend/tsconfig.json frontend/vite.config.ts frontend/index.html frontend/nginx.conf frontend/public frontend/src | sort -z | xargs -0 sha256sum
             printf '%s\n' "VITE_BACKEND_API_URL=${VITE_BACKEND_API_URL}"
+            printf '%s\n' "DOMAIN=${DOMAIN}"
           } | sha256sum | cut -c1-12)"
           nginx_hash="$(hash_paths nginx/Dockerfile nginx/docker-entrypoint.sh nginx/templates)"
           backup_hash="$(hash_paths backup/Dockerfile backup/backup-sqlite-to-s3.sh)"
