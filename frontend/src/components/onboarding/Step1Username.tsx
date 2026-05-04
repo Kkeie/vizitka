@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import FloatingCards from "./FloatingCards";
 import UsernameInputWithSuggestions from "../UsernameInputWithSuggestions";
+import { checkUsername } from "../../api";
 
 interface Step1UsernameProps {
   onNext: (username: string) => void;
@@ -10,19 +11,53 @@ interface Step1UsernameProps {
 
 export default function Step1Username({ onNext, initialUsername = "" }: Step1UsernameProps) {
   const [username, setUsername] = useState(initialUsername);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleNext = () => {
-    if (username.length >= 3) onNext(username);
+  const handleNext = async () => {
+    const normalized = username.trim().toLowerCase();
+    if (normalized.length < 3) {
+      setError("Минимум 3 символа");
+      return;
+    }
+    if (!/^[a-z0-9_]+$/.test(normalized)) {
+      setError("Только латиница, цифры и _");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await checkUsername(normalized);
+      if (!result.available) {
+        setError("Этот nickname уже занят. Выберите другой.");
+        return;
+      }
+      onNext(normalized);
+    } catch (e) {
+      console.error(e);
+      setError("Не удалось проверить nickname. Попробуйте еще раз.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="step-container step1">
       <div className="step-left">
         <h1 className="step-title">Сначала выберите уникальную ссылку</h1>
-        <UsernameInputWithSuggestions value={username} onChange={setUsername} />
-        <button className="btn btn-primary step-next" onClick={handleNext} disabled={username.length < 3}>
-          Продолжить →
+        <UsernameInputWithSuggestions
+          value={username}
+          onChange={(val) => {
+            setUsername(val);
+            setError(null);
+          }}
+          disabled={loading}
+        />
+        <button className="btn btn-primary step-next" onClick={handleNext} disabled={username.length < 3 || loading}>
+          {loading ? "Проверяем..." : "Продолжить →"}
         </button>
+        {error && <div className="step-error">{error}</div>}
         <div className="login-link-bottom">
           <Link to="/login">Уже есть аккаунт? Войти</Link>
         </div>
@@ -59,6 +94,11 @@ export default function Step1Username({ onNext, initialUsername = "" }: Step1Use
         .step-next {
           margin-top: 8px;
           width: 100%;
+        }
+        .step-error {
+          margin-top: 8px;
+          font-size: 13px;
+          color: #dc2626;
         }
         .login-link-bottom {
           margin-top: 24px;

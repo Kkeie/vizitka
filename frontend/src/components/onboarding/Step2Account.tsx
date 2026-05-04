@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { register } from "../../api";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { register, checkEmail } from "../../api";
 import { Link } from "react-router-dom";
 import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../lib/registrationDecoSocials";
 import PhoneMockup from "./PhoneMockup";
@@ -15,11 +15,94 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [emailChecking, setEmailChecking] = useState(false);
+  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [phoneVisible, setPhoneVisible] = useState(false);
+  const checkIdRef = useRef(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     requestAnimationFrame(() => setPhoneVisible(true));
+  }, []);
+
+  const isValidEmailFormat = useCallback((value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), []);
+
+  const runEmailCheck = useCallback(
+    async (rawEmail: string) => {
+      const normalized = rawEmail.trim().toLowerCase();
+      if (!normalized) {
+        setEmailError("Email is required");
+        setEmailAvailable(null);
+        return false;
+      }
+      if (!isValidEmailFormat(normalized)) {
+        setEmailError("Enter a valid email address");
+        setEmailAvailable(null);
+        return false;
+      }
+
+      const currentCheckId = ++checkIdRef.current;
+      setEmailChecking(true);
+      setEmailError("");
+      try {
+        const result = await checkEmail(normalized);
+        if (currentCheckId !== checkIdRef.current) return false;
+        if (!result.available) {
+          setEmailAvailable(false);
+          setEmailError("This email is already used. Try logging in or use another email.");
+          return false;
+        }
+        setEmailAvailable(true);
+        setEmailError("");
+        return true;
+      } catch (err) {
+        if (currentCheckId !== checkIdRef.current) return false;
+        console.error(err);
+        setEmailAvailable(null);
+        setEmailError("Could not validate email right now. Try again.");
+        return false;
+      } finally {
+        if (currentCheckId === checkIdRef.current) {
+          setEmailChecking(false);
+        }
+      }
+    },
+    [isValidEmailFormat]
+  );
+
+  useEffect(() => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) {
+      setEmailError("");
+      setEmailAvailable(null);
+      setEmailChecking(false);
+      return;
+    }
+
+    if (!isValidEmailFormat(normalized)) {
+      setEmailError("Enter a valid email address");
+      setEmailAvailable(null);
+      setEmailChecking(false);
+      return;
+    }
+
+    setEmailError("");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      runEmailCheck(normalized);
+    }, 450);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [email, isValidEmailFormat, runEmailCheck]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,14 +110,13 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
     setError("");
     const normalizedEmail = email.trim().toLowerCase();
 
-    if (!normalizedEmail) {
-      setError("Email is required");
+    if (emailChecking) {
+      setError("Please wait until email check finishes.");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      setError("Enter a valid email address");
-      return;
-    }
+
+    const isEmailValid = await runEmailCheck(normalizedEmail);
+    if (!isEmailValid) return;
 
     if (password.length < 4) {
       setError("Password must be at least 4 characters");
@@ -82,7 +164,16 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
                 autoComplete="email"
                 placeholder="Email address"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError("");
+                }}
+                onBlur={() => {
+                  const normalized = email.trim().toLowerCase();
+                  if (normalized && isValidEmailFormat(normalized)) {
+                    runEmailCheck(normalized);
+                  }
+                }}
                 spellCheck={false}
                 required
                 autoFocus
@@ -94,13 +185,35 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
                 autoComplete="new-password"
                 placeholder="Password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError("");
+                }}
                 required
                 minLength={4}
               />
             </div>
+            {emailChecking && <p className="login-bento__subtitle">Checking email...</p>}
+            {!emailChecking && emailAvailable === true && (
+              <p className="login-bento__subtitle">Email is available</p>
+            )}
+            {emailError && (
+              <p className="login-bento__error" role="alert">
+                {emailError}
+              </p>
+            )}
 
-            <button className="login-bento__submit" type="submit" disabled={loading}>
+            <button
+              className="login-bento__submit"
+              type="submit"
+              disabled={
+                loading ||
+                emailChecking ||
+                !!emailError ||
+                !email.trim() ||
+                emailAvailable === false
+              }
+            >
               {loading ? "Creating account…" : "Create account"}
             </button>
           </form>

@@ -16,9 +16,18 @@ export default function Login() {
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setErr(null);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setErr("Enter a valid email address");
+      return;
+    }
+    if (!password) {
+      setErr("Password is required");
+      return;
+    }
     setLoading(true);
     try {
-      const { user } = await login(email, password);
+      const { user } = await login(normalizedEmail, password);
       onAuthed(user);
       nav("/editor");
     } catch (error: unknown) {

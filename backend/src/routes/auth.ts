@@ -5,6 +5,7 @@ import { findAvailableUsernames, isValidUsernameFormat  } from '../utils/usernam
 import { RESERVED_USERNAMES } from "../constants";
 
 const router = Router();
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * POST /api/auth/register
@@ -31,7 +32,7 @@ router.post("/register", async (req, res) => {
     if (!isValidUsernameFormat(uname)) {
       return res.status(400).json({ error: "invalid_username_format", message: "Only latin letters, numbers and underscore are allowed" });
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (!EMAIL_RE.test(normalizedEmail)) {
       return res.status(400).json({ error: "invalid_email_format" });
     }
     if (password.length < 4) return res.status(400).json({ error: "password_too_short" });
@@ -127,7 +128,7 @@ router.post("/login", async (req, res) => {
     const { email, password } = req.body as { email?: string; password?: string };
     if (!email || !password) return res.status(400).json({ error: "email_and_password_required" });
     const normalizedEmail = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    if (!EMAIL_RE.test(normalizedEmail)) {
       return res.status(400).json({ error: "invalid_email_format" });
     }
 
@@ -199,6 +200,26 @@ router.post("/check-username", async (req, res) => {
   // генерируем предложения на основе исходного ввода (с поддержкой кириллицы и т.д.)
   const suggestions = await findAvailableUsernames(db, raw, 42);
   return res.json({ available: false, suggestions });
+});
+
+/**
+ * POST /api/auth/check-email
+ * { email }
+ */
+router.post("/check-email", (req, res) => {
+  const { email } = req.body as { email?: string };
+  if (!email) return res.status(400).json({ error: "email_required" });
+
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!EMAIL_RE.test(normalizedEmail)) {
+    return res.status(400).json({ error: "invalid_email_format" });
+  }
+
+  const existing = db
+    .prepare("SELECT id FROM User WHERE email = ? COLLATE NOCASE")
+    .get(normalizedEmail);
+
+  return res.json({ available: !existing });
 });
 
 router.post("/change-password", requireAuth, async (req: AuthedRequest, res) => {

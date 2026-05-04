@@ -136,3 +136,28 @@ describe("POST /api/auth/check-username — свободен ли ник (как
     expect(res.body).toEqual({ error: "username_too_short" });
   });
 });
+
+describe("POST /api/auth/check-email — свободен ли email до регистрации", () => {
+  it("TC-AUTH-12: свободный email — available: true", async () => {
+    const res = await request(app)
+      .post("/api/auth/check-email")
+      .send({ email: `free_${Date.now()}@example.test` });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ available: true });
+  });
+
+  it("TC-AUTH-13: занятый email — available: false", async () => {
+    const u = `email_busy_${Date.now()}`;
+    const email = `${u}@example.test`;
+    await register(app, u, email, "password123");
+    const res = await request(app).post("/api/auth/check-email").send({ email });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ available: false });
+  });
+
+  it("TC-AUTH-14: невалидный email — ошибка формата", async () => {
+    const res = await request(app).post("/api/auth/check-email").send({ email: "not-an-email" });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "invalid_email_format" });
+  });
+});
