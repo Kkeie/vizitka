@@ -25,6 +25,7 @@ export default function UsernameInputWithSuggestions({
   const validate = (val: string) => {
     if (!val) return null;
     if (val.length < 3) return "Минимум 3 символа";
+    if (!/^[a-z0-9_]+$/.test(val)) return "Только латиница, цифры и _";
     return null;
   };
 
@@ -43,12 +44,15 @@ export default function UsernameInputWithSuggestions({
       const result = await checkUsername(val);
       if (currentCheckId !== checkIdRef.current) return;
       if (!result.available && result.suggestions) {
+        setError("Этот nickname уже занят. Выберите другой.");
         setSuggestions(result.suggestions);
       } else {
+        setError(null);
         setSuggestions([]);
       }
     } catch (err) {
       console.error(err);
+      setError("Не удалось проверить nickname. Попробуйте еще раз.");
     } finally {
       if (currentCheckId === checkIdRef.current) {
         setChecking(false);

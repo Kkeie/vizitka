@@ -533,6 +533,20 @@ export async function checkUsername(username: string): Promise<{ available: bool
   return safeJsonParse<{ available: boolean; suggestions?: string[] }>(r);
 }
 
+export async function checkEmail(email: string): Promise<{ available: boolean }> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const r = await fetch(`${API}/auth/check-email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: normalizedEmail }),
+  });
+  if (!r.ok) {
+    const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
+    throw new Error(errorData.error || "check_email_failed");
+  }
+  return safeJsonParse<{ available: boolean }>(r);
+}
+
 export async function changePassword(currentPassword: string, newPassword: string): Promise<{ token: string }> {
   const r = await fetch(`${API}/auth/change-password`, {
     method: "POST",
