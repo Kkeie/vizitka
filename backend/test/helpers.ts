@@ -9,9 +9,15 @@ export function uniqueName(prefix: string): string {
 export async function register(
   app: Express,
   username: string,
-  password = "pass1234"
+  passwordOrEmail = "pass1234",
+  maybePassword?: string
 ): Promise<{ status: number; token: string; userId: number }> {
-  const res = await request(app).post("/api/auth/register").send({ username, password });
+  const defaultEmail = `${username}@example.test`;
+  const isEmail = passwordOrEmail.includes("@");
+  const email = maybePassword ? passwordOrEmail : isEmail ? passwordOrEmail : defaultEmail;
+  const password = maybePassword ?? (isEmail ? "pass1234" : passwordOrEmail);
+
+  const res = await request(app).post("/api/auth/register").send({ username, email, password });
   return {
     status: res.status,
     token: res.body.token as string,
@@ -21,10 +27,10 @@ export async function register(
 
 export async function login(
   app: Express,
-  username: string,
+  email: string,
   password: string
 ): Promise<{ status: number; token?: string; body: Record<string, unknown> }> {
-  const res = await request(app).post("/api/auth/login").send({ username, password });
+  const res = await request(app).post("/api/auth/login").send({ email, password });
   return {
     status: res.status,
     token: res.body.token as string | undefined,

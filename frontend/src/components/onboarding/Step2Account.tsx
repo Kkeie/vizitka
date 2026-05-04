@@ -25,6 +25,16 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setError("Email is required");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError("Enter a valid email address");
+      return;
+    }
 
     if (password.length < 4) {
       setError("Password must be at least 4 characters");
@@ -33,12 +43,13 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
 
     setLoading(true);
     try {
-      const emailToSend = email.trim() || undefined;
-      await register(username, password, emailToSend);
+      await register(username, normalizedEmail, password);
       onSuccess();
     } catch (err: unknown) {
       if (err instanceof Error && err.message === "username_taken") {
         setError("This link is no longer available. Go back and choose another.");
+      } else if (err instanceof Error && err.message === "email_taken") {
+        setError("This email is already used. Try logging in or use another email.");
       } else {
         setError("Could not create your account. Try again later.");
       }

@@ -259,14 +259,13 @@ interface ApiError {
 }
 
 // Auth
-export async function register(username: string, password: string, email?: string): Promise<{ token: string; user: User }> {
+export async function register(username: string, email: string, password: string): Promise<{ token: string; user: User }> {
   setToken(null);
-  const payload: any = { username, password };
-  if (email) {
-    payload.email = email;
-  } else {
-    payload.email = `${username}@temp.local`;
-  }
+  const payload = {
+    username,
+    email: email.trim().toLowerCase(),
+    password,
+  };
   const url = `${API}/auth/register`;
   console.log('[API] Register request to:', url);
 
@@ -300,11 +299,11 @@ export async function register(username: string, password: string, email?: strin
   setToken(data.token);
   return data;
 }
-export async function login(username: string, password: string): Promise<{ token: string; user: User }> {
+export async function login(email: string, password: string): Promise<{ token: string; user: User }> {
   const r = await fetch(`${API}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
   }).catch((error: unknown) => {
     console.error("[API] Login network error:", error);
     throw new Error("network_error");

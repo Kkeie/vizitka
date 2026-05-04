@@ -189,6 +189,14 @@ export function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_profile_userId ON Profile(userId);
   `);
 
+  // Уникальность auth-email (без учета регистра).
+  // Если в старой базе уже есть дубликаты, не падаем при старте и оставляем проверку в коде.
+  try {
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_email_unique ON User(email COLLATE NOCASE)`);
+  } catch (e: any) {
+    console.warn("[DB] Could not create unique index for User.email:", e.message);
+  }
+
   // Триггер для обновления updatedAt
   db.exec(`
     CREATE TRIGGER IF NOT EXISTS update_block_timestamp 
