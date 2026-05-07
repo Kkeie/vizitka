@@ -31,7 +31,7 @@ import BlockModal from "../components/BlockModal";
 import MobileVisitPreviewModal from "../components/MobileVisitPreviewModal";
 import InlineInputCard from "../components/InlineInputCard";
 import OnboardingInEditor from "../components/onboarding/OnboardingInEditor";
-import { formatPhoneNumber, validatePhoneNumber } from "../utils/phone";
+
 import { measureBlockRects, animateFlip } from "../utils/flipAnimation";
 import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
@@ -112,14 +112,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({
-    username: "",
-    name: "",
-    bio: "",
-    phone: "",
-    email: "",
-    telegram: "",
-  });
+   const [profileForm, setProfileForm] = useState({
+     username: "",
+     name: "",
+     bio: "",
+     email: "",
+   });
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<BlockType | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
@@ -165,7 +163,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   // Состояния для меню и inline-редактирования профиля
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<DOMRect | null>(null);
-  const [activeInlineField, setActiveInlineField] = useState<"username" | "email" | "phone" | "telegram" | null>(null);
+   const [activeInlineField, setActiveInlineField] = useState<"username" | "email" | null>(null);
   const [inlineAnchor, setInlineAnchor] = useState<DOMRect | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [editingBio, setEditingBio] = useState(false);
@@ -256,14 +254,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         updateProfile({ layout: initialLayout }).catch(console.error);
       }
 
-      setProfileForm({
-        username: p.username || "",
-        name: p.name || "",
-        bio: p.bio || "",
-        phone: (p as any).phone || "",
-        email: (p as any).email || "",
-        telegram: (p as any).telegram || "",
-      });
+       setProfileForm({
+         username: p.username || "",
+         name: p.name || "",
+         bio: p.bio || "",
+         email: (p as any).email || "",
+       });
       setIsAuthorized(true);
     } catch (e: any) {
       console.error("Ошибка загрузки данных:", e);
@@ -704,28 +700,26 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     lastResizeSizeRef.current = null;
   }, [blockSizes, saveBlockSizesDebounced]);
 
-  async function saveProfile(e: React.FormEvent) {
-    e.preventDefault();
-    if (!profile) return;
-    setSavingProfile(true);
-    try {
-      const updated = await updateProfile({
-        username: profileForm.username,
-        name: profileForm.name || null,
-        bio: profileForm.bio || null,
-        phone: profileForm.phone || null,
-        email: profileForm.email || null,
-        telegram: profileForm.telegram || null,
-      } as any);
-      setProfile(updated);
-      setEditingProfile(false);
-    } catch (e) {
-      alert("Не удалось сохранить профиль");
-      console.error(e);
-    } finally {
-      setSavingProfile(false);
-    }
-  }
+   async function saveProfile(e: React.FormEvent) {
+     e.preventDefault();
+     if (!profile) return;
+     setSavingProfile(true);
+     try {
+       const updated = await updateProfile({
+         username: profileForm.username,
+         name: profileForm.name || null,
+         bio: profileForm.bio || null,
+         email: profileForm.email || null,
+       } as any);
+       setProfile(updated);
+       setEditingProfile(false);
+     } catch (e) {
+       alert("Не удалось сохранить профиль");
+       console.error(e);
+     } finally {
+       setSavingProfile(false);
+     }
+   }
 
   async function handleDeleteBlock(id: number) {
     if (!confirm("Удалить этот блок?")) return;
@@ -1178,20 +1172,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     setProfile(updated);
   };
 
-  const handleUpdatePhone = async (newPhone: string) => {
-    if (!profile) return;
-    const formatted = formatPhoneNumber(newPhone);
-    if (formatted && !validatePhoneNumber(formatted)) throw new Error("Некорректный номер телефона");
-    const updated = await updateProfile({ phone: formatted });
-    setProfile(updated);
-  };
 
-  const handleUpdateTelegram = async (newTelegram: string) => {
-    if (!profile) return;
-    let cleaned = newTelegram.replace(/^@/, "").trim();
-    const updated = await updateProfile({ telegram: cleaned });
-    setProfile(updated);
-  };
 
   const handlePasswordChangeSuccess = useCallback((newToken: string) => {
     setToken(newToken);
@@ -1566,23 +1547,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.email || "не указан"}</div>
             </MenuItem>
 
-            <MenuItem onClick={(rect) => {
-              setInlineAnchor(rect);
-              setActiveInlineField("phone");
-              setShowPasswordCard(false);
-            }}>
-              <div>Изменить телефон</div>
-              <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.phone || "не указан"}</div>
-            </MenuItem>
 
-            <MenuItem onClick={(rect) => {
-              setInlineAnchor(rect);
-              setActiveInlineField("telegram");
-              setShowPasswordCard(false);
-            }}>
-              <div>Изменить telegram</div>
-              <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.telegram || "не указан"}</div>
-            </MenuItem>
 
             <MenuItem onClick={(rect) => {
               setPasswordAnchor(rect);
@@ -1612,52 +1577,43 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         <InlineEditCard
           key={activeInlineField}
           anchorRect={inlineAnchor}
-          value={(() => {
-            if (activeInlineField === "username") return profile?.username || "";
-            if (activeInlineField === "email") return (profile as any)?.email || "";
-            if (activeInlineField === "phone") return (profile as any)?.phone || "";
-            if (activeInlineField === "telegram") return (profile as any)?.telegram || "";
-            return "";
-          })()}
-          onSave={async (newValue) => {
-            if (activeInlineField === "username") await handleUpdateUsername(newValue);
-            if (activeInlineField === "email") await handleUpdateEmail(newValue);
-            if (activeInlineField === "phone") await handleUpdatePhone(newValue);
-            if (activeInlineField === "telegram") await handleUpdateTelegram(newValue);
-            setActiveInlineField(null);
-            setInlineAnchor(null);
-          }}
+           value={(() => {
+             if (activeInlineField === "username") return profile?.username || "";
+             if (activeInlineField === "email") return (profile as any)?.email || "";
+             return "";
+           })()}
+           onSave={async (newValue) => {
+             if (activeInlineField === "username") await handleUpdateUsername(newValue);
+             if (activeInlineField === "email") await handleUpdateEmail(newValue);
+             setActiveInlineField(null);
+             setInlineAnchor(null);
+           }}
           onCancel={() => {
             setActiveInlineField(null);
             setInlineAnchor(null);
           }}
-          label={
-            activeInlineField === "username"
-              ? "Username"
-              : activeInlineField === "email"
-              ? "Email"
-              : activeInlineField === "phone"
-              ? "Телефон"
-              : "Telegram"
-          }
-          placeholder={
-            activeInlineField === "username" ? "Введите имя пользователя" :
-            activeInlineField === "email"    ? "email@example.com" :
-            activeInlineField === "phone"    ? "+7 (999) 123-45-67" :
-            activeInlineField === "telegram" ? "@username" : ""
-          }
-          inputType={activeInlineField === "email" ? "email" : activeInlineField === "phone" ? "tel" : "text"}
-          validation={(val) => {
-            if (activeInlineField === "username") return val.length >= 3;
-            if (activeInlineField === "email") return /^\S+@\S+\.\S+$/.test(val);
-            if (activeInlineField === "phone") return validatePhoneNumber(formatPhoneNumber(val));
-            return true;
-          }}
-          format={(val) => {
-            if (activeInlineField === "phone") return formatPhoneNumber(val);
-            if (activeInlineField === "username") return val.toLowerCase();
-            return val;
-          }}
+           label={
+             activeInlineField === "username"
+               ? "Username"
+               : activeInlineField === "email"
+               ? "Email"
+               : ""
+           }
+           placeholder={
+             activeInlineField === "username" ? "Введите имя пользователя" :
+             activeInlineField === "email"    ? "email@example.com" :
+             ""
+           }
+           inputType={activeInlineField === "email" ? "email" : "text"}
+           validation={(val) => {
+             if (activeInlineField === "username") return val.length >= 3;
+             if (activeInlineField === "email") return /^\S+@\S+\.\S+$/.test(val);
+             return true;
+           }}
+           format={(val) => {
+             if (activeInlineField === "username") return val.toLowerCase();
+             return val;
+           }}
           prefix={activeInlineField === "username" ? "bento.me/" : undefined}
         />
       )}
