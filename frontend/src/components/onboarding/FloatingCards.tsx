@@ -94,7 +94,7 @@ export default function FloatingCards({ username, withLinkCard = true }: Floatin
           align-items: center;
           gap: 6px;
           justify-content: center;
-          font-family: monospace;
+          font-family: var(--login-font, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
         }
         .link-icon {
           font-size: 14px;
