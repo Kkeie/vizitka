@@ -51,7 +51,7 @@ export default function Login() {
     return (
       <div className="login-bento min-h-screen" aria-busy="true">
         <div className="login-bento__inner">
-          <p className="login-bento__subtitle">Checking your session…</p>
+          <p className="login-bento__subtitle">Проверяем сессию…</p>
         </div>
       </div>
     );
