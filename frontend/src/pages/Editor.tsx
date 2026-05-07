@@ -971,7 +971,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         if (type === "social") {
           let url = data.socialUrl?.trim();
           if (!url) {
-            setToast("Введите username или ссылку");
+            setToast("Введите имя пользователя или ссылку");
             return;
           }
           if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -1553,7 +1553,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               setActiveInlineField("username");
               setShowPasswordCard(false);
             }}>
-              <div>Изменить username</div>
+              <div>Изменить имя пользователя</div>
               <div style={{ fontSize: 11, color: "var(--muted)"}}>{profile?.username || ""}</div>
             </MenuItem>
 
@@ -1641,7 +1641,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               : "Telegram"
           }
           placeholder={
-            activeInlineField === "username" ? "Введите username" :
+            activeInlineField === "username" ? "Введите имя пользователя" :
             activeInlineField === "email"    ? "email@example.com" :
             activeInlineField === "phone"    ? "+7 (999) 123-45-67" :
             activeInlineField === "telegram" ? "@username" : ""

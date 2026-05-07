@@ -18,11 +18,11 @@ export default function Login() {
     setErr(null);
     const normalizedEmail = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      setErr("Enter a valid email address");
+        setErr("Введите корректный email");
       return;
     }
     if (!password) {
-      setErr("Password is required");
+      setErr("Пароль обязателен");
       return;
     }
     setLoading(true);
@@ -40,7 +40,7 @@ export default function Login() {
       } else if (errorMessage === "network_error") {
         setErr("Could not connect to the API. Make sure the backend is running and reachable.");
       } else {
-        setErr("Wrong email or password");
+        setErr("Неверный email или пароль");
       }
     } finally {
       setLoading(false);
@@ -65,8 +65,8 @@ export default function Login() {
     <div className="login-bento min-h-screen">
       <div className="login-bento__inner">
         <div className="login-bento__form-col">
-          <h1 className="login-bento__title">Log in to your Bento</h1>
-          <p className="login-bento__subtitle">Good to have you back!</p>
+          <h1 className="login-bento__title">Войдите в Bento</h1>
+          <p className="login-bento__subtitle">Рады видеть вас снова!</p>
 
           <form onSubmit={submit} noValidate>
             {err && (
@@ -81,7 +81,7 @@ export default function Login() {
                 type="email"
                 inputMode="email"
                 autoComplete="email"
-                placeholder="Email address"
+                placeholder="Email адрес"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -93,7 +93,7 @@ export default function Login() {
                 name="password"
                 type="password"
                 autoComplete="current-password"
-                placeholder="Password"
+                placeholder="Пароль"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -101,14 +101,14 @@ export default function Login() {
             </div>
 
             <button className="login-bento__submit" type="submit" disabled={loading}>
-              {loading ? "Logging in…" : "Log in"}
+              {loading ? "Вход…" : "Войти"}
             </button>
           </form>
 
-          <p className="login-bento__foot">
-            or{" "}
-            <Link to="/register">sign up</Link>
-          </p>
+            <p className="login-bento__foot">
+             или{" "}
+             <Link to="/register">зарегистрируйтесь</Link>
+           </p>
         </div>
 
         <AuthSocialCollage />

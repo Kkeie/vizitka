@@ -33,12 +33,12 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
     async (rawEmail: string) => {
       const normalized = rawEmail.trim().toLowerCase();
       if (!normalized) {
-        setEmailError("Email is required");
+        setEmailError("Email обязателен");
         setEmailAvailable(null);
         return false;
       }
       if (!isValidEmailFormat(normalized)) {
-        setEmailError("Enter a valid email address");
+        setEmailError("Введите корректный email адрес");
         setEmailAvailable(null);
         return false;
       }
@@ -51,7 +51,7 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
         if (currentCheckId !== checkIdRef.current) return false;
         if (!result.available) {
           setEmailAvailable(false);
-          setEmailError("This email is already used. Try logging in or use another email.");
+          setEmailError("Этот email уже используется. Войдите или используйте другой.");
           return false;
         }
         setEmailAvailable(true);
@@ -61,7 +61,7 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
         if (currentCheckId !== checkIdRef.current) return false;
         console.error(err);
         setEmailAvailable(null);
-        setEmailError("Could not validate email right now. Try again.");
+        setEmailError("Не удалось проверить email. Попробуйте снова.");
         return false;
       } finally {
         if (currentCheckId === checkIdRef.current) {
@@ -82,7 +82,7 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
     }
 
     if (!isValidEmailFormat(normalized)) {
-      setEmailError("Enter a valid email address");
+      setEmailError("Введите корректный email адрес");
       setEmailAvailable(null);
       setEmailChecking(false);
       return;
@@ -111,7 +111,7 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
     const normalizedEmail = email.trim().toLowerCase();
 
     if (emailChecking) {
-      setError("Please wait until email check finishes.");
+      setError("Подождите завершения проверки email.");
       return;
     }
 
@@ -119,7 +119,7 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
     if (!isEmailValid) return;
 
     if (password.length < 4) {
-      setError("Password must be at least 4 characters");
+      setError("Пароль должен быть не менее 4 символов");
       return;
     }
 
@@ -129,11 +129,11 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
       onSuccess();
     } catch (err: unknown) {
       if (err instanceof Error && err.message === "username_taken") {
-        setError("This link is no longer available. Go back and choose another.");
+        setError("Эта ссылка больше недоступна. Вернитесь и выберите другую.");
       } else if (err instanceof Error && err.message === "email_taken") {
-        setError("This email is already used. Try logging in or use another email.");
+        setError("Этот email уже используется. Войдите или используйте другой.");
       } else {
-        setError("Could not create your account. Try again later.");
+        setError("Не удалось создать аккаунт. Попробуйте позже.");
       }
     } finally {
       setLoading(false);
@@ -147,8 +147,8 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
           <button type="button" className="auth-bento__back" onClick={onBack} aria-label="Back">
             ←
           </button>
-          <p className="auth-bento__kicker">bento.me/{username} is yours!</p>
-          <h1 className="login-bento__title auth-bento__title">Now, create your account.</h1>
+            <p className="auth-bento__kicker">bento.me/{username} теперь ваш!</p>
+            <h1 className="login-bento__title auth-bento__title">Теперь создайте аккаунт.</h1>
 
           <form onSubmit={handleSubmit} className="auth-bento__form" noValidate>
             {error && (
@@ -162,7 +162,7 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
                 name="email"
                 type="email"
                 autoComplete="email"
-                placeholder="Email address"
+                placeholder="Email адрес"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -183,7 +183,7 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
                 name="password"
                 type="password"
                 autoComplete="new-password"
-                placeholder="Password"
+                placeholder="Пароль"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -193,9 +193,9 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
                 minLength={4}
               />
             </div>
-            {emailChecking && <p className="login-bento__subtitle">Checking email...</p>}
+            {emailChecking && <p className="login-bento__subtitle">Проверка email...</p>}
             {!emailChecking && emailAvailable === true && (
-              <p className="login-bento__subtitle">Email is available</p>
+              <p className="login-bento__subtitle">Email доступен</p>
             )}
             {emailError && (
               <p className="login-bento__error" role="alert">
@@ -214,13 +214,13 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
                 emailAvailable === false
               }
             >
-              {loading ? "Creating account…" : "Create account"}
+              {loading ? "Создание аккаунта…" : "Создать аккаунт"}
             </button>
           </form>
 
-          <p className="login-bento__foot">
-            <Link to="/login">Already have an account? Log in</Link>
-          </p>
+            <p className="login-bento__foot">
+             <Link to="/login">Уже есть аккаунт? Войти</Link>
+           </p>
         </div>
 
         <div className="step2-reg__right">
