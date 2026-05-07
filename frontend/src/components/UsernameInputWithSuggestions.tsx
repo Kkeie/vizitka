@@ -83,8 +83,8 @@ export default function UsernameInputWithSuggestions({
     if (onSelectSuggestion) onSelectSuggestion(suggestion);
   };
 
-  return (
-    <div className="username-field" style={{ marginBottom: 20 }}>
+    return (
+    <div className="username-field">
       <div className="prefixed-input">
         <span className="prefix">bento.me/</span>
         <input
@@ -123,33 +123,39 @@ export default function UsernameInputWithSuggestions({
           display: flex;
           align-items: center;
           border: 1.5px solid var(--border);
-          border-radius: var(--radius-md);
-          background: var(--surface);
-          padding: 0 12px;
+          border-radius: var(--login-border-radius-sm, 8px);
+          background: var(--login-input-bg, #f5f5f5);
+          padding: 0 14px;
+          height: var(--login-input-height, 44px);
         }
         .prefix {
-          font-size: 16px;
-          color: var(--muted);
-          font-family: monospace;
+          font-size: var(--login-input-font-size, 15px);
+          color: var(--login-muted, #666);
+          font-family: var(--login-font, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
           user-select: none;
+          margin-right: 4px;
         }
         .input-prefixed {
           flex: 1;
           border: none;
-          padding: 14px 8px;
-          font-size: 16px;
+          padding: 0 8px;
+          font-size: var(--login-input-font-size, 15px);
+          line-height: var(--login-input-height, 44px);
           outline: none;
           background: transparent;
+          font-family: var(--login-font, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
         }
         .checking-muted {
           font-size: 12px;
-          color: var(--muted);
+          color: var(--login-muted, #666);
           margin-top: 6px;
+          font-family: var(--login-font, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
         }
         .error-message {
           font-size: 12px;
           color: #dc2626;
           margin-top: 6px;
+          font-family: var(--login-font, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
         }
         .suggestions-scroll {
           max-height: 200px;
@@ -169,6 +175,7 @@ export default function UsernameInputWithSuggestions({
           border-bottom: 1px solid var(--border);
           cursor: pointer;
           font-size: 14px;
+          font-family: var(--login-font, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
         }
         .suggestion-item:hover {
           background: var(--accent);

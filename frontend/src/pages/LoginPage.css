@@ -6,11 +6,22 @@
   --login-input-bg: #f5f5f5;
   --login-separator: #9ca3af;
   --login-footer: #9ca3af;
+  --login-primary: #0a0a0a;
+  --login-primary-hover: #262626;
+  --login-border-radius-sm: 8px;
+  --login-border-radius-md: 10px;
+  --login-border-radius-lg: 12px;
+  --login-input-height: 44px;
+  --login-input-font-size: 15px;
+  --login-button-height: 48px;
+  --login-button-font-size: 15px;
+  --login-font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
   min-height: 100%;
   min-height: 100dvh;
   background: #ffffff;
   color: var(--login-text);
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--login-font);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -65,16 +76,17 @@
 .login-bento__input {
   flex: 1 1 0;
   min-width: 0;
-  height: 44px;
+  height: var(--login-input-height);
   padding: 0 14px;
-  font-size: 15px;
-  line-height: 44px;
+  font-size: var(--login-input-font-size);
+  line-height: var(--login-input-height);
   color: var(--login-text);
   background: var(--login-input-bg);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--login-border-radius-sm);
   outline: none;
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  font-family: var(--login-font);
 }
 
 .login-bento__input::placeholder {
@@ -106,25 +118,26 @@
   display: block;
   width: 100%;
   max-width: 448px;
-  height: 48px;
+  height: var(--login-button-height);
   border: none;
-  border-radius: 10px;
-  font-size: 15px;
+  border-radius: var(--login-border-radius-md);
+  font-size: var(--login-button-font-size);
   font-weight: 600;
   color: #ffffff;
-  background: #0a0a0a;
+  background: var(--login-primary);
   cursor: pointer;
   margin-top: 24px;
   transition: background 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+  font-family: var(--login-font);
 }
 
 .login-bento__submit:hover:not(:disabled) {
-  background: #262626;
+  background: var(--login-primary-hover);
 }
 
 .login-bento__submit:active:not(:disabled) {
   transform: scale(0.99);
-  background: #000000;
+  background: var(--login-primary);
 }
 
 .login-bento__submit:disabled {
@@ -188,11 +201,6 @@
   font-weight: 500;
   color: #0a0a0a;
   margin: 0 0 12px;
-}
-.auth-bento__stack .auth-bento__title,
-.auth-bento__stack .login-bento__title.auth-bento__title {
-  margin: 0 0 32px;
-  font-size: clamp(26px, 3.2vw, 34px);
 }
 .auth-bento__form {
   display: block;
@@ -341,5 +349,47 @@
 
   .login-bento__tile-label {
     font-size: 9px;
+  }
+}
+
+/* Step1Username: right side for floating cards */
+.step1-right {
+  flex: 1;
+  position: relative;
+  min-height: 500px;
+}
+@media (max-width: 900px) {
+  .step1-right {
+    order: -1;
+    width: 100%;
+    min-height: 300px;
+  }
+}
+.step1-username .login-bento__title {
+  margin-bottom: 8px;
+}
+
+.step1-username > .login-bento__form-col {
+  max-width: 440px;
+}
+
+.step1-right {
+  flex: 1;
+  position: relative;
+  min-height: 500px;
+}
+
+@media (max-width: 900px) {
+  .step1-username {
+    flex-direction: column;
+    padding: 24px;
+  }
+  .step1-right {
+    order: -1;
+    width: 100%;
+    min-height: 300px;
+  }
+  .step1-username > .login-bento__form-col {
+    max-width: 100%;
   }
 }

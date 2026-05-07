@@ -154,16 +154,18 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
         }
         .oe-panel {
           background: var(--surface, #ffffff);
-          border-radius: 20px;
+          border-radius: var(--login-border-radius-lg, 12px);
           padding: 24px;
           border: 1px solid var(--border, #e5e5e5);
           box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+          font-family: var(--login-font);
         }
         .oe-title {
           font-size: 20px;
           font-weight: 700;
           margin-bottom: 20px;
           color: var(--text, #1a1a1a);
+          font-family: var(--login-font);
         }
         .oe-list {
           display: flex;
@@ -194,14 +196,17 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
         }
         .oe-input {
           width: 100%;
-          padding: 12px 16px;
+          padding: 0 16px;
+          height: var(--login-input-height, 44px);
           border: 1.5px solid var(--border, #e5e5e5);
-          border-radius: 12px;
-          font-size: 14px;
+          border-radius: var(--login-border-radius-sm, 8px);
+          font-size: var(--login-input-font-size, 15px);
           background: var(--surface, white);
           color: var(--text, #1a1a1a);
           outline: none;
           transition: border 0.2s;
+          font-family: var(--login-font);
+          line-height: var(--login-input-height, 44px);
         }
         .oe-input:focus {
           border-color: var(--primary, #000);
@@ -214,12 +219,13 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
           background: #22c55e;
           border: none;
           padding: 6px 14px;
-          border-radius: 8px;
+          border-radius: var(--login-border-radius-sm, 8px);
           color: white;
-          font-size: 13px;
+          font-size: var(--login-button-font-size, 15px);
           font-weight: 500;
           cursor: pointer;
           transition: background 0.2s;
+          font-family: var(--login-font);
         }
         .oe-add-btn:hover {
           background: #16a34a;
@@ -236,12 +242,13 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
         }
         .oe-btn {
           padding: 10px 20px;
-          border-radius: 12px;
-          font-size: 14px;
+          border-radius: var(--login-border-radius-lg, 12px);
+          font-size: var(--login-button-font-size, 15px);
           font-weight: 500;
           cursor: pointer;
           transition: all 0.2s;
           border: 1px solid transparent;
+          font-family: var(--login-font);
         }
         .oe-btn-ghost {
           background: transparent;
@@ -252,8 +259,9 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
           background: var(--accent, #f5f5f5);
         }
         .oe-btn-primary {
-          background: var(--primary, #000);
+          background: var(--login-primary, #000);
           color: white;
+          font-family: var(--login-font);
         }
         .oe-btn-primary:hover {
           background: var(--primary-hover, #333);

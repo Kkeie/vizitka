@@ -257,7 +257,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
           return;
         }
         if (!formData.socialUrl?.trim()) {
-          alert("Введите username или ссылку");
+          alert("Введите имя пользователя или ссылку");
           return;
         }
         const opt = SOCIAL_OPTIONS.find((o) => o.id === socialId);
@@ -512,7 +512,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 return (
                   <>
                     <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
-                      {opt.name} — username или ссылка
+                      {opt.name} — имя пользователя или ссылка
                     </label>
                     <div style={{ position: "relative", width: "100%" }}>
                       <span

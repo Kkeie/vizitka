@@ -43,93 +43,30 @@ export default function Step1Username({ onNext, initialUsername = "" }: Step1Use
   };
 
   return (
-    <div className="step-container step1">
-      <div className="step-left">
-        <h1 className="step-title">Сначала выберите уникальную ссылку</h1>
-        <UsernameInputWithSuggestions
-          value={username}
-          onChange={(val) => {
-            setUsername(val);
-            setError(null);
-          }}
-          disabled={loading}
-        />
-        <button className="btn btn-primary step-next" onClick={handleNext} disabled={username.length < 3 || loading}>
-          {loading ? "Проверяем..." : "Продолжить →"}
-        </button>
-        {error && <div className="step-error">{error}</div>}
-        <div className="login-link-bottom">
-          <Link to="/login">Уже есть аккаунт? Войти</Link>
+    <div className="login-bento min-h-screen">
+      <div className="login-bento__inner">
+        <div className="login-bento__form-col">
+          <h1 className="login-bento__title">Сначала выберите уникальную ссылку</h1>
+          <UsernameInputWithSuggestions
+            value={username}
+            onChange={(val) => {
+              setUsername(val);
+              setError(null);
+            }}
+            disabled={loading}
+          />
+          <button className="login-bento__submit step-next" onClick={handleNext} disabled={username.length < 3 || loading}>
+            {loading ? "Проверяем..." : "Продолжить"}
+          </button>
+          {error && <div className="login-bento__error">{error}</div>}
+          <p className="login-bento__foot">
+            <Link to="/login">Уже есть аккаунт? Войти</Link>
+          </p>
+        </div>
+        <div className="step1-right">
+          <FloatingCards username={username} withLinkCard />
         </div>
       </div>
-      <div className="step-right">
-        <FloatingCards username={username} withLinkCard />
-      </div>
-      <style>{`
-        .step-container {
-          display: flex;
-          gap: 48px;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 40px;
-        }
-        .step-left {
-          flex: 1;
-          max-width: 440px;
-        }
-        .step-right {
-          flex: 1;
-          position: relative;
-          min-height: 500px;
-        }
-        .step-title {
-          font-size: 36px;
-          font-weight: 800;
-          letter-spacing: -0.02em;
-          margin-bottom: 24px;
-        }
-        .step-next {
-          margin-top: 8px;
-          width: 100%;
-        }
-        .step-error {
-          margin-top: 8px;
-          font-size: 13px;
-          color: #dc2626;
-        }
-        .login-link-bottom {
-          margin-top: 24px;
-          text-align: center;
-          padding-top: 16px;
-          border-top: 1px solid var(--border, #e5e5e5);
-        }
-        .login-link-bottom a {
-          color: var(--primary, #000);
-          text-decoration: none;
-          font-weight: 500;
-          font-size: 14px;
-        }
-        .login-link-bottom a:hover {
-          text-decoration: underline;
-        }
-        @media (max-width: 900px) {
-          .step-container {
-            flex-direction: column;
-            padding: 24px;
-          }
-          .step-right {
-            order: -1;
-            width: 100%;
-            min-height: 300px;
-          }
-          .step-left {
-            max-width: 100%;
-          }
-        }
-      `}</style>
     </div>
   );
 }

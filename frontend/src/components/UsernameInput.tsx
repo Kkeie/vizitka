@@ -75,11 +75,11 @@ export default function UsernameInput({ value, onChange, onSelectSuggestion, dis
   return (
     <div className="field" style={{ marginBottom: 20 }}>
       <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", marginBottom: 8 }}>
-        Username
+        Имя пользователя
       </label>
       <input
         className="input"
-        placeholder="Придумайте username"
+        placeholder="Придумайте имя пользователя"
         value={value}
         onChange={handleChange}
         onBlur={handleBlur}
