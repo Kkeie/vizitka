@@ -110,42 +110,42 @@ export default function PasswordChangeCard({ anchorRect, onClose, onSuccess }: P
           <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
             Текущий пароль
           </label>
-          <input
-            type="password"
-            className="input"
-            placeholder="Введите текущий пароль"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            required
-            autoFocus
-          />
+           <input
+             type="password"
+             className="input no-focus-shadow"
+             placeholder="Введите текущий пароль"
+             value={currentPassword}
+             onChange={(e) => setCurrentPassword(e.target.value)}
+             required
+             autoFocus
+           />
         </div>
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
             Новый пароль
           </label>
-          <input
-            type="password"
-            className="input"
-            placeholder="Новый пароль (минимум 4 символа)"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-            minLength={4}
-          />
+           <input
+             type="password"
+             className="input no-focus-shadow"
+             placeholder="Новый пароль (минимум 4 символа)"
+             value={newPassword}
+             onChange={(e) => setNewPassword(e.target.value)}
+             required
+             minLength={4}
+           />
         </div>
         <div style={{ marginBottom: 12 }}>
           <label style={{ fontSize: 13, fontWeight: 600, display: "block", marginBottom: 6 }}>
             Подтверждение
           </label>
-          <input
-            type="password"
-            className="input"
-            placeholder="Подтвердите новый пароль"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            required
-          />
+           <input
+             type="password"
+             className="input no-focus-shadow"
+             placeholder="Подтвердите новый пароль"
+             value={confirmPassword}
+             onChange={(e) => setConfirmPassword(e.target.value)}
+             required
+           />
         </div>
         {error && <div style={{ color: "#ef4444", fontSize: 12, marginBottom: 12 }}>{error}</div>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>

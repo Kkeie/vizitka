@@ -1263,6 +1263,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                       onBlur={handleSaveName}
                       onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") handleSaveName(); }}
                       placeholder="Ваше имя"
+                      className="no-focus-shadow"
                       style={{
                         fontSize: 32,
                         fontWeight: 800,
