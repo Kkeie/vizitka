@@ -141,27 +141,27 @@ export default function InlineEditCard({
             >
               {prefix}
             </span>
-            <input
-              ref={inputRef}
-              type={inputType}
-              className="input"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder={placeholder}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave();
-                if (e.key === "Escape") onCancel();
-              }}
-              style={{
-                flex: 1,
-                border: "none",
-                padding: "14px 8px",
-                fontSize: 15,
-                outline: "none",
-                background: "transparent",
-                marginBottom: 0,
-              }}
-            />
+                <input
+                  ref={inputRef}
+                  type={inputType}
+                  className="input no-focus-shadow"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder={placeholder}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSave();
+                    if (e.key === "Escape") onCancel();
+                  }}
+                  style={{
+                    flex: 1,
+                    border: "none",
+                    padding: "14px 8px",
+                    fontSize: 15,
+                    outline: "none",
+                    background: "transparent",
+                    marginBottom: 0,
+                  }}
+                />
           </div>
         ) : (
           <input

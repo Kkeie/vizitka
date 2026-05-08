@@ -6,27 +6,28 @@ const router = Router();
 
 router.get("/me", requireAuth, async (req: AuthedRequest, res) => {
   try {
-    const user = db.prepare(`
-      SELECT u.*, p.id as profileId, p.username, p.name, p.bio, p.userId as profileUserId
-      FROM User u
-      LEFT JOIN Profile p ON u.id = p.userId
-      WHERE u.id = ?
-    `).get(req.user!.id) as any;
+     const user = db.prepare(`
+       SELECT u.*, p.id as profileId, p.username, p.name, p.bio, p.email, p.userId as profileUserId
+       FROM User u
+       LEFT JOIN Profile p ON u.id = p.userId
+       WHERE u.id = ?
+     `).get(req.user!.id) as any;
     
     if (!user) return res.status(404).json({ error: "not_found" });
     
-    res.json({
-      id: user.id,
-      username: user.username || req.user!.username,
-      createdAt: user.createdAt,
-      profile: user.profileId ? {
-        id: user.profileId,
-        username: user.username,
-        name: user.name,
-        bio: user.bio,
-        userId: user.profileUserId,
-      } : null,
-    });
+     res.json({
+       id: user.id,
+       username: user.username || req.user!.username,
+       createdAt: user.createdAt,
+       profile: user.profileId ? {
+         id: user.profileId,
+         username: user.username,
+         name: user.name,
+         bio: user.bio,
+         email: user.email,
+         userId: user.profileUserId,
+       } : null,
+     });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "internal_error" });

@@ -79,18 +79,18 @@ router.get("/", async (req: AuthedRequest, res) => {
 router.patch("/", async (req: AuthedRequest, res) => {
   const userId = req.user!.id;
   const { username, name, bio, avatarUrl, backgroundUrl, phone, email, telegram, layout, blockSizes } = req.body || {};
-  
+   
   // Проверяем, что пользователь существует
   const user = db.prepare("SELECT id FROM User WHERE id = ?").get(userId) as any;
   if (!user) {
     console.error(`[PROFILE] User ${userId} not found in database`);
     return res.status(401).json({ error: "user_not_found", message: "User does not exist in database" });
   }
-  
-  // Строим UPDATE запрос динамически
-  const updates: string[] = [];
-  const values: any[] = [];
-  
+   
+  // Строим UPDATE запрос динамически для Profile таблицы
+  const profileUpdates: string[] = [];
+  const profileValues: any[] = [];
+   
   // Обработка username с нормализацией
   if (username !== undefined) {
     const normalized = username.trim().toLowerCase();
@@ -98,69 +98,85 @@ router.patch("/", async (req: AuthedRequest, res) => {
     if (normalized.length < 3) {
       return res.status(400).json({ error: "username_too_short", message: "Username must be at least 3 characters" });
     }
-
+ 
     if (!isValidUsernameFormat(normalized)) {
       return res.status(400).json({ error: "invalid_username_format", message: "Only latin letters, numbers and underscore are allowed" });
     }
-
+ 
     if (RESERVED_USERNAMES.includes(normalized)) {
       const suggestions = await findAvailableUsernames(db, normalized, 42);
       return res.status(400).json({ error: "username_taken", suggestions });
     }
-    
+ 
     // Проверка уникальности
     const exists = db.prepare("SELECT id, userId FROM Profile WHERE username = ?").get(normalized) as any;
     if (exists && exists.userId !== userId) {
       return res.status(400).json({ error: "username_taken", message: "Username already taken" });
     }
     
-    updates.push("username = ?");
-    values.push(normalized);
+    profileUpdates.push("username = ?");
+    profileValues.push(normalized);
   }
-  
+   
   if (name !== undefined) {
-    updates.push("name = ?");
-    values.push(name);
+    profileUpdates.push("name = ?");
+    profileValues.push(name);
   }
   if (bio !== undefined) {
-    updates.push("bio = ?");
-    values.push(bio);
+    profileUpdates.push("bio = ?");
+    profileValues.push(bio);
   }
   if (avatarUrl !== undefined) {
-    updates.push("avatarUrl = ?");
-    values.push(avatarUrl);
+    profileUpdates.push("avatarUrl = ?");
+    profileValues.push(avatarUrl);
   }
   if (backgroundUrl !== undefined) {
-    updates.push("backgroundUrl = ?");
-    values.push(backgroundUrl);
+    profileUpdates.push("backgroundUrl = ?");
+    profileValues.push(backgroundUrl);
   }
   if (phone !== undefined) {
-    updates.push("phone = ?");
-    values.push(phone);
+    profileUpdates.push("phone = ?");
+    profileValues.push(phone);
   }
   if (email !== undefined) {
-    updates.push("email = ?");
-    values.push(email);
+    // Валидация email
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
+    if (!EMAIL_RE.test(email)) {
+      return res.status(400).json({ error: "invalid_email_format" });
+    }
+    
+    profileUpdates.push("email = ?");
+    profileValues.push(email);
   }
   if (telegram !== undefined) {
-    updates.push("telegram = ?");
-    values.push(telegram);
+    profileUpdates.push("telegram = ?");
+    profileValues.push(telegram);
   }
   if (layout !== undefined) {
-    updates.push("layout = ?");
-    values.push(JSON.stringify(layout));
+    profileUpdates.push("layout = ?");
+    profileValues.push(JSON.stringify(layout));
   }
   if (blockSizes !== undefined) {
-    updates.push("blockSizes = ?");
-    values.push(JSON.stringify(blockSizes));
+    profileUpdates.push("blockSizes = ?");
+    profileValues.push(JSON.stringify(blockSizes));
   }
-  
-  if (updates.length > 0) {
-    values.push(userId);
-    const update = db.prepare(`UPDATE Profile SET ${updates.join(", ")} WHERE userId = ?`);
-    update.run(...values);
+   
+  // Обновляем Profile таблицу
+  if (profileUpdates.length > 0) {
+    profileValues.push(userId);
+    const profileUpdate = db.prepare(`UPDATE Profile SET ${profileUpdates.join(", ")} WHERE userId = ?`);
+    profileUpdate.run(...profileValues);
   }
-  
+   
+  // Если email изменился, также обновляем User таблицу для синхронизации
+  if (email !== undefined) {
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
+    if (EMAIL_RE.test(email)) {
+      const userUpdate = db.prepare("UPDATE User SET email = ? WHERE id = ?");
+      userUpdate.run(email, userId);
+    }
+  }
+   
   const updated = db.prepare("SELECT * FROM Profile WHERE userId = ?").get(userId) as any;
   res.json(parseProfileJsonFields(updated));
 });

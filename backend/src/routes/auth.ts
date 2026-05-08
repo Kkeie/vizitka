@@ -68,25 +68,25 @@ router.post("/register", async (req, res) => {
 
     const passwordHash = await hashPassword(password);
 
-    // Создаем пользователя и профиль в транзакции
-    const insertUser = db.prepare("INSERT INTO User (email, passwordHash) VALUES (?, ?)");
-    const insertProfile = db.prepare("INSERT INTO Profile (username, name, userId) VALUES (?, ?, ?)");
-    const selectUser = db.prepare("SELECT createdAt FROM User WHERE id = ?");
-    
-    const transaction = db.transaction(() => {
-      const userResult = insertUser.run(normalizedEmail, passwordHash);
-      const userId = userResult.lastInsertRowid as number;
-      const profileResult = insertProfile.run(uname, uname, userId);
-      const profileId = profileResult.lastInsertRowid as number;
-      const user = selectUser.get(userId) as { createdAt: string };
-      
-      return {
-        userId,
-        profileId,
-        username: uname,
-        createdAt: user.createdAt,
-      };
-    });
+     // Создаем пользователя и профиль в транзакции
+     const insertUser = db.prepare("INSERT INTO User (email, passwordHash) VALUES (?, ?)");
+     const insertProfile = db.prepare("INSERT INTO Profile (username, name, email, userId) VALUES (?, ?, ?, ?)");
+     const selectUser = db.prepare("SELECT createdAt FROM User WHERE id = ?");
+     
+     const transaction = db.transaction(() => {
+       const userResult = insertUser.run(normalizedEmail, passwordHash);
+       const userId = userResult.lastInsertRowid as number;
+       const profileResult = insertProfile.run(uname, uname, normalizedEmail, userId);
+       const profileId = profileResult.lastInsertRowid as number;
+       const user = selectUser.get(userId) as { createdAt: string };
+       
+       return {
+         userId,
+         profileId,
+         username: uname,
+         createdAt: user.createdAt,
+       };
+     });
 
     const result = transaction();
     console.log("[REGISTER] Success:", { userId: result.userId, username: uname });

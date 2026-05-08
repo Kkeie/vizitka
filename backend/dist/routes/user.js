@@ -7,11 +7,11 @@ const router = (0, express_1.Router)();
 router.get("/me", auth_1.requireAuth, async (req, res) => {
     try {
         const user = db_1.db.prepare(`
-      SELECT u.*, p.id as profileId, p.username, p.name, p.bio, p.userId as profileUserId
-      FROM User u
-      LEFT JOIN Profile p ON u.id = p.userId
-      WHERE u.id = ?
-    `).get(req.user.id);
+       SELECT u.*, p.id as profileId, p.username, p.name, p.bio, p.email, p.userId as profileUserId
+       FROM User u
+       LEFT JOIN Profile p ON u.id = p.userId
+       WHERE u.id = ?
+     `).get(req.user.id);
         if (!user)
             return res.status(404).json({ error: "not_found" });
         res.json({
@@ -23,6 +23,7 @@ router.get("/me", auth_1.requireAuth, async (req, res) => {
                 username: user.username,
                 name: user.name,
                 bio: user.bio,
+                email: user.email,
                 userId: user.profileUserId,
             } : null,
         });
