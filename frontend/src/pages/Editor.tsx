@@ -1102,12 +1102,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     } else if (type === 'note') {
       createEmptyBlock('note', { note: '' });
     } else if (type === 'link' || type === 'video' || type === 'music') {
-        const btn = document.querySelector(`[data-add-type="${type}"]`) as HTMLElement;
-        if (btn) handleAddWithInline(type, btn);
-      } else {
-        setModalType(type);
-        setModalOpen(true);
-      }
+      const btn = document.querySelector(`[data-add-type="${type}"]`) as HTMLElement;
+      if (btn) handleAddWithInline(type, btn);
+    } else {
+      setModalType(type);
+      setModalOpen(true);
+    }
   }, [createEmptyBlock, handleAddWithInline]);
 
   async function handleBlockSubmit(data: Partial<Block>) {
@@ -1386,21 +1386,26 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         {!showOnboardingPanel && (
           <div ref={bottomBarRef} style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px 20px", zIndex: 1000, boxShadow: "0 4px 16px rgba(0,0,0,0.1)", maxWidth: "calc(100% - 40px)", width: "fit-content" }}>
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-              {[
-                { type: "section", label: "Заголовок", icon: "📑" },
-                { type: "note", label: "Заметка", icon: "📝" },
-                { type: "link", label: "Ссылка", icon: "🔗" },
-                { type: "social", label: "Соцсеть", icon: "💬" },
-                { type: "photo", label: "Фото", icon: "🖼️" },
-                { type: "video", label: "Видео", icon: "🎥" },
-                { type: "music", label: "Музыка", icon: "🎵" },
-                { type: "map", label: "Карта", icon: "🗺️" },
-              ].map(({ type, label, icon }) => (
-                <button key={type} data-add-type={type} onClick={() => handleAddBlockClick(type as BlockType)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: "65px" }}>
-                  <span style={{ fontSize: "20px" }}>{icon}</span>
-                  <span style={{ fontSize: "11px", fontWeight: 500 }}>{label}</span>
+<button data-add-type="qr" onClick={() => setShowQr(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: "65px" }}>
+                  <span style={{ fontSize: "20px" }}>📱</span>
+                  <span style={{ fontSize: "11px", fontWeight: 500 }}>QR-код</span>
                 </button>
-              ))}
+                <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 44, background: "var(--border)", margin: "0 4px" }} />
+                {[
+                  { type: "section" as BlockType, label: "Заголовок", icon: "📑" },
+                  { type: "note" as BlockType, label: "Заметка", icon: "📝" },
+                  { type: "link" as BlockType, label: "Ссылка", icon: "🔗" },
+                  { type: "social" as BlockType, label: "Соцсеть", icon: "💬" },
+                  { type: "photo" as BlockType, label: "Фото", icon: "🖼️" },
+                  { type: "video" as BlockType, label: "Видео", icon: "🎥" },
+                  { type: "music" as BlockType, label: "Музыка", icon: "🎵" },
+                  { type: "map" as BlockType, label: "Карта", icon: "🗺️" },
+                ].map(({ type, label, icon }) => (
+                  <button key={type} data-add-type={type} onClick={() => handleAddBlockClick(type)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: "65px" }}>
+                    <span style={{ fontSize: "20px" }}>{icon}</span>
+                    <span style={{ fontSize: "11px", fontWeight: 500 }}>{label}</span>
+                  </button>
+                ))}
               <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 44, background: "var(--border)", margin: "0 6px" }} />
               <button type="button" onClick={() => setShowMobilePreview(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: isMobileViewport ? "var(--accent)" : "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: isMobileViewport ? "72px" : "52px" }}>
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8"/><line x1="10" y1="17" x2="14" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
@@ -1559,9 +1564,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               <div>Изменить пароль</div>
             </MenuItem>
             <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
-            <MenuItem onClick={() => { setShowProfileMenu(false); setShowQr(true); }}>
-              <div>Показать QR код</div>
-            </MenuItem>
             <MenuItem onClick={() => alert("Функция в разработке")}>
               <div>Экспорт данных</div>
             </MenuItem>
