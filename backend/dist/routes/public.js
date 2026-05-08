@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const db_1 = require("../utils/db");
+const date_1 = require("../utils/date");
 function parseNoteStyleColumn(raw) {
     if (raw == null || raw === "")
         return null;
@@ -125,6 +126,13 @@ router.get("/:username", async (req, res) => {
         else {
             blocksForResponse = blocks.sort((a, b) => a.sort - b.sort);
         }
+        // Инкремент счётчика просмотров
+        const today = (0, date_1.getEkaterinburgViewDate)();
+        db_1.db.prepare(`
+      INSERT INTO daily_views (user_id, view_date, count)
+      VALUES (?, ?, 1)
+      ON CONFLICT(user_id, view_date) DO UPDATE SET count = count + 1
+    `).run(profile.userId, today);
         res.json({
             name: profile.name || profile.username,
             bio: profile.bio,
