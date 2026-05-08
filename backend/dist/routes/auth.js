@@ -62,12 +62,12 @@ router.post("/register", async (req, res) => {
         const passwordHash = await (0, auth_1.hashPassword)(password);
         // Создаем пользователя и профиль в транзакции
         const insertUser = db_1.db.prepare("INSERT INTO User (email, passwordHash) VALUES (?, ?)");
-        const insertProfile = db_1.db.prepare("INSERT INTO Profile (username, name, userId) VALUES (?, ?, ?)");
+        const insertProfile = db_1.db.prepare("INSERT INTO Profile (username, name, email, userId) VALUES (?, ?, ?, ?)");
         const selectUser = db_1.db.prepare("SELECT createdAt FROM User WHERE id = ?");
         const transaction = db_1.db.transaction(() => {
             const userResult = insertUser.run(normalizedEmail, passwordHash);
             const userId = userResult.lastInsertRowid;
-            const profileResult = insertProfile.run(uname, uname, userId);
+            const profileResult = insertProfile.run(uname, uname, normalizedEmail, userId);
             const profileId = profileResult.lastInsertRowid;
             const user = selectUser.get(userId);
             return {
