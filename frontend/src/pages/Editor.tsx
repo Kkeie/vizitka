@@ -229,7 +229,9 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       setLoading(false);
       return;
     }
-    loadData();
+    loadData().then(() => {
+      refreshViews();
+    });
   }, []);
 
   async function loadData() {

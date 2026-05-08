@@ -134,6 +134,14 @@ router.get("/:username", async (req, res) => {
       blocksForResponse = blocks.sort((a: any, b: any) => a.sort - b.sort);
     }
 
+    // Инкремент счётчика просмотров
+    const today = getEkaterinburgViewDate();
+    db.prepare(`
+      INSERT INTO daily_views (user_id, view_date, count)
+      VALUES (?, ?, 1)
+      ON CONFLICT(user_id, view_date) DO UPDATE SET count = count + 1
+    `).run(profile.userId, today);
+
     res.json({
       name: profile.name || profile.username,
       bio: profile.bio,
