@@ -87,18 +87,22 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
           
           {/* Username и кнопка выхода справа */}
           {uname && (
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, marginLeft: "auto", minWidth: 0 }}>
               <span style={{ 
                 fontSize: 14, 
                 color: "var(--muted)",
-                fontWeight: 500
+                fontWeight: 500,
+                maxWidth: isMobile ? 120 : 260,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap"
               }}>
                 @{uname}
               </span>
               <button 
                 className="btn" 
                 onClick={onLogout}
-                style={{ fontSize: 14, padding: "10px 20px" }}
+                style={{ fontSize: 14, padding: isMobile ? "8px 12px" : "10px 20px", whiteSpace: "nowrap" }}
               >
                 Выйти
               </button>

@@ -306,13 +306,16 @@ export default function PublicPage() {
                     <Avatar src={state.avatarUrl} size={120} editable={false} />
                   )}
                   <h1 style={{
-                    fontSize: 32,
+                    fontSize: breakpoint === "mobile" ? 26 : 32,
                     fontWeight: 800,
                     letterSpacing: "-0.03em",
                     width: "100%",
                     margin: 0,
                     padding: 0,
                     color: "var(--text)",
+                    lineHeight: 1.15,
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-word",
                   }}>
                     {state.name}
                   </h1>
