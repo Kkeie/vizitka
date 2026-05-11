@@ -129,6 +129,18 @@ export function getResolvedGridSize(
   return resolved;
 }
 
+/**
+ * colSpan/rowSpan в профиле — «авторский» размер в координатах desktop-сетки.
+ * Не сужать их при раскладке mobile/tablet (иначе превью телефона затирает ширину на ПК).
+ */
+export function getPersistedGridSpans(
+  block: Pick<Block, "type">,
+  entry: BlockGridSize | undefined,
+): { colSpan: number; rowSpan: number } {
+  const r = getResolvedGridSize(block, entry, GRID_COLUMNS.desktop);
+  return { colSpan: r.colSpan, rowSpan: r.rowSpan };
+}
+
 /** Координаты курсора → якорь сетки (линии 1-based) для свободного переноса */
 export function clientPointToGridAnchor(
   clientX: number,
@@ -375,16 +387,19 @@ export function assignSparseAnchorsForBreakpoint(
               occupancy[r + dr][c + dc] = true;
             }
           }
-          const prev = next[id] ?? { colSpan: gs.colSpan, rowSpan: gs.rowSpan };
+          const prevEntry = next[id];
+          const persisted = getPersistedGridSpans(block, prevEntry);
           const anchor = clampAnchor(
             { gridColumnStart: c + 1, gridRowStart: r + 1 },
             gridColumns,
             w,
           );
           next[id] = {
-            ...clampGridSize({ ...prev, colSpan: gs.colSpan, rowSpan: gs.rowSpan }, gridColumns),
+            ...(prevEntry ?? {}),
+            colSpan: persisted.colSpan,
+            rowSpan: persisted.rowSpan,
             anchorsByBreakpoint: {
-              ...(prev.anchorsByBreakpoint ?? {}),
+              ...(prevEntry?.anchorsByBreakpoint ?? {}),
               [bp]: anchor,
             },
           };
@@ -433,11 +448,14 @@ function compactAnchorsUpward(
       r0 += 1;
     }
 
-    const prev = next[id] ?? { colSpan: gs.colSpan, rowSpan: gs.rowSpan };
+    const prevEntry = next[id];
+    const persisted = getPersistedGridSpans(block, prevEntry);
     next[id] = {
-      ...clampGridSize({ ...prev, colSpan: gs.colSpan, rowSpan: gs.rowSpan }, gridColumns),
+      ...(prevEntry ?? {}),
+      colSpan: persisted.colSpan,
+      rowSpan: persisted.rowSpan,
       anchorsByBreakpoint: {
-        ...(prev.anchorsByBreakpoint ?? {}),
+        ...(prevEntry?.anchorsByBreakpoint ?? {}),
         [bp]: clampAnchor(
           { gridColumnStart: c0 + 1, gridRowStart: r0 + 1 },
           gridColumns,
@@ -493,13 +511,16 @@ export function resolveAnchorOverlaps(
         const anchorB = next[idB]?.anchorsByBreakpoint?.[bp];
         const currentStart = anchorB?.gridRowStart ?? B.r0 + 1;
         if (currentStart < newRowStart) {
-          const prev = next[idB] ?? { colSpan: gsB.colSpan, rowSpan: gsB.rowSpan };
+          const prevEntry = next[idB];
+          const persisted = getPersistedGridSpans(blockB, prevEntry);
           const w = gsB.colSpan;
           const colStart = anchorB?.gridColumnStart ?? B.c0 + 1;
           next[idB] = {
-            ...clampGridSize({ ...prev, colSpan: gsB.colSpan, rowSpan: gsB.rowSpan }, gridColumns),
+            ...(prevEntry ?? {}),
+            colSpan: persisted.colSpan,
+            rowSpan: persisted.rowSpan,
             anchorsByBreakpoint: {
-              ...(prev.anchorsByBreakpoint ?? {}),
+              ...(prevEntry?.anchorsByBreakpoint ?? {}),
               [bp]: clampAnchor(
                 { gridColumnStart: colStart, gridRowStart: newRowStart },
                 gridColumns,

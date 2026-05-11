@@ -244,6 +244,61 @@ test.describe("Редактор визитки", () => {
     expect(metricsAfter.windowScrollY).toBe(metricsBefore.windowScrollY);
   });
 
+  test("TC-UI-EDIT-10: широкий блок на ПК не сужается после phone preview", async ({ page, request }) => {
+    const u = `wide_prev_${Date.now()}`;
+    const email = `${u}@test.local`;
+    const reg = await request.post(`${API}/api/auth/register`, {
+      data: { username: u, email, password: "password123" },
+    });
+    expect(reg.ok()).toBeTruthy();
+    const { token } = (await reg.json()) as { token: string };
+    const blockRes = await request.post(`${API}/api/blocks`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { type: "note", note: "wide" },
+    });
+    expect(blockRes.ok()).toBeTruthy();
+    const { id: blockId } = (await blockRes.json()) as { id: number };
+    const patchRes = await request.patch(`${API}/api/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: {
+        blockSizes: {
+          [String(blockId)]: {
+            colSpan: 4,
+            rowSpan: 2,
+            anchorsByBreakpoint: {
+              desktop: { gridColumnStart: 1, gridRowStart: 1 },
+            },
+          },
+        },
+      },
+    });
+    expect(patchRes.ok()).toBeTruthy();
+
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto("/login", { waitUntil: "domcontentloaded" });
+    await page.evaluate((t) => localStorage.setItem("token", t), token);
+    await page.goto("/editor", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/editor/);
+
+    const card = page.locator(`[data-block-id="${blockId}"]`);
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    await page.waitForTimeout(800);
+
+    const widthBefore = await card.evaluate((el) => el.getBoundingClientRect().width);
+
+    await page.getByTestId("editor-preview-phone-toggle").click();
+    await expect(page.locator(".editor-phone-preview-shell")).toBeVisible();
+    await page.waitForTimeout(500);
+
+    await page.getByTestId("editor-preview-phone-toggle").click();
+    await expect(page.locator(".editor-phone-preview-shell")).toHaveCount(0);
+    await page.waitForTimeout(800);
+
+    const widthAfter = await card.evaluate((el) => el.getBoundingClientRect().width);
+
+    expect(widthAfter).toBeGreaterThanOrEqual(widthBefore * 0.92);
+  });
+
   test("TC-UI-EDIT-02: добавили заметку с текстом — после обновления страница текст на месте (сохранилось на сервере)", async ({ page }) => {
     await page.locator('[data-add-type="note"]').click();
     const text = "Моя первая заметка";
