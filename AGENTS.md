@@ -36,6 +36,10 @@ Start backend first (`npm start` in `backend/`), then frontend (`npm run dev` in
 
 No lint script is configured in either package.
 
+## Project specification
+
+Full spec (user flows, API, data models, block types, grid system): `docs/agents/SPEC.md`
+
 ## Architecture
 
 ### Backend (`backend/src/`)
