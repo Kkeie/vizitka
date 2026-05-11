@@ -1,6 +1,6 @@
-# AGENTS.md
+# CLAUDE.md
 
-This file provides guidance to OpenAI Codex and other AI agents working in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project overview
 
@@ -17,8 +17,6 @@ npm start              # run compiled dist/server.js
 npm run dev            # tsc --watch (no auto-restart)
 npm test               # vitest run (integration, uses real SQLite in /tmp)
 ```
-
-Run a single test file: `npx vitest run test/auth.integration.test.ts`
 
 ### Frontend (`cd frontend`)
 
@@ -81,7 +79,7 @@ Block layout is stored as JSON in `Profile.blockSizes` (`BlockSizes = Record<blo
 
 ### Testing
 
-Backend tests are integration tests against a real SQLite DB created in `/tmp` per process (`test/setup.ts`). Tests are **not** parallel (`fileParallelism: false`, `pool: forks`).
+Backend tests are integration tests that run against a real SQLite DB created in `/tmp` per process (see `test/setup.ts`). Tests are **not** parallel (`fileParallelism: false`, `pool: forks`). Run a single test file: `npx vitest run test/auth.integration.test.ts`.
 
 E2e tests (`frontend/e2e/`) use Playwright. `playwright.config.ts` starts the backend (builds it first) and Vite dev server automatically.
 
@@ -91,79 +89,16 @@ Full spec: `docs/agents/TRELLO.md`
 
 Board columns: **Бэклог → Сделать → В работе → Тестирование → Сделано → Архив**
 
-«Архив» is moved by a human only. The agent owns everything up to «Сделано».
+- Agent picks tasks from «Сделать», moves the card forward as work progresses, and leaves it in «Сделано».
+- «Архив» is moved by a human.
+- Use `/do-task` to start the automated workflow.
 
-### Setup
-
-Trello credentials are required in the environment:
-
-```
-TRELLO_API_KEY=...
-TRELLO_TOKEN=...
-TRELLO_BOARD_ID=...
-```
-
-All Trello operations go through `scripts/trello.sh` (requires `curl` and `jq`).
-
-### Task execution workflow
-
-**Step 1 — Read the task**
-
-```bash
-bash scripts/trello.sh next-task
-```
-
-This returns the first card from «Сделать» as JSON: `id`, `name`, `desc`, `checklists`.
-If the list is empty, stop and report to the user.
-
-**Step 2 — Move to «В работе»**
-
-```bash
-bash scripts/trello.sh move <card-id> "В работе"
-```
-
-**Step 3 — Implement**
-
-- Derive acceptance criteria from the card description and checklists.
-- Make the minimum scoped change.
-- Add or update tests for all new logic.
-- If the task is ambiguous, stop and ask before implementing.
-
-**Step 4 — Move to «Тестирование»**
-
-```bash
-bash scripts/trello.sh move <card-id> "Тестирование"
-```
-
-**Step 5 — Run quality checks**
-
-For each changed package (`backend` / `frontend`):
-
-1. Lint — `npm run lint` if the script exists; if not, state that explicitly.
-2. Tests — `npm test` (backend) or `npm run test:e2e` (frontend).
-3. Build — `npm run build` if tests don't cover compilation.
-
-Fix failures and repeat. Maximum 3 fix cycles per blocker before escalating.
-
-**Step 6 — Move to «Сделано» and comment**
-
-All checks green:
-
-```bash
-bash scripts/trello.sh move <card-id> "Сделано"
-bash scripts/trello.sh comment <card-id> "Done. Changed: ... Checks: ... Risks: ..."
-```
-
-**Step 7 — Report to user**
-
-Short summary: what changed, what was validated, residual risks.
+MCP server config: `.mcp.json` (gitignored; copy from `.mcp.json.example` and fill in `TRELLO_API_KEY`, `TRELLO_TOKEN`, `TRELLO_BOARD_ID`).
 
 ## Agent policy
 
-Full contract: `docs/agents/COMMON-QUALITY-CONTRACT.md`. Workflows: `docs/agents/WORKFLOWS.md`.
-
+See `docs/agents/COMMON-QUALITY-CONTRACT.md` for the full contract. Key rules:
 - Ask before major refactors.
 - Add/update tests for all new logic.
-- After changes: run tests, then build. Report exact commands and results.
+- After changes: run tests, then build. Report results — pass/fail, not "should be fine".
 - Do not commit unless explicitly asked.
-- Limit to 3 fix-attempt cycles per blocker before escalating.

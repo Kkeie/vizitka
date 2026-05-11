@@ -52,6 +52,9 @@ tfplan.txt
 *.tfvars.json
 !infra/terraform/app.auto.tfvars
 
+# Local MCP config (may contain API keys)
+.mcp.json
+
 # IDE/editor
 .idea/
 .vscode/
