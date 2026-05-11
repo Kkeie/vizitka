@@ -403,6 +403,55 @@ function orderedIdsForExistingBlocks(orderedIds: number[], blocks: Block[]): num
   return orderedIds.filter((id) => blocks.some((b) => b.id === id));
 }
 
+function compactAnchorsUpward(
+  blockSizes: BlockSizes,
+  orderedIds: number[],
+  blocks: Block[],
+  bp: Breakpoint,
+  gridColumns: number,
+  cellSize: number | null,
+  gap: number,
+  rowUnit = BENTO_ROW_UNIT,
+): BlockSizes {
+  const next: BlockSizes = JSON.parse(JSON.stringify(blockSizes)) as BlockSizes;
+  const placed: Rect[] = [];
+
+  for (const id of orderedIds) {
+    const block = blocks.find((b) => b.id === id);
+    if (!block) continue;
+    const gs = getResolvedGridSize(block, next[id], gridColumns);
+    const h = getGridRowSpan(block, gs, cellSize, gap, rowUnit);
+    const w = gs.colSpan;
+    const anchor = next[id]?.anchorsByBreakpoint?.[bp];
+    const c0 = Math.max(0, Math.min(gridColumns - w, (anchor?.gridColumnStart ?? 1) - 1));
+
+    let r0 = 0;
+    while (true) {
+      const probe: Rect = { id, c0, r0, w, h };
+      const hasCollision = placed.some((p) => colsOverlap(probe, p) && rowsOverlap(probe, p));
+      if (!hasCollision) break;
+      r0 += 1;
+    }
+
+    const prev = next[id] ?? { colSpan: gs.colSpan, rowSpan: gs.rowSpan };
+    next[id] = {
+      ...clampGridSize({ ...prev, colSpan: gs.colSpan, rowSpan: gs.rowSpan }, gridColumns),
+      anchorsByBreakpoint: {
+        ...(prev.anchorsByBreakpoint ?? {}),
+        [bp]: clampAnchor(
+          { gridColumnStart: c0 + 1, gridRowStart: r0 + 1 },
+          gridColumns,
+          w,
+        ),
+      },
+    };
+
+    placed.push({ id, c0, r0, w, h });
+  }
+
+  return next;
+}
+
 /** После изменения размера: сдвигаем нижние блоки при пересечении, порядок в orderedIds — приоритет сверху */
 export function resolveAnchorOverlaps(
   blockSizes: BlockSizes,
@@ -415,7 +464,16 @@ export function resolveAnchorOverlaps(
   rowUnit = BENTO_ROW_UNIT,
 ): BlockSizes {
   const validIds = orderedIdsForExistingBlocks(orderedIds, blocks);
-  let next: BlockSizes = JSON.parse(JSON.stringify(blockSizes)) as BlockSizes;
+  let next: BlockSizes = compactAnchorsUpward(
+    blockSizes,
+    validIds,
+    blocks,
+    bp,
+    gridColumns,
+    cellSize,
+    gap,
+    rowUnit,
+  );
 
   for (let iter = 0; iter < 80; iter++) {
     const rects = buildRects(validIds, blocks, next, bp, gridColumns, cellSize, gap, rowUnit);
@@ -469,7 +527,9 @@ export function getBlockHeightPx(
     return SECTION_BLOCK_HEIGHT;
   }
 
-  const safeCellSize = cellSize && cellSize > 0 ? cellSize : DEFAULT_BENTO_CELL_SIZE;
+  const measuredCellSize = cellSize && cellSize > 0 ? cellSize : DEFAULT_BENTO_CELL_SIZE;
+  // Keep baseline card size on wider viewports; only shrink on narrow ones.
+  const safeCellSize = Math.min(measuredCellSize, DEFAULT_BENTO_CELL_SIZE);
   let h = gridSize.rowSpan * safeCellSize + Math.max(0, gridSize.rowSpan - 1) * gap;
 
   if (block.type === "music" && block.musicEmbed) {

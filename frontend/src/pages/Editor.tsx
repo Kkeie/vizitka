@@ -1089,13 +1089,13 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     setInlineInput(null);
   };
 
-  const handleAddBlockClick = useCallback((type: BlockType) => {
+  const handleAddBlockClick = useCallback((type: BlockType, sourceButton?: HTMLElement) => {
     if (type === 'section') {
       createEmptyBlock('section', { note: '' });
     } else if (type === 'note') {
       createEmptyBlock('note', { note: '' });
     } else if (type === 'link' || type === 'video' || type === 'music') {
-      const btn = document.querySelector(`[data-add-type="${type}"]`) as HTMLElement;
+      const btn = sourceButton ?? (document.querySelector(`[data-add-type="${type}"]`) as HTMLElement | null);
       if (btn) handleAddWithInline(type, btn);
     } else {
       setModalType(type);
@@ -1226,9 +1226,37 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const compactToolbarMode = true;
 
   return (
-    <div className={`page-bg min-h-screen editor-page ${useFramedPhonePreview ? "editor-page--phone-preview" : ""}`}>
-      <div className={`container ${useFramedPhonePreview ? "editor-phone-preview-shell" : ""}`} style={{ paddingTop: 40, paddingBottom: 100 }}>
-        <div className="two-column-layout" style={{ alignItems: "start", ...(previewMode === "phone" ? { gridTemplateColumns: "1fr", gap: "16px" } : {}) }}>
+    <div
+      className={`page-bg min-h-screen editor-page ${useFramedPhonePreview ? "editor-page--phone-preview" : ""}`}
+      style={useFramedPhonePreview ? { height: "100dvh", overflow: "hidden" } : undefined}
+    >
+      <div
+        className={`container ${useFramedPhonePreview ? "editor-phone-preview-shell" : ""}`}
+        style={
+          useFramedPhonePreview
+            ? {
+                paddingTop: 24,
+                paddingBottom: 24,
+                height: "min(820px, calc(100dvh - 132px))",
+              }
+            : { paddingTop: 40, paddingBottom: 100 }
+        }
+      >
+        <div
+          className="two-column-layout"
+          style={{
+            alignItems: "start",
+            ...(previewMode === "phone" ? { gridTemplateColumns: "1fr", gap: "16px" } : {}),
+            ...(useFramedPhonePreview
+              ? {
+                  height: "100%",
+                  overflowY: "auto",
+                  overscrollBehavior: "contain",
+                  paddingRight: 4,
+                }
+              : {}),
+          }}
+        >
           {/* Левая колонка */}
           <div style={{ width: "100%", maxWidth: "100%" }}>
             {showOnboardingPanel ? (
@@ -1451,7 +1479,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 <button
                   key={type}
                   data-add-type={type}
-                  onClick={() => handleAddBlockClick(type)}
+                  onClick={(e) => handleAddBlockClick(type, e.currentTarget)}
                   title={label}
                   style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 14 }}
                 >
@@ -1484,7 +1512,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                           key={type}
                           type="button"
                           onClick={() => {
-                            handleAddBlockClick(type);
+                            handleAddBlockClick(type, overflowToggleRef.current ?? undefined);
                             setShowOverflowMenu(false);
                           }}
                           style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: "none", borderRadius: "var(--radius-sm)", background: "transparent", color: "var(--text)", cursor: "pointer", fontSize: 13, fontWeight: 500, textAlign: "left" }}

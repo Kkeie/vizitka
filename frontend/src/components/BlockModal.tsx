@@ -322,6 +322,8 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
 
   if (!isOpen) return null;
 
+  const isCompactViewport =
+    typeof window !== "undefined" ? window.innerWidth <= 640 : false;
   const hasMapCoordinates = formData.mapLat != null && formData.mapLng != null;
 
   const typeAccusative: Record<BlockType, string> = {
@@ -347,10 +349,11 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
         display: "flex",
-        alignItems: "center",
+        alignItems: isCompactViewport ? "flex-start" : "center",
         justifyContent: "center",
         zIndex: 1000,
-        padding: 20,
+        padding: isCompactViewport ? 12 : 20,
+        overflowY: "auto",
         animation: "fadeIn 0.2s ease",
       }}
       onClick={onClose}
@@ -358,17 +361,18 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
       <div
         className="card"
         style={{
-          maxWidth: 640,
+          maxWidth: isCompactViewport ? "100%" : 640,
           width: "100%",
-          maxHeight: "90vh",
+          maxHeight: isCompactViewport ? "calc(100dvh - 24px)" : "90vh",
           overflowY: "auto",
-          padding: 40,
+          padding: isCompactViewport ? 16 : 40,
+          marginTop: isCompactViewport ? 4 : 0,
           animation: "slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
-          <h2 style={{ fontSize: 28, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.03em" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isCompactViewport ? 20 : 32, gap: 12 }}>
+          <h2 style={{ fontSize: isCompactViewport ? 22 : 28, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.03em" }}>
             Добавить {typeAccusative[type]}
           </h2>
           <button
@@ -473,7 +477,14 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
               <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
                 Выберите социальную сеть
               </label>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 20 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isCompactViewport ? "repeat(2, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))",
+                  gap: 8,
+                  marginBottom: 20,
+                }}
+              >
                 {SOCIAL_OPTIONS.map((opt) => {
                   const selected = formData.socialType === opt.id;
                   const bg = selected ? (opt.accentColor || "var(--primary)") : "var(--accent)";
@@ -486,8 +497,8 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         if (formError) setFormError(null);
                       }}
                       style={{
-                        padding: "10px 12px",
-                        fontSize: 13,
+                        padding: isCompactViewport ? "9px 10px" : "10px 12px",
+                        fontSize: isCompactViewport ? 12 : 13,
                         fontWeight: 600,
                         background: bg,
                         color: selected ? "white" : "var(--text)",
@@ -618,7 +629,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
 
           {type === "map" && (
             <div className="field">
-              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <div style={{ display: "flex", flexDirection: isCompactViewport ? "column" : "row", gap: 8, marginBottom: 16 }}>
                 <button
                   type="button"
                   onClick={() => setMapInputType('address')}
@@ -665,7 +676,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                   <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 0, marginBottom: 8 }}>
                     Начните вводить адрес и выберите подсказку из списка.
                   </p>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  <div style={{ display: "flex", flexDirection: isCompactViewport ? "column" : "row", gap: 8, marginBottom: 12 }}>
                     <input
                       className="input"
                       type="text"
@@ -707,7 +718,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                       onClick={handleGeocodeAddress}
                       disabled={searching || !searchAddress.trim()}
                       className="btn btn-primary"
-                      style={{ fontSize: 14, whiteSpace: "nowrap" }}
+                      style={{ fontSize: 14, whiteSpace: "nowrap", width: isCompactViewport ? "100%" : undefined }}
                     >
                       {searching ? "Поиск..." : "Найти"}
                     </button>
@@ -774,7 +785,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                       <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
                         Найденные координаты:
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: isCompactViewport ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 16 }}>
                         <div>
                           <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
                             Широта
@@ -821,7 +832,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                           title="Превью на карте"
                         />
                       </div>
-                      <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ marginTop: 8, display: "flex", flexDirection: isCompactViewport ? "column" : "row", justifyContent: "space-between", gap: 8 }}>
                         <a
                           href={`https://yandex.ru/maps/?pt=${formData.mapLng},${formData.mapLat}&z=14`}
                           target="_blank"
@@ -857,7 +868,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                   <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
                     Введите координаты
                   </label>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isCompactViewport ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 16 }}>
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
                         Широта
@@ -908,7 +919,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                           title="Превью на карте"
                         />
                       </div>
-                      <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ marginTop: 8, display: "flex", flexDirection: isCompactViewport ? "column" : "row", justifyContent: "space-between", gap: 8 }}>
                         <a
                           href={`https://yandex.ru/maps/?pt=${formData.mapLng},${formData.mapLat}&z=14`}
                           target="_blank"
@@ -958,7 +969,17 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 32, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: isCompactViewport ? "column-reverse" : "row",
+              gap: 12,
+              justifyContent: "flex-end",
+              marginTop: 32,
+              paddingTop: 24,
+              borderTop: "1px solid var(--border)",
+            }}
+          >
             <button
               type="button"
               onClick={onClose}
@@ -968,11 +989,12 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 padding: "12px 20px",
                 background: "var(--accent)",
                 border: "1px solid var(--border)",
+                width: isCompactViewport ? "100%" : undefined,
               }}
             >
               Отмена
             </button>
-            <button type="submit" className="btn btn-primary" style={{ fontSize: 14, padding: "12px 24px" }}>
+            <button type="submit" className="btn btn-primary" style={{ fontSize: 14, padding: "12px 24px", width: isCompactViewport ? "100%" : undefined }}>
               Добавить блок
             </button>
           </div>

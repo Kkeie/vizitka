@@ -95,8 +95,9 @@ export default function InlineInputCard({
         borderRadius: 'var(--radius-sm)',
         padding: '12px',
         boxShadow: 'var(--shadow-lg)',
-        minWidth: '320px',
-        maxWidth: '400px',
+        width: 'min(400px, calc(100vw - 16px))',
+        minWidth: 'min(320px, calc(100vw - 16px))',
+        maxWidth: 'calc(100vw - 16px)',
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >

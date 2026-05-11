@@ -533,11 +533,16 @@ iframe.yandex-music-embed {
   width: min(100%, 340px);
   margin-left: auto !important;
   margin-right: auto !important;
+  margin-top: 16px !important;
+  margin-bottom: 96px !important;
   border: 1px solid #e5e5e9;
   border-radius: 36px;
-  padding: 28px 18px 100px !important;
+  padding: 22px 16px 22px !important;
   background: #fff;
   box-shadow: 0 16px 38px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .editor-phone-preview-shell .card {
@@ -552,6 +557,8 @@ iframe.yandex-music-embed {
 
 .editor-phone-preview-shell .two-column-layout {
   gap: 14px !important;
+  min-height: 0;
+  padding-right: 2px;
 }
 .editor-phone-preview-shell .two-column-layout > div:first-child,
 .editor-phone-preview-shell .two-column-layout > div:last-child {

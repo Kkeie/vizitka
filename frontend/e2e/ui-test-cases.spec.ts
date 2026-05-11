@@ -163,6 +163,87 @@ test.describe("Редактор визитки", () => {
     await expect(page.getByTestId("editor-overflow-menu")).toBeVisible();
   });
 
+  test("TC-UI-EDIT-06: на телефоне через «⋯» добавление музыки открывает поле ввода", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByTestId("editor-overflow-toggle").click();
+    await page.getByRole("button", { name: "Музыка" }).click();
+    await expect(page.getByPlaceholder("https://music.yandex.ru/...")).toBeVisible();
+  });
+
+  test("TC-UI-EDIT-07: на телефоне модалка соцсетей не обрезается по ширине", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByTestId("editor-overflow-toggle").click();
+    await page.getByRole("button", { name: "Соцсеть" }).click();
+    const modalCard = page.locator("div.card").filter({ has: page.getByText("Добавить соцсеть") }).first();
+    await expect(modalCard).toBeVisible();
+    const fitsViewport = await modalCard.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return r.left >= 0 && r.right <= window.innerWidth;
+    });
+    expect(fitsViewport).toBeTruthy();
+  });
+
+  test("TC-UI-EDIT-08: при изменении ширины экрана высота блока не раздувается", async ({ page }) => {
+    await page.locator('[data-add-type="note"]').click();
+    const noteEditable = page.locator('[contenteditable="true"]').first();
+    await noteEditable.waitFor({ state: "visible", timeout: 20_000 });
+    await noteEditable.evaluate((el) => {
+      el.textContent = "Проверка адаптивной высоты";
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await page.keyboard.press("Tab");
+    await page.waitForTimeout(500);
+
+    const card = page.locator('[data-block-id]').first();
+    await expect(card).toBeVisible();
+
+    await page.setViewportSize({ width: 900, height: 900 });
+    const heightNarrow = await card.evaluate((el) => el.getBoundingClientRect().height);
+
+    await page.setViewportSize({ width: 1400, height: 900 });
+    const heightWide = await card.evaluate((el) => el.getBoundingClientRect().height);
+
+    // На широком экране блок не должен резко расти по высоте.
+    expect(heightWide).toBeLessThanOrEqual(heightNarrow + 24);
+  });
+
+  test("TC-UI-EDIT-09: в режиме phone preview скролл идёт внутри рамки телефона", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 700 });
+    for (let i = 0; i < 24; i++) {
+      await page.locator('[data-add-type="note"]').click();
+    }
+    await page.waitForTimeout(500);
+
+    await page.getByTestId("editor-preview-phone-toggle").click();
+    const shell = page.locator(".editor-phone-preview-shell");
+    const scrollArea = page.locator(".editor-phone-preview-shell .two-column-layout");
+    await expect(shell).toBeVisible();
+    await expect(scrollArea).toBeVisible();
+
+    const metricsBefore = await scrollArea.evaluate((el) => ({
+      scrollTop: el.scrollTop,
+      clientHeight: el.clientHeight,
+      scrollHeight: el.scrollHeight,
+      windowScrollY: window.scrollY,
+    }));
+    expect(metricsBefore.scrollHeight).toBeGreaterThan(metricsBefore.clientHeight);
+
+    const box = await shell.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, 1200);
+    await page.waitForTimeout(200);
+
+    const metricsAfter = await scrollArea.evaluate((el) => ({
+      scrollTop: el.scrollTop,
+      windowScrollY: window.scrollY,
+    }));
+
+    expect(metricsAfter.scrollTop).toBeGreaterThan(metricsBefore.scrollTop);
+    expect(metricsAfter.windowScrollY).toBe(metricsBefore.windowScrollY);
+  });
+
   test("TC-UI-EDIT-02: добавили заметку с текстом — после обновления страница текст на месте (сохранилось на сервере)", async ({ page }) => {
     await page.locator('[data-add-type="note"]').click();
     const text = "Моя первая заметка";
