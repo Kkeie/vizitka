@@ -3,7 +3,7 @@ import { me, getPublic, getImageUrl } from "../api";
 import BlockCard from "../components/BlockCard";
 import { useMasonryGrid } from "../components/BlockMasonryGrid";
 
-export default function MyBento() {
+export default function MyVizitka() {
   const [state, setState] = React.useState<{ loading: boolean; name?: string; bio?: string | null; avatarUrl?: string | null; backgroundUrl?: string | null; blocks?: any[]; username?: string; error?: string }>({ loading: true });
   const gridRef = useMasonryGrid([state.blocks?.length]);
 

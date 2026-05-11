@@ -515,16 +515,16 @@ export function qrUrlForPublic(username: string) {
 }
 
 // New wrappers for layout pages
-export type BentoData = { name: string; username: string; bio: string | null; avatarUrl: string | null; blocks: Block[] };
-export async function getMyPublicBento(): Promise<BentoData> {
+export type VizitkaData = { name: string; username: string; bio: string | null; avatarUrl: string | null; blocks: Block[] };
+export async function getMyPublicVizitka(): Promise<VizitkaData> {
   const meUser = await me();
   const uname = meUser.profile?.username || meUser.username;
   const data = await getPublic(uname);
-  return { username: uname, ...data } as BentoData;
+  return { username: uname, ...data } as VizitkaData;
 }
-export async function getPublicBento(username: string): Promise<BentoData> {
+export async function getPublicVizitka(username: string): Promise<VizitkaData> {
   const data = await getPublic(username);
-  return { username, ...data } as BentoData;
+  return { username, ...data } as VizitkaData;
 }
 
 export async function checkUsername(username: string): Promise<{ available: boolean; suggestions?: string[] }> {

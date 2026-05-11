@@ -67,7 +67,7 @@ export default function Login() {
     <div className="login-bento min-h-screen">
       <div className="login-bento__inner">
         <div className="login-bento__form-col">
-          <h1 className="login-bento__title">Войдите в Bento</h1>
+          <h1 className="login-bento__title">Войдите в Визитку</h1>
           <p className="login-bento__subtitle">Рады видеть вас снова!</p>
 
           <form onSubmit={submit} noValidate>

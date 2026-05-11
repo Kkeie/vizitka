@@ -1,4 +1,4 @@
-/* Premium Modern Bento Design System */
+/* Premium Modern Визитка Design System */
 :root{
   --bg: #fafafa;
   --surface: #ffffff;
@@ -138,7 +138,7 @@
     padding-top: 48px !important;
     padding-bottom: 48px !important;
   }
-  /* Меньший gap в bento-сетке на мобильном */
+  /* Меньший gap в сетке на мобильном */
   .public-page .bento-grid {
     --grid-gap: 12px;
     gap: 12px !important;
