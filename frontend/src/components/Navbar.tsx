@@ -52,7 +52,7 @@ export default function Navbar({ user, onLogout }: { user: User | null; onLogout
             onMouseEnter={(e) => e.currentTarget.style.color = "var(--primary-hover)"}
             onMouseLeave={(e) => e.currentTarget.style.color = "var(--text)"}
           >
-            Bento
+            Визитка
           </Link>
           
           {/* Кнопка скопировать ссылку – появляется только для авторизованных */}

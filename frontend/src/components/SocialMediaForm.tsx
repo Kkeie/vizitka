@@ -138,7 +138,7 @@ export default function SocialMediaForm({ onSubmit, onCancel }: SocialMediaFormP
         color: "var(--text)",
         textAlign: "center",
       }}>
-        Add your social media accounts to your Bento
+        Добавьте социальные сети в вашу Визитку
       </h2>
       <p style={{ 
         fontSize: 14, 

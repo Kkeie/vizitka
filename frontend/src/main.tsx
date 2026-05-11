@@ -5,7 +5,6 @@ import { createBrowserRouter, RouterProvider, useLocation, useNavigate } from "r
 import "./index.css";
 import "./styles.css";
 import "./styles/drag-reorder.css";
-import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -15,21 +14,8 @@ import { getToken, me, setToken, subscribeAuthToken, type User } from "./api";
 import { SessionContext, useSession } from "./sessionContext";
 
 function NavLayout({ children }: { children: React.ReactNode }) {
-  const { user, setUser } = useSession();
-  const navigate = useNavigate();
-  const onLogout = () => {
-    setToken(null);
-    // Сначала сбрасываем user в контексте синхронно — иначе /login на мгновение видит старого user и уводит обратно в /editor.
-    flushSync(() => {
-      setUser(null);
-    });
-    navigate("/login", { replace: true });
-  };
   return (
-    <>
-      <Navbar user={user} onLogout={onLogout} />
-      <main style={{ width: "100%", maxWidth: "100%" }}>{children}</main>
-    </>
+    <main style={{ width: "100%", maxWidth: "100%" }}>{children}</main>
   );
 }
 

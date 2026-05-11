@@ -211,7 +211,7 @@ export default function MobileVisitPreviewModal({
                   color: "var(--text)",
                 }}
               >
-                Bento
+                Визитка
               </span>
             </div>
 

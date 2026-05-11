@@ -1464,7 +1464,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                   lineHeight: 1,
                 }}
               >
-                Share my Bento
+                Поделиться Визиткой
               </button>
               <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 26, background: "var(--border)", margin: "0 2px" }} />
               <button
