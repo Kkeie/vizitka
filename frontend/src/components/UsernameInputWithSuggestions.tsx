@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef } from "react";
 import { checkUsername } from "../api";
+import { PUBLIC_BASE_URL_WITH_SLASH } from "../lib/publicBaseUrl";
 
 interface UsernameInputWithSuggestionsProps {
   value: string;
@@ -86,7 +87,7 @@ export default function UsernameInputWithSuggestions({
     return (
     <div className="username-field">
       <div className="prefixed-input">
-        <span className="prefix">bento.me/</span>
+        <span className="prefix">{PUBLIC_BASE_URL_WITH_SLASH}</span>
         <input
           type="text"
           className="input-prefixed"
@@ -137,6 +138,7 @@ export default function UsernameInputWithSuggestions({
         }
         .input-prefixed {
           flex: 1;
+          min-width: 0;
           border: none;
           padding: 0 8px;
           font-size: var(--login-input-font-size, 15px);
@@ -144,6 +146,27 @@ export default function UsernameInputWithSuggestions({
           outline: none;
           background: transparent;
           font-family: var(--login-font, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+        }
+        @media (max-width: 560px) {
+          .prefixed-input {
+            flex-direction: column;
+            align-items: stretch;
+            height: auto;
+            gap: 6px;
+            padding: 10px 12px;
+          }
+          .prefix {
+            margin-right: 0;
+            font-size: 12px;
+            line-height: 1.25;
+            white-space: normal;
+            overflow-wrap: anywhere;
+          }
+          .input-prefixed {
+            padding: 0;
+            min-height: 30px;
+            line-height: 1.4;
+          }
         }
         .checking-muted {
           font-size: 12px;

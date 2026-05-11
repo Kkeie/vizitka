@@ -56,3 +56,15 @@ Keep responses short by default, and include:
 - what changed
 - what was validated
 - remaining risks or follow-ups
+
+## Self-check before replying (mandatory)
+
+Before marking work complete, the agent must:
+
+1. **Re-read the user request** — confirm scope and acceptance criteria are met.
+2. **Run validations** per package (see Quality gates): lint if present → tests → build if needed.
+3. **Report evidence** — exact commands run and outcome (pass/fail), not "should be fine".
+4. **UI / product sanity** — if the task touched UX, describe how it was verified (e2e, screenshot, or manual path).
+5. **Residual risk** — list what was not tested and any follow-ups.
+
+If a required check cannot run locally, say why and what was run instead; do not imply full verification.

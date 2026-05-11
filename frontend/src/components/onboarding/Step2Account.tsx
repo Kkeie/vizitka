@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { register, checkEmail } from "../../api";
 import { Link } from "react-router-dom";
 import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../lib/registrationDecoSocials";
+import { PUBLIC_BASE_URL } from "../../lib/publicBaseUrl";
 import PhoneMockup from "./PhoneMockup";
 import "../../pages/LoginPage.css";
 
@@ -147,7 +148,7 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
           <button type="button" className="auth-bento__back" onClick={onBack} aria-label="Back">
             ←
           </button>
-            <p className="auth-bento__kicker">bento.me/{username} теперь ваш!</p>
+            <p className="auth-bento__kicker">{PUBLIC_BASE_URL}/{username} теперь ваш!</p>
             <h1 className="login-bento__title auth-bento__title">Теперь создайте аккаунт.</h1>
 
           <form onSubmit={handleSubmit} className="auth-bento__form" noValidate>
@@ -226,7 +227,7 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
         <div className="step2-reg__right">
           <div className={`step2-reg__phone ${phoneVisible ? "step2-reg__phone--visible" : ""}`}>
             <PhoneMockup>
-              <div className="step2-reg__link-pill">bento.me/{username}</div>
+              <div className="step2-reg__link-pill">{PUBLIC_BASE_URL}/{username}</div>
               <div className="step2-reg__icons">
                 {REGISTRATION_DECO_SOCIALS.map((item: RegistrationDecoSocial) => {
                   const Icon = item.Icon;
@@ -270,6 +271,8 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
           margin-bottom: 20px;
           font-size: 14px;
           color: #1a1a1a;
+          overflow-wrap: anywhere;
+          word-break: break-word;
         }
         .step2-reg__icons {
           display: grid;

@@ -1,5 +1,6 @@
 import React from "react";
 import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../lib/registrationDecoSocials";
+import { PUBLIC_BASE_URL } from "../../lib/publicBaseUrl";
 
 interface FloatingCardsProps {
   username: string;
@@ -55,7 +56,7 @@ export default function FloatingCards({ username, withLinkCard = true }: Floatin
         >
           <div className="link-card-content">
             <span className="link-icon">🔒</span>
-            <span className="link-url">bento.me/{username || "ваш-логин"}</span>
+            <span className="link-url">{PUBLIC_BASE_URL}/{username || "ваш-логин"}</span>
           </div>
         </div>
       )}

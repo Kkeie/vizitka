@@ -201,6 +201,8 @@
   font-weight: 500;
   color: #0a0a0a;
   margin: 0 0 12px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .auth-bento__form {
   display: block;

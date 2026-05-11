@@ -28,7 +28,6 @@ import PasswordChangeCard from "../components/PasswordChangeCard";
 import { DraggableBlockCard } from "../components/DraggableBlockCard";
 import BlockCard from "../components/BlockCard";
 import BlockModal from "../components/BlockModal";
-import MobileVisitPreviewModal from "../components/MobileVisitPreviewModal";
 import InlineInputCard from "../components/InlineInputCard";
 import OnboardingInEditor from "../components/onboarding/OnboardingInEditor";
 
@@ -47,6 +46,13 @@ import {
   resolveAnchorOverlaps,
   sanitizeBlockSizes,
 } from "../lib/block-grid";
+import {
+  validateLinkInput,
+  validateMusicInput,
+  validateSocialInput,
+  validateVideoInput,
+} from "../lib/blockValidation";
+import { PUBLIC_BASE_URL_WITH_SLASH } from "../lib/publicBaseUrl";
 
 import {
   DndContext,
@@ -101,7 +107,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const profileRef = useRef<HTMLDivElement>(null);
-  const breakpoint = useBreakpoint();
+  const viewportBreakpoint = useBreakpoint();
 
   // Основные данные
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -123,10 +129,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
-  const [showMobilePreview, setShowMobilePreview] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
-  );
+  const [previewMode, setPreviewMode] = useState<"desktop" | "phone">("desktop");
   const [activeId, setActiveId] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
@@ -182,6 +185,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     buttonRect: DOMRect;
   } | null>(null);
   const bottomBarRef = useRef<HTMLDivElement>(null);
+  const overflowMenuRef = useRef<HTMLDivElement>(null);
+  const overflowToggleRef = useRef<HTMLButtonElement>(null);
+  const [toolbarWidth, setToolbarWidth] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1400));
+  const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+
+  const breakpoint: Breakpoint = previewMode === "phone" ? "mobile" : viewportBreakpoint;
 
   const isResizingRef = useRef(false);
   const resizeOriginalBlockSizesRef = useRef<BlockSizes>({});
@@ -212,13 +221,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       revealTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
       revealTimeoutsRef.current = [];
     };
-  }, []);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const onChange = () => setIsMobileViewport(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
   }, []);
 
   useEffect(() => {
@@ -406,6 +408,28 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  useEffect(() => {
+    const handleResize = () => setToolbarWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize, { passive: true });
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        overflowToggleRef.current?.contains(target) ||
+        bottomBarRef.current?.contains(target) ||
+        overflowMenuRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setShowOverflowMenu(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     const handleCloseCards = (e: MouseEvent) => {
@@ -965,65 +989,15 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const addOnboardingBlock = useCallback(async (type: "social" | "link", data: any) => {
       try {
         if (type === "social") {
-          let url = data.socialUrl?.trim();
-          if (!url) {
-            setToast("Введите имя пользователя или ссылку");
+          const socialResult = validateSocialInput(data.socialType, data.socialUrl || "");
+          if (!socialResult.ok || !socialResult.value) {
+            setToast(socialResult.message || "Проверьте формат ссылки на соцсеть");
             return;
           }
-          if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            const platform = data.socialType;
-            switch (platform) {
-              case "telegram":
-                url = `https://t.me/${url.replace(/^@/, "")}`;
-                break;
-              case "vk":
-                url = `https://vk.com/${url}`;
-                break;
-              case "max":
-                url = `https://max.ru/${url}`;
-                break;
-              case "github":
-                url = `https://github.com/${url}`;
-                break;
-              case "behance":
-                url = `https://behance.net/${url}`;
-                break;
-              case "dprofile":
-                url = `https://dprofile.ru/${url}`;
-                break;
-              case "figma":
-                url = `https://figma.com/@${url}`;
-                break;
-              case "pinterest":
-                url = `https://pinterest.com/${url}`;
-                break;
-              case "instagram":
-                url = `https://instagram.com/${url.replace(/^@/, "")}`;
-                break;
-              case "youtube":
-                url = `https://youtube.com/@${url.replace(/^@/, "")}`;
-                break;
-              case "tiktok":
-                url = `https://tiktok.com/@${url.replace(/^@/, "")}`;
-                break;
-              case "linkedin":
-                url = `https://linkedin.com/in/${url}`;
-                break;
-              case "twitter":
-                url = `https://twitter.com/${url.replace(/^@/, "")}`;
-                break;
-              case "spotify":
-                url = `https://spotify.com/${url}`;
-                break;
-              default:
-                url = `https://${url}`;
-            }
-          }
-        try { new URL(url); } catch { throw new Error("invalid_url"); }
           const newBlock = await createBlock({
             type: "social",
             socialType: data.socialType,
-            socialUrl: url,
+            socialUrl: socialResult.value,
             sort: blocks.length,
           });
         setBlocks(prev => [...prev, newBlock]);
@@ -1036,18 +1010,14 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             return next;
           });
         } else if (type === "link") {
-          let url = data.linkUrl?.trim();
-          if (!url) {
-            setToast("Введите URL ссылки");
+          const linkResult = validateLinkInput(data.linkUrl || "");
+          if (!linkResult.ok || !linkResult.value) {
+            setToast(linkResult.message || "Проверьте ссылку");
             return;
           }
-          if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            url = "https://" + url;
-          }
-        try { new URL(url); } catch { throw new Error("invalid_url"); }
           const newBlock = await createBlock({
             type: "link",
-            linkUrl: url,
+            linkUrl: linkResult.value,
             sort: blocks.length,
           });
         setBlocks(prev => [...prev, newBlock]);
@@ -1076,19 +1046,40 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     const { type } = inlineInput;
     try {
       if (type === 'link') {
-        const socialInfo = getSocialInfo(value);
+        const linkResult = validateLinkInput(value);
+        if (!linkResult.ok || !linkResult.value) {
+          setToast(linkResult.message || "Проверьте формат ссылки");
+          return;
+        }
+        const normalizedLink = linkResult.value;
+        const socialInfo = getSocialInfo(normalizedLink);
         if (socialInfo.platform !== 'other') {
-          const newBlock = await createBlock({ type: 'social', socialType: socialInfo.platform, socialUrl: value } as any);
+          const socialResult = validateSocialInput(socialInfo.platform, normalizedLink);
+          if (!socialResult.ok || !socialResult.value) {
+            setToast(socialResult.message || "Неверная ссылка соцсети");
+            return;
+          }
+          const newBlock = await createBlock({ type: 'social', socialType: socialInfo.platform, socialUrl: socialResult.value } as any);
           appendCreatedBlocks([newBlock]);
         } else {
-          const newBlock = await createBlock({ type: 'link', linkUrl: value } as any);
+          const newBlock = await createBlock({ type: 'link', linkUrl: normalizedLink } as any);
           appendCreatedBlocks([newBlock]);
         }
       } else if (type === 'video') {
-        const newBlock = await createBlock({ type: 'video', videoUrl: value } as any);
+        const videoResult = validateVideoInput(value);
+        if (!videoResult.ok || !videoResult.value) {
+          setToast(videoResult.message || "Неверная ссылка на видео");
+          return;
+        }
+        const newBlock = await createBlock({ type: 'video', videoUrl: videoResult.value } as any);
         appendCreatedBlocks([newBlock]);
       } else if (type === 'music') {
-        const newBlock = await createBlock({ type: 'music', musicEmbed: value } as any);
+        const musicResult = validateMusicInput(value);
+        if (!musicResult.ok || !musicResult.value) {
+          setToast(musicResult.message || "Неверный формат музыки");
+          return;
+        }
+        const newBlock = await createBlock({ type: 'music', musicEmbed: musicResult.value } as any);
         appendCreatedBlocks([newBlock]);
       }
     } catch (e) {
@@ -1098,13 +1089,13 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     setInlineInput(null);
   };
 
-  const handleAddBlockClick = useCallback((type: BlockType) => {
+  const handleAddBlockClick = useCallback((type: BlockType, sourceButton?: HTMLElement) => {
     if (type === 'section') {
       createEmptyBlock('section', { note: '' });
     } else if (type === 'note') {
       createEmptyBlock('note', { note: '' });
     } else if (type === 'link' || type === 'video' || type === 'music') {
-      const btn = document.querySelector(`[data-add-type="${type}"]`) as HTMLElement;
+      const btn = sourceButton ?? (document.querySelector(`[data-add-type="${type}"]`) as HTMLElement | null);
       if (btn) handleAddWithInline(type, btn);
     } else {
       setModalType(type);
@@ -1216,11 +1207,56 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   const totalBlocks = blocks.length;
   const showOnboardingPanel = onboardingMode && !onboardingComplete;
+  const compactProfileText = previewMode === "phone" || viewportBreakpoint === "mobile";
+  const useFramedPhonePreview = previewMode === "phone" && viewportBreakpoint !== "mobile";
+  const addActions: Array<{ type: BlockType; label: string; icon: string }> = [
+    { type: "section", label: "Заголовок", icon: "📑" },
+    { type: "note", label: "Заметка", icon: "📝" },
+    { type: "link", label: "Ссылка", icon: "🔗" },
+    { type: "social", label: "Соцсеть", icon: "💬" },
+    { type: "photo", label: "Фото", icon: "🖼️" },
+    { type: "video", label: "Видео", icon: "🎥" },
+    { type: "music", label: "Музыка", icon: "🎵" },
+    { type: "map", label: "Карта", icon: "🗺️" },
+  ];
+  const visibleActionCount = toolbarWidth < 560 ? 2 : toolbarWidth < 760 ? 3 : toolbarWidth < 980 ? 5 : toolbarWidth < 1240 ? 6 : addActions.length;
+  const primaryActions = addActions.slice(0, visibleActionCount);
+  const overflowActions = addActions.slice(visibleActionCount);
+
+  const compactToolbarMode = true;
 
   return (
-    <div className="page-bg min-h-screen editor-page">
-      <div className="container" style={{ paddingTop: 40, paddingBottom: 100 }}>
-        <div className="two-column-layout" style={{ alignItems: "start" }}>
+    <div
+      className={`page-bg min-h-screen editor-page ${useFramedPhonePreview ? "editor-page--phone-preview" : ""}`}
+      style={useFramedPhonePreview ? { height: "100dvh", overflow: "hidden" } : undefined}
+    >
+      <div
+        className={`container ${useFramedPhonePreview ? "editor-phone-preview-shell" : ""}`}
+        style={
+          useFramedPhonePreview
+            ? {
+                paddingTop: 24,
+                paddingBottom: 24,
+                height: "min(820px, calc(100dvh - 132px))",
+              }
+            : { paddingTop: 40, paddingBottom: 100 }
+        }
+      >
+        <div
+          className="two-column-layout"
+          style={{
+            alignItems: "start",
+            ...(previewMode === "phone" ? { gridTemplateColumns: "1fr", gap: "16px" } : {}),
+            ...(useFramedPhonePreview
+              ? {
+                  height: "100%",
+                  overflowY: "auto",
+                  overscrollBehavior: "contain",
+                  paddingRight: 4,
+                }
+              : {}),
+          }}
+        >
           {/* Левая колонка */}
           <div style={{ width: "100%", maxWidth: "100%" }}>
             {showOnboardingPanel ? (
@@ -1267,7 +1303,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                       placeholder="Ваше имя"
                       className="no-focus-shadow"
                       style={{
-                        fontSize: 32,
+                        fontSize: compactProfileText ? 24 : 32,
                         fontWeight: 800,
                         letterSpacing: "-0.03em",
                         width: "100%",
@@ -1276,6 +1312,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                         background: "transparent",
                         outline: "none",
                         color: "var(--text)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                       }}
                     />
                   </div>
@@ -1386,32 +1424,134 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
         {/* Нижняя панель с кнопками добавления блоков – скрываем во время онбординга */}
         {!showOnboardingPanel && (
-          <div ref={bottomBarRef} style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px 20px", zIndex: 1000, boxShadow: "0 4px 16px rgba(0,0,0,0.1)", maxWidth: "calc(100% - 40px)", width: "fit-content" }}>
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-<button data-add-type="qr" onClick={() => setShowQr(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: "65px" }}>
-                  <span style={{ fontSize: "20px" }}>📱</span>
-                  <span style={{ fontSize: "11px", fontWeight: 500 }}>QR-код</span>
+          <div
+            ref={bottomBarRef}
+            style={{
+              position: "fixed",
+              bottom: 20,
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: 14,
+              padding: compactToolbarMode ? "8px 10px" : "10px 12px",
+              zIndex: 1000,
+              boxShadow: "0 10px 28px rgba(0,0,0,0.12)",
+              maxWidth: "calc(100% - 24px)",
+              width: "fit-content",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: compactToolbarMode ? "6px" : "4px", flexWrap: "nowrap", whiteSpace: "nowrap" }}>
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(publicUrl(profile.username));
+                  setToast("Ссылка скопирована");
+                }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: 32,
+                  padding: "0 14px",
+                  background: "#7EDC8A",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  borderRadius: 8,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  lineHeight: 1,
+                }}
+              >
+                Share my Bento
+              </button>
+              <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 26, background: "var(--border)", margin: "0 2px" }} />
+              <button
+                data-add-type="qr"
+                onClick={() => setShowQr(true)}
+                title="QR"
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 14 }}
+              >
+                📱
+              </button>
+              {primaryActions.map(({ type, label, icon }) => (
+                <button
+                  key={type}
+                  data-add-type={type}
+                  onClick={(e) => handleAddBlockClick(type, e.currentTarget)}
+                  title={label}
+                  style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 14 }}
+                >
+                  {icon}
                 </button>
-                <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 44, background: "var(--border)", margin: "0 4px" }} />
-                {[
-                  { type: "section" as BlockType, label: "Заголовок", icon: "📑" },
-                  { type: "note" as BlockType, label: "Заметка", icon: "📝" },
-                  { type: "link" as BlockType, label: "Ссылка", icon: "🔗" },
-                  { type: "social" as BlockType, label: "Соцсеть", icon: "💬" },
-                  { type: "photo" as BlockType, label: "Фото", icon: "🖼️" },
-                  { type: "video" as BlockType, label: "Видео", icon: "🎥" },
-                  { type: "music" as BlockType, label: "Музыка", icon: "🎵" },
-                  { type: "map" as BlockType, label: "Карта", icon: "🗺️" },
-                ].map(({ type, label, icon }) => (
-                  <button key={type} data-add-type={type} onClick={() => handleAddBlockClick(type)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: "65px" }}>
-                    <span style={{ fontSize: "20px" }}>{icon}</span>
-                    <span style={{ fontSize: "11px", fontWeight: 500 }}>{label}</span>
+              ))}
+              {overflowActions.length > 0 && (
+                <div style={{ position: "relative" }}>
+                  <button
+                    ref={overflowToggleRef}
+                    type="button"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={() => setShowOverflowMenu((prev) => !prev)}
+                    title="Еще"
+                    data-testid="editor-overflow-toggle"
+                    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: showOverflowMenu ? "var(--ring)" : "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 16 }}
+                  >
+                    <span style={{ lineHeight: 1 }}>⋯</span>
                   </button>
-                ))}
-              <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 44, background: "var(--border)", margin: "0 6px" }} />
-              <button type="button" onClick={() => setShowMobilePreview(true)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", padding: "6px 10px", background: isMobileViewport ? "var(--accent)" : "transparent", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", transition: "all 0.2s ease", color: "var(--text)", minWidth: isMobileViewport ? "72px" : "52px" }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8"/><line x1="10" y1="17" x2="14" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                <span style={{ fontSize: "11px", fontWeight: 600 }}>{isMobileViewport ? "Превью" : "Тел."}</span>
+                  {showOverflowMenu && (
+                    <div
+                      ref={overflowMenuRef}
+                      className="card"
+                      data-testid="editor-overflow-menu"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      style={{ position: "absolute", bottom: "calc(100% + 10px)", right: 0, minWidth: 170, padding: 8, display: "flex", flexDirection: "column", gap: 4, zIndex: 1200, pointerEvents: "auto" }}
+                    >
+                      {overflowActions.map(({ type, label, icon }) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => {
+                            handleAddBlockClick(type, overflowToggleRef.current ?? undefined);
+                            setShowOverflowMenu(false);
+                          }}
+                          style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: "none", borderRadius: "var(--radius-sm)", background: "transparent", color: "var(--text)", cursor: "pointer", fontSize: 13, fontWeight: 500, textAlign: "left" }}
+                        >
+                          <span>{icon}</span>
+                          <span>{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 26, background: "var(--border)", margin: "0 2px" }} />
+              <button
+                type="button"
+                onClick={() => setPreviewMode((prev) => (prev === "desktop" ? "phone" : "desktop"))}
+                title={previewMode === "phone" ? "Переключить на ПК" : "Переключить на телефон"}
+                aria-label={previewMode === "phone" ? "Переключить на ПК" : "Переключить на телефон"}
+                data-testid="editor-preview-phone-toggle"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 40,
+                  height: 32,
+                  padding: 0,
+                  background: previewMode === "phone" ? "#111" : "var(--accent)",
+                  border: "none",
+                  cursor: "pointer",
+                  borderRadius: 8,
+                  color: previewMode === "phone" ? "#fff" : "var(--text)",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {previewMode === "phone" ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8"/><line x1="10" y1="17" x2="14" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="12.5" rx="1.8" stroke="currentColor" strokeWidth="1.8"/><line x1="8" y1="20" x2="16" y2="20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                )}
               </button>
             </div>
           </div>
@@ -1419,8 +1559,21 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       </div>
 
       {modalType && <BlockModal type={modalType} isOpen={modalOpen} onClose={() => { setModalOpen(false); setModalType(null); }} onSubmit={handleBlockSubmit} />}
-      {inlineInput && <InlineInputCard buttonRect={inlineInput.buttonRect} onSubmit={handleInlineSubmit} onCancel={() => setInlineInput(null)} placeholder={inlineInput.type === 'link' ? 'https://example.com' : inlineInput.type === 'video' ? 'https://youtu.be/...' : 'https://music.yandex.ru/...'} buttonText="Добавить" type={inlineInput.type === 'link' ? 'url' : 'text'} validate={(val) => inlineInput.type === 'link' ? (() => { try { new URL(val); return true; } catch { return false; } })() : val.trim().length > 0} />}
-      {profile && layout && <MobileVisitPreviewModal open={showMobilePreview} onClose={() => setShowMobilePreview(false)} profile={profile} blocks={blocks} layout={layout} blockSizes={blockSizes} />}
+      {inlineInput && <InlineInputCard buttonRect={inlineInput.buttonRect} onSubmit={handleInlineSubmit} onCancel={() => setInlineInput(null)} placeholder={inlineInput.type === 'link' ? 'https://example.com' : inlineInput.type === 'video' ? 'https://youtu.be/...' : 'https://music.yandex.ru/...'} buttonText="Добавить" type={inlineInput.type === 'link' ? 'url' : 'text'} validate={(val) => {
+        if (inlineInput.type === "link") {
+          const result = validateLinkInput(val);
+          return result.ok ? true : (result.message || "Неверная ссылка");
+        }
+        if (inlineInput.type === "video") {
+          const result = validateVideoInput(val);
+          return result.ok ? true : (result.message || "Неверная ссылка на видео");
+        }
+        if (inlineInput.type === "music") {
+          const result = validateMusicInput(val);
+          return result.ok ? true : (result.message || "Неверный формат музыки");
+        }
+        return true;
+      }} />}
       {toast && <div className="card" style={{ position: "fixed", right: 24, top: 24, padding: "14px 18px", zIndex: 10000, boxShadow: "var(--shadow-xl)", animation: "slideIn 0.3s ease" }}>{toast}</div>}
       {showQr && profile && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 11000 }} onClick={() => setShowQr(false)}>
@@ -1438,7 +1591,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       )}
 
       {/* Фиксированная панель слева внизу: настройки + счётчик просмотров */}
-      {!showOnboardingPanel && (
+      {!showOnboardingPanel && previewMode !== "phone" && viewportBreakpoint !== "mobile" && (
         <div
           style={{
             position: "fixed",
@@ -1619,7 +1772,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
              if (activeInlineField === "username") return val.toLowerCase();
              return val;
            }}
-          prefix={activeInlineField === "username" ? "bento.me/" : undefined}
+          prefix={activeInlineField === "username" ? PUBLIC_BASE_URL_WITH_SLASH : undefined}
         />
       )}
 

@@ -62,3 +62,6 @@ tfplan.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Playwright — снимки для ручного просмотра (без эталонов)
+frontend/e2e/screenshots/

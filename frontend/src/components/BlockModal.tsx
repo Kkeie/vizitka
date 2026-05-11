@@ -1,6 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
 import { type BlockType } from "../api";
 import ImageUploader from "./ImageUploader";
+import {
+  sanitizeSocialHandleInput,
+  validateLinkInput,
+  validateMapCoordinates,
+  validateMusicInput,
+  validatePhotoInput,
+  validateSocialInput,
+  validateVideoInput,
+} from "../lib/blockValidation";
 
 // Иконки соцсетей для модалки (те же, что при пустой визитке)
 const TwitterIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>);
@@ -96,6 +105,7 @@ async function searchAddressSuggestions(
 
 export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockModalProps) {
   const [formData, setFormData] = useState<any>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [searchAddress, setSearchAddress] = useState("");
   const [searching, setSearching] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -119,6 +129,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
       setActiveSuggestionIndex(0);
       setSearchAddressError(null);
       setMapInputType('address');
+      setFormError(null);
       skipNextSuggestionFetchRef.current = false;
     }
   }, [isOpen, type]);
@@ -202,11 +213,11 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
       if (suggestions.length > 0) {
         applyAddressSuggestion(suggestions[0]);
       } else {
-        alert(`Адрес не найден. Попробуйте:\n1. Уточнить адрес\n2. Или используйте поиск по координатам`);
+        setSearchAddressError("Адрес не найден. Уточните запрос или используйте режим координат.");
       }
     } catch (error) {
       console.error("Ошибка геокодинга:", error);
-      alert("Не удалось найти адрес. Попробуйте ввести координаты вручную или уточните адрес.");
+      setSearchAddressError("Не удалось найти адрес. Попробуйте ввести координаты вручную.");
     } finally {
       setSearching(false);
     }
@@ -214,13 +225,14 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setFormError(null);
+
     let submitData: any = { type };
-    
+
     switch (type) {
       case "section":
         if (!formData.note?.trim()) {
-          alert("Введите текст заголовка");
+          setFormError("Введите текст заголовка.");
           return;
         }
         submitData.note = formData.note.trim();
@@ -228,110 +240,90 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
 
       case "note":
         if (!formData.note?.trim()) {
-          alert("Введите текст заметки");
+          setFormError("Введите текст заметки.");
           return;
         }
         submitData.note = formData.note.trim();
         submitData.noteStyle = { align: "left" };
         break;
-        
-      case "link":
-        if (!formData.linkUrl?.trim()) {
-          alert("Введите URL ссылки");
+
+      case "link": {
+        const result = validateLinkInput(formData.linkUrl || "");
+        if (!result.ok || !result.value) {
+          setFormError(result.message || "Некорректная ссылка.");
           return;
         }
-        let linkUrl = formData.linkUrl.trim();
-        try {
-          new URL(linkUrl);
-          submitData.linkUrl = linkUrl;
-        } catch {
-          alert("Некорректный формат URL");
-          return;
-        }
+        submitData.linkUrl = result.value;
         break;
-        
+      }
+
       case "social": {
         const socialId = formData.socialType;
         if (!socialId) {
-          alert("Выберите социальную сеть");
+          setFormError("Выберите социальную сеть.");
           return;
         }
-        if (!formData.socialUrl?.trim()) {
-          alert("Введите имя пользователя или ссылку");
+        const socialResult = validateSocialInput(socialId as any, formData.socialUrl || "");
+        if (!socialResult.ok || !socialResult.value) {
+          setFormError(socialResult.message || "Неверный формат соцсети.");
           return;
         }
-        const opt = SOCIAL_OPTIONS.find((o) => o.id === socialId);
-        if (!opt) break;
-        let url = formData.socialUrl.trim();
-        if (!url.startsWith("http://") && !url.startsWith("https://")) {
-          url = opt.urlPrefix + url.replace(/^@/, "").trim();
-        }
-        try {
-          new URL(url);
-        } catch {
-          alert("Некорректный формат URL");
-          return;
-        }
-        if (opt.isSocialBlock && opt.socialType) {
-          submitData.type = "social";
-          submitData.socialType = opt.socialType;
-          submitData.socialUrl = url;
-        } else {
-          submitData.type = "link";
-          submitData.linkUrl = url;
-        }
+        submitData.type = "social";
+        submitData.socialType = socialId;
+        submitData.socialUrl = socialResult.value;
         break;
       }
-        
-      case "photo":
-        if (!formData.photoUrl?.trim()) {
-          alert("Введите URL изображения или загрузите фото");
+
+      case "photo": {
+        const photoResult = validatePhotoInput(formData.photoUrl || "");
+        if (!photoResult.ok || !photoResult.value) {
+          setFormError(photoResult.message || "Неверный формат изображения.");
           return;
         }
-        // Принимаем как полные URL, так и относительные пути (/uploads/...)
-        let photoUrl = formData.photoUrl.trim();
-        // Если это относительный путь (/uploads/...), оставляем как есть
-        // Если это полный URL (http:// или https://), проверяем валидность
-        if (!photoUrl.startsWith('/') && !photoUrl.startsWith('http://') && !photoUrl.startsWith('https://')) {
-          alert("Введите корректный URL изображения или загрузите фото с устройства");
-          return;
-        }
-        submitData.photoUrl = photoUrl;
+        submitData.photoUrl = photoResult.value;
         break;
-        
-      case "video":
-        if (!formData.videoUrl?.trim()) {
-          alert("Введите ссылку на видео");
+      }
+
+      case "video": {
+        const videoResult = validateVideoInput(formData.videoUrl || "");
+        if (!videoResult.ok || !videoResult.value) {
+          setFormError(videoResult.message || "Неверная ссылка на видео.");
           return;
         }
-        submitData.videoUrl = formData.videoUrl.trim();
+        submitData.videoUrl = videoResult.value;
         break;
-        
-      case "music":
-        if (!formData.musicEmbed?.trim()) {
-          alert("Введите ссылку на трек или embed-код");
+      }
+
+      case "music": {
+        const musicResult = validateMusicInput(formData.musicEmbed || "");
+        if (!musicResult.ok || !musicResult.value) {
+          setFormError(musicResult.message || "Неверный формат музыкального блока.");
           return;
         }
-        submitData.musicEmbed = formData.musicEmbed.trim();
+        submitData.musicEmbed = musicResult.value;
         break;
-        
-      case "map":
-        if (formData.mapLat != null && formData.mapLng != null) {
-          submitData.mapLat = formData.mapLat;
-          submitData.mapLng = formData.mapLng;
-        } else {
-          alert("Введите координаты или найдите адрес");
+      }
+
+      case "map": {
+        const mapResult = validateMapCoordinates(formData.mapLat, formData.mapLng);
+        if (!mapResult.ok || !mapResult.value) {
+          setFormError(mapResult.message || "Проверьте координаты карты.");
           return;
         }
+        submitData.mapLat = mapResult.value.lat;
+        submitData.mapLng = mapResult.value.lng;
         break;
+      }
     }
-    
+
     onSubmit(submitData);
     onClose();
   };
 
   if (!isOpen) return null;
 
+  const isCompactViewport =
+    typeof window !== "undefined" ? window.innerWidth <= 640 : false;
   const hasMapCoordinates = formData.mapLat != null && formData.mapLng != null;
 
   const typeAccusative: Record<BlockType, string> = {
@@ -357,10 +349,11 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         backdropFilter: "blur(8px)",
         WebkitBackdropFilter: "blur(8px)",
         display: "flex",
-        alignItems: "center",
+        alignItems: isCompactViewport ? "flex-start" : "center",
         justifyContent: "center",
         zIndex: 1000,
-        padding: 20,
+        padding: isCompactViewport ? 12 : 20,
+        overflowY: "auto",
         animation: "fadeIn 0.2s ease",
       }}
       onClick={onClose}
@@ -368,17 +361,18 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
       <div
         className="card"
         style={{
-          maxWidth: 640,
+          maxWidth: isCompactViewport ? "100%" : 640,
           width: "100%",
-          maxHeight: "90vh",
+          maxHeight: isCompactViewport ? "calc(100dvh - 24px)" : "90vh",
           overflowY: "auto",
-          padding: 40,
+          padding: isCompactViewport ? 16 : 40,
+          marginTop: isCompactViewport ? 4 : 0,
           animation: "slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
-          <h2 style={{ fontSize: 28, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.03em" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isCompactViewport ? 20 : 32, gap: 12 }}>
+          <h2 style={{ fontSize: isCompactViewport ? 22 : 28, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.03em" }}>
             Добавить {typeAccusative[type]}
           </h2>
           <button
@@ -422,7 +416,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 type="text"
                 placeholder="Например, Проекты"
                 value={formData.note || ""}
-                onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, note: e.target.value });
+                  if (formError) setFormError(null);
+                }}
                 style={{ fontSize: 16, fontWeight: 600, textAlign: "center" }}
                 autoFocus
               />
@@ -441,7 +438,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 className="textarea"
                 placeholder="Введите текст заметки..."
                 value={formData.note || ""}
-                onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, note: e.target.value });
+                  if (formError) setFormError(null);
+                }}
                 rows={6}
                 style={{ fontSize: 15 }}
                 autoFocus
@@ -459,7 +459,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 type="text"
                 placeholder="https://example.com"
                 value={formData.linkUrl || ""}
-                onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, linkUrl: e.target.value });
+                  if (formError) setFormError(null);
+                }}
                 style={{ fontSize: 15 }}
                 autoFocus
               />
@@ -474,7 +477,14 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
               <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
                 Выберите социальную сеть
               </label>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 20 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isCompactViewport ? "repeat(2, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))",
+                  gap: 8,
+                  marginBottom: 20,
+                }}
+              >
                 {SOCIAL_OPTIONS.map((opt) => {
                   const selected = formData.socialType === opt.id;
                   const bg = selected ? (opt.accentColor || "var(--primary)") : "var(--accent)";
@@ -482,10 +492,13 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() => setFormData({ ...formData, socialType: opt.id })}
+                      onClick={() => {
+                        setFormData({ ...formData, socialType: opt.id });
+                        if (formError) setFormError(null);
+                      }}
                       style={{
-                        padding: "10px 12px",
-                        fontSize: 13,
+                        padding: isCompactViewport ? "9px 10px" : "10px 12px",
+                        fontSize: isCompactViewport ? 12 : 13,
                         fontWeight: 600,
                         background: bg,
                         color: selected ? "white" : "var(--text)",
@@ -534,7 +547,11 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         type="text"
                         placeholder={opt.placeholder}
                         value={formData.socialUrl || ""}
-                        onChange={(e) => setFormData({ ...formData, socialUrl: e.target.value })}
+                        onChange={(e) => {
+                          const next = sanitizeSocialHandleInput(e.target.value);
+                          setFormData({ ...formData, socialUrl: next });
+                          if (formError) setFormError(null);
+                        }}
                         style={{ fontSize: 15, padding: "8px 12px 8px " + paddingLeft + "px", width: "100%" }}
                         autoFocus
                       />
@@ -551,7 +568,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 Загрузка изображения
               </label>
               <ImageUploader
-                onUploaded={(url) => setFormData({ ...formData, photoUrl: url })}
+                onUploaded={(url) => {
+                  setFormData({ ...formData, photoUrl: url });
+                  if (formError) setFormError(null);
+                }}
                 label="Загрузить фото с компьютера"
                 replaceLabel="Заменить фото"
                 showPreview={true}
@@ -571,7 +591,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 type="url"
                 placeholder="https://www.youtube.com/watch?v=... или https://vk.com/video... или https://vkvideo.ru/video..."
                 value={formData.videoUrl || ""}
-                onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, videoUrl: e.target.value });
+                  if (formError) setFormError(null);
+                }}
                 style={{ fontSize: 15 }}
                 autoFocus
               />
@@ -590,7 +613,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 className="textarea"
                 placeholder="https://music.yandex.ru/album/... или embed-код"
                 value={formData.musicEmbed || ""}
-                onChange={(e) => setFormData({ ...formData, musicEmbed: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, musicEmbed: e.target.value });
+                  if (formError) setFormError(null);
+                }}
                 rows={4}
                 style={{ fontSize: 15 }}
                 autoFocus
@@ -603,7 +629,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
 
           {type === "map" && (
             <div className="field">
-              <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <div style={{ display: "flex", flexDirection: isCompactViewport ? "column" : "row", gap: 8, marginBottom: 16 }}>
                 <button
                   type="button"
                   onClick={() => setMapInputType('address')}
@@ -650,7 +676,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                   <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 0, marginBottom: 8 }}>
                     Начните вводить адрес и выберите подсказку из списка.
                   </p>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  <div style={{ display: "flex", flexDirection: isCompactViewport ? "column" : "row", gap: 8, marginBottom: 12 }}>
                     <input
                       className="input"
                       type="text"
@@ -660,6 +686,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         setSearchAddress(e.target.value);
                         setActiveSuggestionIndex(0);
                         setSearchAddressError(null);
+                        if (formError) setFormError(null);
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "ArrowDown" && addressSuggestions.length > 0) {
@@ -691,7 +718,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                       onClick={handleGeocodeAddress}
                       disabled={searching || !searchAddress.trim()}
                       className="btn btn-primary"
-                      style={{ fontSize: 14, whiteSpace: "nowrap" }}
+                      style={{ fontSize: 14, whiteSpace: "nowrap", width: isCompactViewport ? "100%" : undefined }}
                     >
                       {searching ? "Поиск..." : "Найти"}
                     </button>
@@ -758,7 +785,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                       <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
                         Найденные координаты:
                       </div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: isCompactViewport ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 16 }}>
                         <div>
                           <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
                             Широта
@@ -768,7 +795,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                             type="number"
                             step="any"
                             value={formData.mapLat}
-                            onChange={(e) => setFormData({ ...formData, mapLat: e.target.value === "" ? undefined : parseFloat(e.target.value) })}
+                            onChange={(e) => {
+                              setFormData({ ...formData, mapLat: e.target.value === "" ? undefined : parseFloat(e.target.value) });
+                              if (formError) setFormError(null);
+                            }}
                             style={{ fontSize: 14 }}
                           />
                         </div>
@@ -781,7 +811,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                             type="number"
                             step="any"
                             value={formData.mapLng}
-                            onChange={(e) => setFormData({ ...formData, mapLng: e.target.value === "" ? undefined : parseFloat(e.target.value) })}
+                            onChange={(e) => {
+                              setFormData({ ...formData, mapLng: e.target.value === "" ? undefined : parseFloat(e.target.value) });
+                              if (formError) setFormError(null);
+                            }}
                             style={{ fontSize: 14 }}
                           />
                         </div>
@@ -799,7 +832,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                           title="Превью на карте"
                         />
                       </div>
-                      <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ marginTop: 8, display: "flex", flexDirection: isCompactViewport ? "column" : "row", justifyContent: "space-between", gap: 8 }}>
                         <a
                           href={`https://yandex.ru/maps/?pt=${formData.mapLng},${formData.mapLat}&z=14`}
                           target="_blank"
@@ -835,7 +868,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                   <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
                     Введите координаты
                   </label>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isCompactViewport ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 16 }}>
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
                         Широта
@@ -846,7 +879,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         step="any"
                         placeholder="55.751244"
                         value={formData.mapLat ?? ""}
-                        onChange={(e) => setFormData({ ...formData, mapLat: e.target.value ? parseFloat(e.target.value) : undefined })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, mapLat: e.target.value ? parseFloat(e.target.value) : undefined });
+                          if (formError) setFormError(null);
+                        }}
                         style={{ fontSize: 14 }}
                       />
                     </div>
@@ -860,7 +896,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         step="any"
                         placeholder="37.618423"
                         value={formData.mapLng ?? ""}
-                        onChange={(e) => setFormData({ ...formData, mapLng: e.target.value ? parseFloat(e.target.value) : undefined })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, mapLng: e.target.value ? parseFloat(e.target.value) : undefined });
+                          if (formError) setFormError(null);
+                        }}
                         style={{ fontSize: 14 }}
                       />
                     </div>
@@ -880,7 +919,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                           title="Превью на карте"
                         />
                       </div>
-                      <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ marginTop: 8, display: "flex", flexDirection: isCompactViewport ? "column" : "row", justifyContent: "space-between", gap: 8 }}>
                         <a
                           href={`https://yandex.ru/maps/?pt=${formData.mapLng},${formData.mapLat}&z=14`}
                           target="_blank"
@@ -913,7 +952,34 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 32, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
+          {formError && (
+            <div
+              style={{
+                marginTop: 20,
+                padding: "12px 14px",
+                borderRadius: "var(--radius-sm)",
+                border: "1px solid rgba(239, 68, 68, 0.35)",
+                background: "rgba(239, 68, 68, 0.08)",
+                color: "#b91c1c",
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
+            >
+              {formError}
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: isCompactViewport ? "column-reverse" : "row",
+              gap: 12,
+              justifyContent: "flex-end",
+              marginTop: 32,
+              paddingTop: 24,
+              borderTop: "1px solid var(--border)",
+            }}
+          >
             <button
               type="button"
               onClick={onClose}
@@ -923,11 +989,12 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                 padding: "12px 20px",
                 background: "var(--accent)",
                 border: "1px solid var(--border)",
+                width: isCompactViewport ? "100%" : undefined,
               }}
             >
               Отмена
             </button>
-            <button type="submit" className="btn btn-primary" style={{ fontSize: 14, padding: "12px 24px" }}>
+            <button type="submit" className="btn btn-primary" style={{ fontSize: 14, padding: "12px 24px", width: isCompactViewport ? "100%" : undefined }}>
               Добавить блок
             </button>
           </div>

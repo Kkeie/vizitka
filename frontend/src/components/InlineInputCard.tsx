@@ -7,7 +7,7 @@ interface InlineInputCardProps {
   placeholder?: string;
   buttonText?: string;
   type?: 'text' | 'url';
-  validate?: (value: string) => boolean;
+  validate?: (value: string) => boolean | string;
 }
 
 export default function InlineInputCard({
@@ -20,6 +20,7 @@ export default function InlineInputCard({
   validate,
 }: InlineInputCardProps) {
   const [value, setValue] = React.useState('');
+  const [error, setError] = React.useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -63,7 +64,14 @@ export default function InlineInputCard({
 
   const handleSubmit = () => {
     if (value.trim() === '') return;
-    if (validate && !validate(value)) return;
+    if (validate) {
+      const result = validate(value);
+      if (result !== true) {
+        setError(typeof result === "string" ? result : "Некорректное значение для этого блока.");
+        return;
+      }
+    }
+    setError(null);
     onSubmit(value.trim());
   };
 
@@ -87,8 +95,9 @@ export default function InlineInputCard({
         borderRadius: 'var(--radius-sm)',
         padding: '12px',
         boxShadow: 'var(--shadow-lg)',
-        minWidth: '320px',
-        maxWidth: '400px',
+        width: 'min(400px, calc(100vw - 16px))',
+        minWidth: 'min(320px, calc(100vw - 16px))',
+        maxWidth: 'calc(100vw - 16px)',
       }}
       onPointerDown={(e) => e.stopPropagation()}
     >
@@ -96,7 +105,10 @@ export default function InlineInputCard({
         ref={inputRef}
         type={type}
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => {
+          setValue(e.target.value);
+          if (error) setError(null);
+        }}
         placeholder={placeholder}
         onKeyDown={handleKeyDown}
         style={{
@@ -109,6 +121,22 @@ export default function InlineInputCard({
           boxSizing: 'border-box',
         }}
       />
+      {error && (
+        <div
+          style={{
+            marginBottom: "8px",
+            padding: "8px 10px",
+            borderRadius: "var(--radius-sm)",
+            border: "1px solid rgba(239, 68, 68, 0.35)",
+            background: "rgba(239, 68, 68, 0.08)",
+            color: "#b91c1c",
+            fontSize: "12px",
+            lineHeight: 1.4,
+          }}
+        >
+          {error}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
         <button
           onClick={onCancel}
