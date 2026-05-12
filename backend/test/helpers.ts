@@ -1,10 +1,14 @@
 import request from "supertest";
 import type { Express } from "express";
 import { db } from "../src/utils/db";
+import { USERNAME_MAX_LENGTH } from "../src/constants";
 
-/** Уникальное имя пользователя для тестов (без коллизий при повторном запуске). */
+/** Уникальное имя пользователя для тестов (без коллизий при повторном запуске, длина ≤ лимита ника). */
 export function uniqueName(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+  const suffix = `${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+  const maxPrefixLen = Math.max(1, USERNAME_MAX_LENGTH - 1 - suffix.length);
+  const p = prefix.slice(0, maxPrefixLen);
+  return `${p}_${suffix}`;
 }
 
 function clearVerificationForTests(userId: number) {

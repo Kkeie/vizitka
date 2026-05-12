@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "../utils/db";
 import { hashPassword, verifyPassword, signToken, requireAuth, AuthedRequest } from "../utils/auth";
 import { findAvailableUsernames, isValidUsernameFormat  } from '../utils/usernameGenerator';
-import { RESERVED_USERNAMES } from "../constants";
+import { RESERVED_USERNAMES, USERNAME_MAX_LENGTH, EMAIL_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "../constants";
 import { generateVerificationToken, hashVerificationToken } from "../utils/verificationToken";
 import { buildEmailVerificationUrl, sendVerificationEmail } from "../utils/mailer";
 
@@ -87,13 +87,18 @@ router.post("/register", async (req, res) => {
     const uname = username.trim().toLowerCase();
     const normalizedEmail = email.trim().toLowerCase();
     if (uname.length < 3) return res.status(400).json({ error: "username_too_short" });
+    if (uname.length > USERNAME_MAX_LENGTH) return res.status(400).json({ error: "username_too_long" });
     if (!isValidUsernameFormat(uname)) {
       return res.status(400).json({ error: "invalid_username_format", message: "Only latin letters, numbers and underscore are allowed" });
     }
     if (!EMAIL_RE.test(normalizedEmail)) {
       return res.status(400).json({ error: "invalid_email_format" });
     }
-    if (password.length < 4) return res.status(400).json({ error: "password_too_short" });
+    if (normalizedEmail.length > EMAIL_MAX_LENGTH) {
+      return res.status(400).json({ error: "email_too_long" });
+    }
+    if (password.length < PASSWORD_MIN_LENGTH) return res.status(400).json({ error: "password_too_short" });
+    if (password.length > PASSWORD_MAX_LENGTH) return res.status(400).json({ error: "password_too_long" });
 
     // Если имя зарезервировано – генерируем предложения и отвечаем как при занятом
     if (RESERVED_USERNAMES.includes(uname)) {
@@ -210,6 +215,12 @@ router.post("/login", async (req, res) => {
     if (!EMAIL_RE.test(normalizedEmail)) {
       return res.status(400).json({ error: "invalid_email_format" });
     }
+    if (normalizedEmail.length > EMAIL_MAX_LENGTH) {
+      return res.status(400).json({ error: "email_too_long" });
+    }
+    if (password.length > PASSWORD_MAX_LENGTH) {
+      return res.status(400).json({ error: "password_too_long" });
+    }
 
     // Получаем пользователя с профилем по email
     const profile = db.prepare(`
@@ -270,6 +281,9 @@ router.post("/check-username", async (req, res) => {
   }
 
   const normalized = raw.toLowerCase();
+  if (normalized.length > USERNAME_MAX_LENGTH) {
+    return res.status(400).json({ error: "username_too_long" });
+  }
   const isValidFormat = /^[a-z0-9_]+$/.test(normalized);
   
   // Если формат правильный и имя не зарезервировано – проверяем, свободно ли оно
@@ -297,6 +311,9 @@ router.post("/check-email", (req, res) => {
   const normalizedEmail = email.trim().toLowerCase();
   if (!EMAIL_RE.test(normalizedEmail)) {
     return res.status(400).json({ error: "invalid_email_format" });
+  }
+  if (normalizedEmail.length > EMAIL_MAX_LENGTH) {
+    return res.status(400).json({ error: "email_too_long" });
   }
 
   const existing = db
@@ -401,6 +418,7 @@ router.post("/resend-verification", async (req, res) => {
     const email = (req.body as { email?: string })?.email?.trim().toLowerCase();
     if (!email) return res.status(400).json({ error: "email_required" });
     if (!EMAIL_RE.test(email)) return res.status(400).json({ error: "invalid_email_format" });
+    if (email.length > EMAIL_MAX_LENGTH) return res.status(400).json({ error: "email_too_long" });
 
     const userRow = db.prepare(`
       SELECT id, email, emailVerified FROM User WHERE email = ? COLLATE NOCASE
@@ -445,8 +463,11 @@ router.post("/change-password", requireAuth, async (req: AuthedRequest, res) => 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ error: "current_password_and_new_password_required" });
     }
-    if (newPassword.length < 4) {
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
       return res.status(400).json({ error: "new_password_too_short" });
+    }
+    if (newPassword.length > PASSWORD_MAX_LENGTH) {
+      return res.status(400).json({ error: "new_password_too_long" });
     }
 
     const userId = req.user!.id;

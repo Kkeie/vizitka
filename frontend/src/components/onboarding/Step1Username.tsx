@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import FloatingCards from "./FloatingCards";
 import UsernameInputWithSuggestions from "../UsernameInputWithSuggestions";
 import { checkUsername } from "../../api";
+import { USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from "../../lib/authFieldLimits";
 
 interface Step1UsernameProps {
   onNext: (username: string) => void;
@@ -16,8 +17,12 @@ export default function Step1Username({ onNext, initialUsername = "" }: Step1Use
 
   const handleNext = async () => {
     const normalized = username.trim().toLowerCase();
-    if (normalized.length < 3) {
-      setError("Минимум 3 символа");
+    if (normalized.length < USERNAME_MIN_LENGTH) {
+      setError(`Минимум ${USERNAME_MIN_LENGTH} символа`);
+      return;
+    }
+    if (normalized.length > USERNAME_MAX_LENGTH) {
+      setError(`Максимум ${USERNAME_MAX_LENGTH} символов`);
       return;
     }
     if (!/^[a-z0-9_]+$/.test(normalized)) {
@@ -55,7 +60,7 @@ export default function Step1Username({ onNext, initialUsername = "" }: Step1Use
             }}
             disabled={loading}
           />
-          <button className="login-bento__submit step-next" onClick={handleNext} disabled={username.length < 3 || loading}>
+          <button className="login-bento__submit step-next" onClick={handleNext} disabled={username.length < USERNAME_MIN_LENGTH || loading}>
             {loading ? "Проверяем..." : "Продолжить"}
           </button>
           {error && <div className="login-bento__error">{error}</div>}

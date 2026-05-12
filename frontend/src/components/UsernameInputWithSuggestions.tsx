@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef } from "react";
 import { checkUsername } from "../api";
 import { PUBLIC_BASE_URL_WITH_SLASH } from "../lib/publicBaseUrl";
+import { USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from "../lib/authFieldLimits";
 
 /** Никнейм в URL — без пробелов и прочих пробельных символов */
 function sanitizeUsernameInput(raw: string): string {
@@ -30,7 +31,8 @@ export default function UsernameInputWithSuggestions({
 
   const validate = (val: string) => {
     if (!val) return null;
-    if (val.length < 3) return "Минимум 3 символа";
+    if (val.length < USERNAME_MIN_LENGTH) return `Минимум ${USERNAME_MIN_LENGTH} символа`;
+    if (val.length > USERNAME_MAX_LENGTH) return `Максимум ${USERNAME_MAX_LENGTH} символов`;
     if (!/^[a-z0-9_]+$/.test(val)) return "Только латиница, цифры и _";
     return null;
   };
@@ -74,7 +76,7 @@ export default function UsernameInputWithSuggestions({
     const newValue = sanitizeUsernameInput(e.target.value);
     onChange(newValue);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (newValue.length >= 3) {
+    if (newValue.length >= USERNAME_MIN_LENGTH) {
       timeoutRef.current = setTimeout(() => check(newValue), 500);
     } else {
       setSuggestions([]);
@@ -103,6 +105,7 @@ export default function UsernameInputWithSuggestions({
           disabled={disabled}
           autoFocus
           autoComplete="off"
+          maxLength={USERNAME_MAX_LENGTH}
         />
       </div>
       {checking && <div className="checking-muted">Проверка...</div>}

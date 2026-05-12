@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { changePassword } from "../api";
+import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "../lib/authFieldLimits";
 
 interface PasswordChangeCardProps {
   anchorRect: DOMRect;
@@ -10,7 +11,8 @@ interface PasswordChangeCardProps {
 
 const errorMessages: Record<string, string> = {
   "invalid_current_password": "Неверный текущий пароль",
-  "new_password_too_short": "Новый пароль должен быть не менее 4 символов",
+  "new_password_too_short": "Новый пароль — не короче 4 символов",
+  "new_password_too_long": "Новый пароль — не длиннее 72 символов",
   "change_password_failed": "Не удалось изменить пароль",
   "current_password_and_new_password_required": "Требуется текущий и новый пароль",
   "user_not_found": "Пользователь не найден",
@@ -66,8 +68,12 @@ export default function PasswordChangeCard({ anchorRect, onClose, onSuccess }: P
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (newPassword.length < 4) {
-      setError("Новый пароль должен быть не менее 4 символов");
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      setError(`Новый пароль — не короче ${PASSWORD_MIN_LENGTH} символов`);
+      return;
+    }
+    if (newPassword.length > PASSWORD_MAX_LENGTH) {
+      setError(`Новый пароль — не длиннее ${PASSWORD_MAX_LENGTH} символов`);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -127,11 +133,12 @@ export default function PasswordChangeCard({ anchorRect, onClose, onSuccess }: P
            <input
              type="password"
              className="input no-focus-shadow"
-             placeholder="Новый пароль (минимум 4 символа)"
+             placeholder={`Новый пароль (${PASSWORD_MIN_LENGTH}–${PASSWORD_MAX_LENGTH} символов)`}
              value={newPassword}
              onChange={(e) => setNewPassword(e.target.value)}
              required
-             minLength={4}
+             minLength={PASSWORD_MIN_LENGTH}
+             maxLength={PASSWORD_MAX_LENGTH}
            />
         </div>
         <div style={{ marginBottom: 12 }}>
@@ -145,6 +152,7 @@ export default function PasswordChangeCard({ anchorRect, onClose, onSuccess }: P
              value={confirmPassword}
              onChange={(e) => setConfirmPassword(e.target.value)}
              required
+             maxLength={PASSWORD_MAX_LENGTH}
            />
         </div>
         {error && <div style={{ color: "#ef4444", fontSize: 12, marginBottom: 12 }}>{error}</div>}

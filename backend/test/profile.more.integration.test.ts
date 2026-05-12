@@ -57,6 +57,14 @@ describe("Профиль: смена ника и границы ошибок", (
     expect(res.body.error).toBe("username_too_short");
   });
 
+  it("слишком длинный новый ник при PATCH — username_too_long", async () => {
+    const u = uniqueName("long_patch");
+    const { token } = await register(app, u, "password123");
+    const res = await request(app).patch("/api/profile/").set(auth(token)).send({ username: "a".repeat(33) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("username_too_long");
+  });
+
   it("после смены ника /api/user/me показывает уже новый username", async () => {
     const u = uniqueName("rename_me");
     const { token } = await register(app, u, "password123");

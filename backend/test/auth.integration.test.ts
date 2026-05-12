@@ -44,12 +44,40 @@ describe("POST /api/auth/register — создать новый аккаунт",
     expect(res.body).toEqual({ error: "username_too_short" });
   });
 
-  it("TC-AUTH-04: пароль из трёх букв — отказ (минимум 4 символа)", async () => {
+  it("TC-AUTH-04: пароль короче 4 символов — отказ", async () => {
     const res = await request(app)
       .post("/api/auth/register")
       .send({ username: `newuser_04_${Date.now()}`, email: `newuser_04_${Date.now()}@example.test`, password: "abc" });
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ error: "password_too_short" });
+  });
+
+  it("TC-AUTH-04b: слишком длинный пароль — отказ", async () => {
+    const longPass = "a".repeat(73);
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({ username: `newuser_pwlen_${Date.now()}`, email: `npw_${Date.now()}@example.test`, password: longPass });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "password_too_long" });
+  });
+
+  it("ник длиннее лимита — username_too_long", async () => {
+    const longU = "a".repeat(33);
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({ username: longU, email: `longnick_${Date.now()}@example.test`, password: "password123" });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "username_too_long" });
+  });
+
+  it("email длиннее лимита — email_too_long", async () => {
+    const local = "a".repeat(250);
+    const email = `${local}@x.test`; // >254
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({ username: `emlong_${Date.now()}`, email, password: "password123" });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "email_too_long" });
   });
 
   it("TC-AUTH-05: второй раз тот же ник — «занято» и список похожих свободных ников", async () => {
