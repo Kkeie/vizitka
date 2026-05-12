@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { checkUsername } from '../api';
+import { USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from '../lib/authFieldLimits';
 
 interface UsernameInputProps {
   value: string;
@@ -17,7 +18,8 @@ export default function UsernameInput({ value, onChange, onSelectSuggestion, dis
 
   const validate = (val: string) => {
     if (!val) return null;
-    if (val.length < 3) return 'Минимум 3 символа';
+    if (val.length < USERNAME_MIN_LENGTH) return `Минимум ${USERNAME_MIN_LENGTH} символа`;
+    if (val.length > USERNAME_MAX_LENGTH) return `Максимум ${USERNAME_MAX_LENGTH} символов`;
     return null;
   };
 
@@ -57,7 +59,7 @@ export default function UsernameInput({ value, onChange, onSelectSuggestion, dis
     const newValue = e.target.value;
     onChange(newValue);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (newValue.length >= 3) {
+    if (newValue.length >= USERNAME_MIN_LENGTH) {
       timeoutRef.current = setTimeout(() => check(newValue), 500);
     } else {
       setSuggestions([]);
@@ -85,7 +87,8 @@ export default function UsernameInput({ value, onChange, onSelectSuggestion, dis
         onBlur={handleBlur}
         disabled={disabled}
         required
-        minLength={3}
+        minLength={USERNAME_MIN_LENGTH}
+        maxLength={USERNAME_MAX_LENGTH}
         autoFocus
         style={{ fontSize: 15 }}
         autoComplete="off"

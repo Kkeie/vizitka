@@ -4,6 +4,7 @@ import { useNavigate, Link, Navigate } from "react-router-dom";
 import AuthSocialCollage from "../components/AuthSocialCollage";
 import { useSession } from "../sessionContext";
 import "./LoginPage.css";
+import { EMAIL_MAX_LENGTH, PASSWORD_MAX_LENGTH } from "../lib/authFieldLimits";
 
 export default function Login() {
   const { user, authReady, setUser: onAuthed } = useSession();
@@ -21,11 +22,14 @@ export default function Login() {
         setErr("Введите корректный email");
       return;
     }
+    if (normalizedEmail.length > EMAIL_MAX_LENGTH) {
+      setErr(`Email не длиннее ${EMAIL_MAX_LENGTH} символов`);
+      return;
+    }
     if (!password) {
       setErr("Пароль обязателен");
       return;
     }
-    setLoading(true);
     try {
       const { user } = await login(normalizedEmail, password);
       onAuthed(user);
@@ -88,6 +92,7 @@ export default function Login() {
                 placeholder="Email адрес"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                maxLength={EMAIL_MAX_LENGTH}
                 required
                 autoFocus
                 spellCheck={false}
@@ -100,6 +105,7 @@ export default function Login() {
                 placeholder="Пароль"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                maxLength={PASSWORD_MAX_LENGTH}
                 required
               />
             </div>

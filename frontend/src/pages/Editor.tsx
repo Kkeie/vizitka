@@ -53,6 +53,11 @@ import {
   validateVideoInput,
 } from "../lib/blockValidation";
 import { PUBLIC_BASE_URL_WITH_SLASH } from "../lib/publicBaseUrl";
+import {
+  USERNAME_MIN_LENGTH,
+  USERNAME_MAX_LENGTH,
+  EMAIL_MAX_LENGTH,
+} from "../lib/authFieldLimits";
 
 import {
   DndContext,
@@ -1151,7 +1156,9 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const handleUpdateUsername = async (newUsername: string) => {
     if (!profile) return;
     const normalized = newUsername.toLowerCase();
-    if (normalized.length < 3) throw new Error("Минимум 3 символа");
+    if (normalized.length < USERNAME_MIN_LENGTH) throw new Error(`Минимум ${USERNAME_MIN_LENGTH} символа`);
+    if (normalized.length > USERNAME_MAX_LENGTH) throw new Error(`Максимум ${USERNAME_MAX_LENGTH} символов`);
+    if (!/^[a-z0-9_]+$/.test(normalized)) throw new Error("Только латиница, цифры и _");
     const check = await checkUsername(normalized);
     if (!check.available) throw new Error("Username уже занят");
     const updated = await updateProfile({ username: normalized });
@@ -1160,8 +1167,10 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   const handleUpdateEmail = async (newEmail: string) => {
     if (!profile) return;
-    if (!/^\S+@\S+\.\S+$/.test(newEmail)) throw new Error("Некорректный email");
-    const updated = await updateProfile({ email: newEmail });
+    const trimmed = newEmail.trim();
+    if (trimmed.length > EMAIL_MAX_LENGTH) throw new Error(`Email не длиннее ${EMAIL_MAX_LENGTH} символов`);
+    if (!/^\S+@\S+\.\S+$/.test(trimmed)) throw new Error("Некорректный email");
+    const updated = await updateProfile({ email: trimmed });
     setProfile(updated);
   };
 
@@ -1764,8 +1773,16 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
            }
            inputType={activeInlineField === "email" ? "email" : "text"}
            validation={(val) => {
-             if (activeInlineField === "username") return val.length >= 3;
-             if (activeInlineField === "email") return /^\S+@\S+\.\S+$/.test(val);
+             if (activeInlineField === "username") {
+               return (
+                 val.length >= USERNAME_MIN_LENGTH &&
+                 val.length <= USERNAME_MAX_LENGTH &&
+                 /^[a-z0-9_]+$/.test(val)
+               );
+             }
+             if (activeInlineField === "email") {
+               return /^\S+@\S+\.\S+$/.test(val) && val.length <= EMAIL_MAX_LENGTH;
+             }
              return true;
            }}
            format={(val) => {
@@ -1773,6 +1790,13 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
              return val;
            }}
           prefix={activeInlineField === "username" ? PUBLIC_BASE_URL_WITH_SLASH : undefined}
+          maxLength={
+            activeInlineField === "username"
+              ? USERNAME_MAX_LENGTH
+              : activeInlineField === "email"
+                ? EMAIL_MAX_LENGTH
+                : undefined
+          }
         />
       )}
 

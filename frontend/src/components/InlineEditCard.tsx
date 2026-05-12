@@ -13,6 +13,7 @@ interface InlineEditCardProps {
   validation?: (value: string) => boolean;
   format?: (value: string) => string;
   prefix?: string; // необязательный префикс, например "bento.me/"
+  maxLength?: number;
 }
 
 export default function InlineEditCard({
@@ -27,6 +28,7 @@ export default function InlineEditCard({
   validation,
   format,
   prefix,
+  maxLength,
 }: InlineEditCardProps) {
   const [inputValue, setInputValue] = useState(value);
   const [loading, setLoading] = useState(false);
@@ -148,6 +150,7 @@ export default function InlineEditCard({
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   placeholder={placeholder}
+                  maxLength={maxLength}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleSave();
                     if (e.key === "Escape") onCancel();
@@ -171,6 +174,7 @@ export default function InlineEditCard({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder={placeholder}
+            maxLength={maxLength}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSave();
               if (e.key === "Escape") onCancel();

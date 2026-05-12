@@ -1,4 +1,4 @@
-import { RESERVED_USERNAMES } from "../constants";
+import { RESERVED_USERNAMES, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from "../constants";
 
 // Базовая транслитерация (один вариант)
 function transliterate(text: string): string {
@@ -17,9 +17,10 @@ function sanitizeInput(input: string): string {
   return input.toLowerCase().replace(/[^a-z0-9_а-яё]/g, '');
 }
 
-// Проверка финального username (только a-z0-9_, длина ≥3)
+// Проверка финального username (только a-z0-9_, длина в допустимых пределах)
 export function isValidUsernameFormat(username: string): boolean {
-  return /^[a-z0-9_]{3,}$/.test(username);
+  if (username.length < USERNAME_MIN_LENGTH || username.length > USERNAME_MAX_LENGTH) return false;
+  return /^[a-z0-9_]+$/.test(username);
 }
 
 // Генерация всех возможных замен символов (рекурсивно, с ограничением)

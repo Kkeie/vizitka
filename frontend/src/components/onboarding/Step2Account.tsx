@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { register, checkEmail, DEVICE_RESUME_SESSION_STORAGE_KEY } from "../../api";
+import {
+  EMAIL_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+} from "../../lib/authFieldLimits";
 import { Link, useNavigate } from "react-router-dom";
 import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../lib/registrationDecoSocials";
 import { PUBLIC_BASE_URL } from "../../lib/publicBaseUrl";
@@ -120,8 +125,17 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
     const isEmailValid = await runEmailCheck(normalizedEmail);
     if (!isEmailValid) return;
 
-    if (password.length < 4) {
-      setError("Пароль должен быть не менее 4 символов");
+    if (normalizedEmail.length > EMAIL_MAX_LENGTH) {
+      setError(`Email не длиннее ${EMAIL_MAX_LENGTH} символов`);
+      return;
+    }
+
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setError(`Пароль — не короче ${PASSWORD_MIN_LENGTH} символов`);
+      return;
+    }
+    if (password.length > PASSWORD_MAX_LENGTH) {
+      setError(`Пароль — не длиннее ${PASSWORD_MAX_LENGTH} символов`);
       return;
     }
 
@@ -186,6 +200,7 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
                   }
                 }}
                 spellCheck={false}
+                maxLength={EMAIL_MAX_LENGTH}
                 required
                 autoFocus
               />
@@ -201,7 +216,8 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
                   setError("");
                 }}
                 required
-                minLength={4}
+                minLength={PASSWORD_MIN_LENGTH}
+                maxLength={PASSWORD_MAX_LENGTH}
               />
             </div>
             {emailChecking && <p className="login-bento__subtitle">Проверка email...</p>}
