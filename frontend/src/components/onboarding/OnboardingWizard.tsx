@@ -33,7 +33,7 @@ export default function OnboardingWizard({ onAuthed }: OnboardingWizardProps) {
 
   return (
     <div className="onboarding-wizard">
-      {step === 1 && <Step1Username onNext={handleStep1Next} />}
+      {step === 1 && <Step1Username onNext={handleStep1Next} initialUsername={username} />}
       {step === 2 && (
         <Step2Account
           username={username}

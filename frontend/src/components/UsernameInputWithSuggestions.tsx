@@ -2,6 +2,11 @@ import React, { useState, useCallback, useRef } from "react";
 import { checkUsername } from "../api";
 import { PUBLIC_BASE_URL_WITH_SLASH } from "../lib/publicBaseUrl";
 
+/** Никнейм в URL — без пробелов и прочих пробельных символов */
+function sanitizeUsernameInput(raw: string): string {
+  return raw.toLowerCase().replace(/\s+/g, "");
+}
+
 interface UsernameInputWithSuggestionsProps {
   value: string;
   onChange: (value: string) => void;
@@ -66,7 +71,7 @@ export default function UsernameInputWithSuggestions({
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value.toLowerCase();
+    const newValue = sanitizeUsernameInput(e.target.value);
     onChange(newValue);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (newValue.length >= 3) {
@@ -134,13 +139,15 @@ export default function UsernameInputWithSuggestions({
           color: var(--login-muted, #666);
           font-family: var(--login-font, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
           user-select: none;
-          margin-right: 4px;
+          margin-right: 0;
+          white-space: nowrap;
         }
         .input-prefixed {
           flex: 1;
           min-width: 0;
           border: none;
-          padding: 0 8px;
+          padding: 0;
+          margin: 0;
           font-size: var(--login-input-font-size, 15px);
           line-height: var(--login-input-height, 44px);
           outline: none;
