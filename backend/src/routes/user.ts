@@ -17,8 +17,10 @@ router.get("/me", requireAuth, async (req: AuthedRequest, res) => {
     
      res.json({
        id: user.id,
+       email: user.email,
        username: user.username || req.user!.username,
        createdAt: user.createdAt,
+       emailVerified: user.emailVerified === 1,
        profile: user.profileId ? {
          id: user.profileId,
          username: user.username,

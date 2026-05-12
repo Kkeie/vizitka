@@ -16,8 +16,10 @@ router.get("/me", auth_1.requireAuth, async (req, res) => {
             return res.status(404).json({ error: "not_found" });
         res.json({
             id: user.id,
+            email: user.email,
             username: user.username || req.user.username,
             createdAt: user.createdAt,
+            emailVerified: user.emailVerified === 1,
             profile: user.profileId ? {
                 id: user.profileId,
                 username: user.username,
