@@ -26,6 +26,8 @@ describe("POST /api/auth/register — создать новый аккаунт",
       username: u,
       userId: res.body.user.id,
     });
+    expect(res.body.deviceResumeToken).toEqual(expect.any(String));
+    expect(String(res.body.deviceResumeToken).length).toBeGreaterThan(10);
   });
 
   it("TC-AUTH-02: пустая форма — сервер просит и логин, и пароль", async () => {

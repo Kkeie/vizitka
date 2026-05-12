@@ -269,8 +269,11 @@ interface ApiError {
 }
 
 export type RegisterResult =
-  | { verificationRequired: true; user: User; email: string }
+  | { verificationRequired: true; user: User; email: string; deviceResumeToken: string }
   | { verificationRequired: false; token: string; user: User };
+
+/** Ключ sessionStorage для токена «ожидание регистрации на этом устройстве» (не класть в URL). */
+export const DEVICE_RESUME_SESSION_STORAGE_KEY = "bento_device_resume_token";
 
 function mapUserFromApi(raw: Record<string, unknown>): User {
   const profile = raw.profile as User["profile"];
@@ -325,15 +328,21 @@ export async function register(username: string, email: string, password: string
 
   const data = await safeJsonParse<{
     verificationRequired?: boolean;
+    deviceResumeToken?: string;
     token?: string;
     user?: Record<string, unknown>;
   }>(r);
 
   if (data.verificationRequired && data.user) {
+    const drt = data.deviceResumeToken;
+    if (!drt || typeof drt !== "string") {
+      throw new Error("invalid_auth_response");
+    }
     return {
       verificationRequired: true,
       user: mapUserFromApi(data.user),
       email: normalizedEmail,
+      deviceResumeToken: drt,
     };
   }
 
@@ -631,7 +640,62 @@ export async function verifyEmailWithToken(verificationToken: string): Promise<{
     throw new Error("invalid_auth_response");
   }
   setToken(data.token);
+  try {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.removeItem(DEVICE_RESUME_SESSION_STORAGE_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
   return { token: data.token, user: mapUserFromApi(data.user) };
+}
+
+export type ResumeRegistrationResult =
+  | { ready: true; token: string; user: User }
+  | { ready: false };
+
+/** Опрос после регистрации: когда почта подтверждена (на другом устройстве), выдаёт JWT. */
+export async function resumeRegistrationAfterVerify(
+  deviceResumeToken: string,
+): Promise<ResumeRegistrationResult> {
+  const r = await fetch(`${API}/auth/resume-registration`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ deviceResumeToken: deviceResumeToken.trim() }),
+  }).catch((error: unknown) => {
+    console.error("[API] resume-registration network error:", error);
+    throw new Error("network_error");
+  });
+
+  if (r.status === 400) {
+    const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
+    throw new Error(errorData.error || errorData.message || "resume_failed");
+  }
+
+  if (!r.ok) {
+    const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
+    throw new Error(errorData.error || errorData.message || "resume_failed");
+  }
+
+  const data = await safeJsonParse<{ ready?: boolean; token?: string; user?: Record<string, unknown> }>(r);
+
+  if (data.ready === true) {
+    if (!data.token || !data.user) {
+      setToken(null);
+      throw new Error("invalid_auth_response");
+    }
+    setToken(data.token);
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.removeItem(DEVICE_RESUME_SESSION_STORAGE_KEY);
+      }
+    } catch {
+      /* ignore */
+    }
+    return { ready: true, token: data.token, user: mapUserFromApi(data.user) };
+  }
+
+  return { ready: false };
 }
 
 export async function resendVerificationEmail(email: string): Promise<void> {

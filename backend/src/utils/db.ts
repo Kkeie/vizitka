@@ -98,6 +98,20 @@ export function initDatabase() {
       console.warn("[DB] Could not add emailVerifySentAt column:", e.message);
     }
   }
+  try {
+    db.exec(`ALTER TABLE User ADD COLUMN deviceResumeTokenHash TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes("duplicate column")) {
+      console.warn("[DB] Could not add deviceResumeTokenHash column:", e.message);
+    }
+  }
+  try {
+    db.exec(`ALTER TABLE User ADD COLUMN deviceResumeTokenExpiresAt TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes("duplicate column")) {
+      console.warn("[DB] Could not add deviceResumeTokenExpiresAt column:", e.message);
+    }
+  }
   // Аккаунты до введения верификации считаем подтверждёнными (NULL -> 1)
   try {
     db.exec(`UPDATE User SET emailVerified = 1 WHERE emailVerified IS NULL`);

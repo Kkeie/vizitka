@@ -62,6 +62,45 @@ describe("POST /api/auth/verify-email", () => {
   });
 });
 
+describe("POST /api/auth/resume-registration", () => {
+  beforeEach(() => {
+    vi.mocked(sendVerificationEmail).mockClear();
+  });
+
+  it("до подтверждения почты — ready: false; после verify — JWT", async () => {
+    const u = `resume_dev_${Date.now()}`;
+    const email = `${u}@example.test`;
+    const reg = await request(app).post("/api/auth/register").send({ username: u, email, password: "password123" });
+    expect(reg.status).toBe(200);
+    const deviceToken = reg.body.deviceResumeToken as string;
+    expect(deviceToken).toBeTruthy();
+
+    const wait1 = await request(app).post("/api/auth/resume-registration").send({ deviceResumeToken: deviceToken });
+    expect(wait1.status).toBe(200);
+    expect(wait1.body).toEqual({ ready: false });
+
+    const verifyUrl = vi.mocked(sendVerificationEmail).mock.calls.at(-1)![1] as string;
+    const emailToken = new URL(verifyUrl).searchParams.get("token")!;
+    const verified = await request(app).post("/api/auth/verify-email").send({ token: emailToken });
+    expect(verified.status).toBe(200);
+
+    const wait2 = await request(app).post("/api/auth/resume-registration").send({ deviceResumeToken: deviceToken });
+    expect(wait2.status).toBe(200);
+    expect(wait2.body.ready).toBe(true);
+    expect(typeof wait2.body.token).toBe("string");
+
+    const wait3 = await request(app).post("/api/auth/resume-registration").send({ deviceResumeToken: deviceToken });
+    expect(wait3.status).toBe(400);
+    expect(wait3.body.error).toBe("invalid_or_expired_device_resume");
+  });
+
+  it("неверный токен — 400", async () => {
+    const res = await request(app).post("/api/auth/resume-registration").send({ deviceResumeToken: "nope" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("invalid_or_expired_device_resume");
+  });
+});
+
 describe("POST /api/auth/resend-verification", () => {
   beforeEach(() => {
     vi.mocked(sendVerificationEmail).mockClear();
