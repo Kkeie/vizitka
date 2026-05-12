@@ -9,7 +9,7 @@ export function uniqueName(prefix: string): string {
 
 function clearVerificationForTests(userId: number) {
   db.prepare(
-    `UPDATE User SET emailVerified = 1, emailVerifyTokenHash = NULL, emailVerifyExpiresAt = NULL, emailVerifySentAt = NULL WHERE id = ?`,
+    `UPDATE User SET emailVerified = 1, emailVerifyTokenHash = NULL, emailVerifyExpiresAt = NULL, emailVerifySentAt = NULL, deviceResumeTokenHash = NULL, deviceResumeTokenExpiresAt = NULL WHERE id = ?`,
   ).run(userId);
 }
 

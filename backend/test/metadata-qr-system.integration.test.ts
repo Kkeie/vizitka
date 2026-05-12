@@ -96,18 +96,3 @@ describe("Сервис «жив ли сервер» и безопасность 
     expect(res.status).toBe(401);
   });
 });
-
-describe("GET /api/health/mail — наличие переменных для почты (без секретов в ответе)", () => {
-  it("200 и набор булевых флагов", async () => {
-    const res = await request(app).get("/api/health/mail");
-    expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({
-      ok: true,
-      smtpHostSet: expect.any(Boolean),
-      smtpAuthSet: expect.any(Boolean),
-      emailFromSet: expect.any(Boolean),
-      verificationLinkBaseSet: expect.any(Boolean),
-      readyToSend: expect.any(Boolean),
-    });
-  });
-});

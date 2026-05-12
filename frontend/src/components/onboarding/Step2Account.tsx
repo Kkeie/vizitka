@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { register, checkEmail } from "../../api";
+import { register, checkEmail, DEVICE_RESUME_SESSION_STORAGE_KEY } from "../../api";
 import { Link, useNavigate } from "react-router-dom";
 import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../lib/registrationDecoSocials";
 import { PUBLIC_BASE_URL } from "../../lib/publicBaseUrl";
@@ -129,6 +129,11 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
     try {
       const result = await register(username, normalizedEmail, password);
       if (result.verificationRequired) {
+        try {
+          sessionStorage.setItem(DEVICE_RESUME_SESSION_STORAGE_KEY, result.deviceResumeToken);
+        } catch {
+          /* storage disabled */
+        }
         navigate(`/register/pending?email=${encodeURIComponent(result.email)}`, { replace: true });
         return;
       }

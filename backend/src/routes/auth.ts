@@ -13,6 +13,8 @@ const RESEND_VERIFICATION_COOLDOWN_MS = 60_000;
 const resendVerificationLastAt = new Map<string, number>();
 
 const VERIFY_TOKEN_TTL_MS = 48 * 60 * 60 * 1000;
+/** Тот же срок: пока пользователь может подтвердить почту, вкладка «ожидание» может подхватить сессию. */
+const DEVICE_RESUME_TOKEN_TTL_MS = VERIFY_TOKEN_TTL_MS;
 
 function issueAuthForUser(userId: number) {
   const row = db.prepare(`
@@ -128,16 +130,28 @@ router.post("/register", async (req, res) => {
     const verifyExpires = new Date(Date.now() + VERIFY_TOKEN_TTL_MS).toISOString();
     const verifySentAt = new Date().toISOString();
 
+    const rawDeviceResume = generateVerificationToken();
+    const deviceResumeHash = hashVerificationToken(rawDeviceResume);
+    const deviceResumeExpires = new Date(Date.now() + DEVICE_RESUME_TOKEN_TTL_MS).toISOString();
+
      // Создаем пользователя и профиль в транзакции
      const insertUser = db.prepare(`
-       INSERT INTO User (email, passwordHash, emailVerified, emailVerifyTokenHash, emailVerifyExpiresAt, emailVerifySentAt)
-       VALUES (?, ?, 0, ?, ?, ?)
+       INSERT INTO User (email, passwordHash, emailVerified, emailVerifyTokenHash, emailVerifyExpiresAt, emailVerifySentAt, deviceResumeTokenHash, deviceResumeTokenExpiresAt)
+       VALUES (?, ?, 0, ?, ?, ?, ?, ?)
      `);
      const insertProfile = db.prepare("INSERT INTO Profile (username, name, email, userId) VALUES (?, ?, ?, ?)");
      const selectUser = db.prepare("SELECT createdAt FROM User WHERE id = ?");
      
      const transaction = db.transaction(() => {
-       const userResult = insertUser.run(normalizedEmail, passwordHash, verifyHash, verifyExpires, verifySentAt);
+       const userResult = insertUser.run(
+         normalizedEmail,
+         passwordHash,
+         verifyHash,
+         verifyExpires,
+         verifySentAt,
+         deviceResumeHash,
+         deviceResumeExpires,
+       );
        const userId = userResult.lastInsertRowid as number;
        const profileResult = insertProfile.run(uname, uname, normalizedEmail, userId);
        const profileId = profileResult.lastInsertRowid as number;
@@ -162,6 +176,7 @@ router.post("/register", async (req, res) => {
 
     res.json({
       verificationRequired: true,
+      deviceResumeToken: rawDeviceResume,
       user: {
         id: result.userId,
         username: uname,
@@ -327,6 +342,50 @@ router.post("/verify-email", async (req, res) => {
     const issued = issueAuthForUser(row.id);
     if (!issued) return res.status(500).json({ error: "internal_error" });
     return res.json(issued);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: "internal_error" });
+  }
+});
+
+/**
+ * POST /api/auth/resume-registration
+ * { deviceResumeToken } — вкладка, где открыли /register/pending, получает JWT после подтверждения почты на другом устройстве.
+ */
+router.post("/resume-registration", (req, res) => {
+  try {
+    const raw = String((req.body as { deviceResumeToken?: string })?.deviceResumeToken ?? "").trim();
+    if (!raw) return res.status(400).json({ error: "device_resume_token_required" });
+
+    const tokenHash = hashVerificationToken(raw);
+    const row = db.prepare(`
+      SELECT id, emailVerified, deviceResumeTokenExpiresAt
+      FROM User WHERE deviceResumeTokenHash = ?
+    `).get(tokenHash) as
+      | { id: number; emailVerified: number | null; deviceResumeTokenExpiresAt: string | null }
+      | undefined;
+
+    if (!row) {
+      return res.status(400).json({ error: "invalid_or_expired_device_resume" });
+    }
+
+    const expires = row.deviceResumeTokenExpiresAt ? new Date(row.deviceResumeTokenExpiresAt).getTime() : 0;
+    if (!expires || expires < Date.now()) {
+      return res.status(400).json({ error: "invalid_or_expired_device_resume" });
+    }
+
+    if (row.emailVerified !== 1) {
+      return res.json({ ready: false });
+    }
+
+    const issued = issueAuthForUser(row.id);
+    if (!issued) return res.status(500).json({ error: "internal_error" });
+
+    db.prepare(`
+      UPDATE User SET deviceResumeTokenHash = NULL, deviceResumeTokenExpiresAt = NULL WHERE id = ?
+    `).run(row.id);
+
+    return res.json({ ready: true, token: issued.token, user: issued.user });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: "internal_error" });
