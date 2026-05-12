@@ -60,7 +60,14 @@ Optional:
   BACKUP_IMAGE_TAG      Backup image tag. Default: IMAGE_TAG.
   APP_NAME              Image/container prefix. Default: vizitka.
   PLATFORM              Docker build platform. Default: linux/amd64.
-  FRONTEND_URL          Backend CORS origin, e.g. https://example.com.
+  FRONTEND_URL             Backend CORS origin, e.g. https://example.com (used in mailer if FRONTEND_APP_URL empty).
+  FRONTEND_APP_URL         Optional: base URL for links in verification email (default: first FRONTEND_URL or https://\$DOMAIN).
+  SMTP_HOST                Optional: e.g. smtp.gmail.com — if unset, verification links are only logged.
+  SMTP_PORT                Optional, default 587 in app.
+  SMTP_SECURE              Optional, true/false.
+  SMTP_USER, SMTP_PASS     Optional: SMTP credentials for transactional mail.
+  EMAIL_FROM               Optional: From address (default: SMTP_USER).
+  SMTP_IP_FAMILY           Optional: 4 or 6 for nodemailer (default in app: 4).
   YC_SERVICE_ACCOUNT_NAME  Service account for pulling images from Container Registry.
                            For existing VMs, if set, it will be attached before deploy.
   COI_APP_DIR           Host dir for DB/uploads on VM. Default: /var/lib/$APP_NAME.
@@ -339,6 +346,7 @@ fi
 
 COMPOSE_FILE="$(mktemp "${TMPDIR:-/tmp}/${APP_NAME}-coi-compose.XXXXXX")"
 chmod 600 "$COMPOSE_FILE"
+MAIL_FROM_EFFECTIVE="${EMAIL_FROM:-${SMTP_USER:-}}"
 cleanup() {
   if [[ "${KEEP_GENERATED_COMPOSE:-0}" != "1" ]]; then
     rm -f "$COMPOSE_FILE"
@@ -364,6 +372,14 @@ services:
       UPLOAD_DIR: "/app/uploads"
       JWT_SECRET: $(yaml_quote "$JWT_SECRET")
       FRONTEND_URL: $(yaml_quote "${FRONTEND_URL:-https://${DOMAIN}}")
+      FRONTEND_APP_URL: $(yaml_quote "${FRONTEND_APP_URL:-}")
+      SMTP_HOST: $(yaml_quote "${SMTP_HOST:-}")
+      SMTP_PORT: $(yaml_quote "${SMTP_PORT:-587}")
+      SMTP_SECURE: $(yaml_quote "${SMTP_SECURE:-false}")
+      SMTP_USER: $(yaml_quote "${SMTP_USER:-}")
+      SMTP_PASS: $(yaml_quote "${SMTP_PASS:-}")
+      EMAIL_FROM: $(yaml_quote "$MAIL_FROM_EFFECTIVE")
+      SMTP_IP_FAMILY: $(yaml_quote "${SMTP_IP_FAMILY:-4}")
     volumes:
       - ${COI_APP_DIR}/data:/app/data
       - ${COI_APP_DIR}/uploads:/app/uploads
@@ -445,6 +461,7 @@ if [[ "${DRY_RUN:-0}" == "1" ]]; then
   log "DRY_RUN=1, generated Docker Compose for COI:"
   sed \
     -e 's/JWT_SECRET: .*/JWT_SECRET: "***"/' \
+    -e 's/SMTP_PASS: .*/SMTP_PASS: "***"/' \
     -e 's/AWS_ACCESS_KEY_ID: .*/AWS_ACCESS_KEY_ID: "***"/' \
     -e 's/AWS_SECRET_ACCESS_KEY: .*/AWS_SECRET_ACCESS_KEY: "***"/' \
     "$COMPOSE_FILE"

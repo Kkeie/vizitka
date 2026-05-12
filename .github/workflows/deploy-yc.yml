@@ -320,7 +320,15 @@ jobs:
       YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+      FRONTEND_APP_URL: ${{ secrets.FRONTEND_APP_URL }}
       DOMAIN: ${{ secrets.DOMAIN }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      SMTP_IP_FAMILY: ${{ secrets.SMTP_IP_FAMILY }}
       BACKUP_ENABLED: ${{ secrets.BACKUP_ENABLED || '1' }}
       BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
       BACKUP_S3_KEY: ${{ secrets.BACKUP_S3_KEY }}
