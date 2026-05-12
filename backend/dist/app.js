@@ -76,6 +76,29 @@ const uploadDir = getUploadDir();
 console.log(`[APP] Serving uploads from: ${uploadDir}`);
 app.use("/uploads", express_1.default.static(uploadDir));
 app.get("/api/health", (_, res) => res.json({ ok: true }));
+/** Без секретов: проверка, что в рантайме заданы переменные для исходящей почты (удобно без доступа к облаку). */
+app.get("/api/health/mail", (_, res) => {
+    var _a, _b, _c, _d, _e, _f;
+    const host = (_a = process.env.SMTP_HOST) === null || _a === void 0 ? void 0 : _a.trim();
+    const user = (_b = process.env.SMTP_USER) === null || _b === void 0 ? void 0 : _b.trim();
+    const pass = (_c = process.env.SMTP_PASS) === null || _c === void 0 ? void 0 : _c.trim();
+    const from = (process.env.EMAIL_FROM || process.env.SMTP_FROM || user || "").trim();
+    const linkBase = ((_d = process.env.FRONTEND_APP_URL) === null || _d === void 0 ? void 0 : _d.trim()) ||
+        ((_f = (_e = process.env.FRONTEND_URL) === null || _e === void 0 ? void 0 : _e.split(",")[0]) === null || _f === void 0 ? void 0 : _f.trim()) ||
+        "";
+    const smtpHostSet = Boolean(host);
+    const smtpAuthSet = Boolean(user && pass);
+    const emailFromSet = Boolean(from);
+    const verificationLinkBaseSet = Boolean(linkBase);
+    res.json({
+        ok: true,
+        smtpHostSet,
+        smtpAuthSet,
+        emailFromSet,
+        verificationLinkBaseSet,
+        readyToSend: smtpHostSet && smtpAuthSet && emailFromSet && verificationLinkBaseSet,
+    });
+});
 // API
 app.use("/api/auth", auth_1.default);
 app.use("/api/user", user_1.default);

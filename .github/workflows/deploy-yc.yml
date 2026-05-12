@@ -99,7 +99,7 @@ jobs:
           fi
 
           deploy=0
-          if [[ "$backend" == "1" || "$frontend" == "1" || "$nginx" == "1" || "$backup" == "1" ]]; then
+          if [[ "$backend" == "1" || "$frontend" == "1" || "$nginx" == "1" || "$backup" == "1" || "$deploy_metadata" == "1" ]]; then
             deploy=1
           fi
 

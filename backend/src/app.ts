@@ -86,6 +86,30 @@ app.use("/uploads", express.static(uploadDir));
 
 app.get("/api/health", (_, res) => res.json({ ok: true }));
 
+/** Без секретов: проверка, что в рантайме заданы переменные для исходящей почты (удобно без доступа к облаку). */
+app.get("/api/health/mail", (_, res) => {
+  const host = process.env.SMTP_HOST?.trim();
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim();
+  const from = (process.env.EMAIL_FROM || process.env.SMTP_FROM || user || "").trim();
+  const linkBase =
+    process.env.FRONTEND_APP_URL?.trim() ||
+    process.env.FRONTEND_URL?.split(",")[0]?.trim() ||
+    "";
+  const smtpHostSet = Boolean(host);
+  const smtpAuthSet = Boolean(user && pass);
+  const emailFromSet = Boolean(from);
+  const verificationLinkBaseSet = Boolean(linkBase);
+  res.json({
+    ok: true,
+    smtpHostSet,
+    smtpAuthSet,
+    emailFromSet,
+    verificationLinkBaseSet,
+    readyToSend: smtpHostSet && smtpAuthSet && emailFromSet && verificationLinkBaseSet,
+  });
+});
+
 // API
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
