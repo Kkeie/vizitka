@@ -26,16 +26,55 @@ import {
   FigmaIcon,
   PinterestIcon,
   TikTokIcon,
-  SpotifyIcon
+  SpotifyIcon,
 } from './SocialIconsWithBg';
 import { getLinkMetadata, getImageUrl, Block } from "../api";
 import type { NoteTextStyle } from "../api";
 import { noteStyleToTextCss } from "../lib/noteStyle";
 import { sanitizeNoteHtml, looksLikeHtml } from "../lib/sanitizeNoteHtml";
 import NoteFloatingToolbar from "./NoteFloatingToolbar";
+import { CardContentScaleToFit } from "./CardContentScaleToFit";
 
 /** Полоски по краю iframe в редакторе: dnd ловит край, центр (плеер/карта) остаётся интерактивным */
 const EDITOR_IFRAME_DRAG_EDGE_PX = 14;
+/** Полоски DnD у блока «ссылка» шире — на длинных превью проще схватить блок */
+const LINK_EDITOR_DRAG_RAIL_PX = 28;
+
+/**
+ * Подпись у блока «ссылка»: гистерезис show/hide, чтобы при ресайзе соседей
+ * ResizeObserver не дёргал режим и не «сжимал» контент (раньше ещё и иконка 56→48).
+ */
+const LINK_CARD_TEXT_SHOW_MIN_H = 115;
+const LINK_CARD_TEXT_SHOW_MIN_W = 190;
+const LINK_CARD_TEXT_HIDE_MAX_H = 98;
+const LINK_CARD_TEXT_HIDE_MAX_W = 175;
+
+const LINK_TILE_ICON_PX = 56;
+
+function brandLabelFromHost(host: string): string {
+  const h = host.replace(/^www\./i, "").trim();
+  if (!h) return "";
+  const first = h.split(".")[0] ?? h;
+  return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
+}
+
+function shortUrlPath(url: string, opts?: { maxLen?: number | null }): string | null {
+  const maxLen = opts?.maxLen === undefined ? 52 : opts.maxLen;
+  try {
+    const u = new URL(url);
+    const p = decodeURIComponent(u.pathname + u.search);
+    if (!p || p === "/") return null;
+    if (maxLen === null || p.length <= maxLen) return p;
+    return `${p.slice(0, Math.max(1, maxLen - 1))}…`;
+  } catch {
+    return null;
+  }
+}
+
+function faviconUrlForHost(host: string): string {
+  const domain = host.replace(/^www\./i, "");
+  return `https://www.google.com/s2/favicons?sz=128&domain=${encodeURIComponent(domain)}`;
+}
 
 function EditorIframeEdgeDragHandles({ show }: { show: boolean }) {
   if (!show) return null;
@@ -53,6 +92,26 @@ function EditorIframeEdgeDragHandles({ show }: { show: boolean }) {
       <div aria-hidden className="editor-iframe-edge-drag" style={{ ...base, bottom: 0, left: 0, right: 0, height: edge }} />
       <div aria-hidden className="editor-iframe-edge-drag" style={{ ...base, top: edge, bottom: edge, left: 0, width: edge }} />
       <div aria-hidden className="editor-iframe-edge-drag" style={{ ...base, top: edge, bottom: edge, right: 0, width: edge }} />
+    </>
+  );
+}
+
+/** Редактор: узкая кромка — grab (DnD), центр плитки остаётся pointer (ссылка), как у iframe-превью */
+function LinkEditorEdgeDragRails() {
+  const base: React.CSSProperties = {
+    position: "absolute",
+    zIndex: 5,
+    cursor: "grab",
+    touchAction: "none",
+    boxSizing: "border-box",
+  };
+  const edge = LINK_EDITOR_DRAG_RAIL_PX;
+  return (
+    <>
+      <div aria-hidden className="link-editor-drag-rail" style={{ ...base, top: 0, left: 0, right: 0, height: edge }} />
+      <div aria-hidden className="link-editor-drag-rail" style={{ ...base, bottom: 0, left: 0, right: 0, height: edge }} />
+      <div aria-hidden className="link-editor-drag-rail" style={{ ...base, top: edge, bottom: edge, left: 0, width: edge }} />
+      <div aria-hidden className="link-editor-drag-rail" style={{ ...base, top: edge, bottom: edge, right: 0, width: edge }} />
     </>
   );
 }
@@ -76,8 +135,11 @@ export default function BlockCard({
   const [isVideoPlaying, setIsVideoPlaying] = React.useState(false);
   const [linkMetadata, setLinkMetadata] = React.useState<{ title?: string; description?: string; image?: string } | null>(null);
   const [loadingMetadata, setLoadingMetadata] = React.useState(false);
-  const revealRef = useReveal<HTMLDivElement>({ disabled: Boolean(isDragPreview) });
   const showEditorHeader = Boolean(onDelete);
+  /** В редакторе без entrance: scale(0.97) ломает восприятие размера; оверлей dnd без .reveal — «как норма» */
+  const revealRef = useReveal<HTMLDivElement>({
+    disabled: Boolean(isDragPreview) || showEditorHeader,
+  });
   const isNoteEditable = Boolean(onUpdate) && b.type === "note";
   const noteEditableRef = React.useRef<HTMLDivElement | null>(null);
   const [selectionRect, setSelectionRect] = React.useState<DOMRect | null>(null);
@@ -145,6 +207,35 @@ export default function BlockCard({
     }
   }, [b.id, b.note, isSection, isSectionEditing]);
 
+  const [linkCardShowText, setLinkCardShowText] = React.useState(true);
+  const [linkCardHeightPx, setLinkCardHeightPx] = React.useState(0);
+
+  React.useLayoutEffect(() => {
+    if (b.type !== "link") return;
+    const el = revealRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const { height: h, width: w } = el.getBoundingClientRect();
+      setLinkCardHeightPx(h);
+      const cs = colSpan ?? 1;
+      setLinkCardShowText((prev) => {
+        const showNow =
+          h >= LINK_CARD_TEXT_SHOW_MIN_H || w >= LINK_CARD_TEXT_SHOW_MIN_W || cs >= 2;
+        const hideNow =
+          cs === 1 && h < LINK_CARD_TEXT_HIDE_MAX_H && w < LINK_CARD_TEXT_HIDE_MAX_W;
+        if (showNow) return true;
+        if (hideNow) return false;
+        return prev;
+      });
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [b.type, b.id, colSpan]);
+
   const stopControlEvent = (event: React.MouseEvent | React.PointerEvent) => {
     event.stopPropagation();
   };
@@ -200,8 +291,57 @@ export default function BlockCard({
     [b.id, b.type, b.musicEmbed]
   );
   const yandexTrackCard = musicKind?.kind === "yandex";
+  /** Масштабирование под маленькую ячейку (без обрезки); фото — отдельно через contain; Я.Музыка — своя вёрстка */
+  const useContentScale =
+    !isSection &&
+    b.type !== "photo" &&
+    b.type !== "link" &&
+    !(b.type === "music" && yandexTrackCard);
+
+  const scaleDeps = React.useMemo(
+    () =>
+      [
+        b.id,
+        b.type,
+        colSpan ?? 1,
+        loadingMetadata,
+        linkMetadata?.image,
+        linkMetadata?.title,
+        linkMetadata?.description,
+        isVideoPlaying,
+        b.note,
+        b.linkUrl,
+        b.socialUrl,
+        b.socialType,
+        b.videoUrl,
+        b.musicEmbed,
+        b.mapLat,
+        b.mapLng,
+        musicKind?.kind,
+      ] as const,
+    [
+      b.id,
+      b.type,
+      colSpan,
+      loadingMetadata,
+      linkMetadata?.image,
+      linkMetadata?.title,
+      linkMetadata?.description,
+      isVideoPlaying,
+      b.note,
+      b.linkUrl,
+      b.socialUrl,
+      b.socialType,
+      b.videoUrl,
+      b.musicEmbed,
+      b.mapLat,
+      b.mapLng,
+      musicKind?.kind,
+    ],
+  );
+
   const cardStyle: React.CSSProperties = {
-    padding: b.type === "photo" || yandexTrackCard ? "0" : "16px",
+    padding: b.type === "photo" || yandexTrackCard || b.type === "link" ? "0" : "16px",
     position: "relative",
     transition: isDragPreview ? "none" : "all 0.2s ease",
     display: "flex",
@@ -212,7 +352,13 @@ export default function BlockCard({
     boxSizing: "border-box",
     userSelect: "none",
     borderRadius: isSection ? "var(--radius-md)" : "var(--radius-md)",
-    ...((b.type === "note") && { overflowY: "auto", overflowX: "hidden" }),
+    ...(b.type === "link" && {
+      background: "transparent",
+    }),
+    ...((b.type === "note") && {
+      overflowX: "hidden",
+      overflowY: useContentScale ? "hidden" : "auto",
+    }),
     ...(b.type !== "note" && { overflow: "hidden" }),
     ...(yandexTrackCard
       ? { height: "auto", minHeight: 0, flexShrink: 0 }
@@ -236,11 +382,31 @@ export default function BlockCard({
   };
 
   const scrollableContentStyle: React.CSSProperties = { paddingRight: 4 };
-  
+
+  const cardBodyStyle: React.CSSProperties = {
+    flex: yandexTrackCard ? "0 0 auto" : 1,
+    position: "relative",
+    zIndex: 0,
+    minHeight: 0,
+    overflow: yandexTrackCard ? "visible" : "hidden",
+    ...(b.type === "link" && {
+      display: "flex",
+      flexDirection: "column",
+      height: "100%",
+      width: "100%",
+    }),
+  };
+
   return (
     <div
       ref={revealRef}
-      className={yandexTrackCard ? "card yandex-music-card" : "card"}
+      className={[
+        "card",
+        yandexTrackCard ? "yandex-music-card" : "",
+        b.type === "link" ? "card--link" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       style={cardStyle}
       {...sortableProps}
       onMouseEnter={(e) => {
@@ -265,15 +431,7 @@ export default function BlockCard({
       }}
     >
 
-      <div
-        style={{
-          flex: yandexTrackCard ? "0 0 auto" : 1,
-          position: "relative",
-          zIndex: 0,
-          minHeight: 0,
-          overflow: yandexTrackCard ? "visible" : "hidden",
-        }}
-      >
+      <div style={cardBodyStyle}>
       {isSection && (
         <div
           className="card__content"
@@ -371,6 +529,303 @@ export default function BlockCard({
           )}
         </div>
       )}
+
+      {b.type === "photo" && b.photoUrl && (
+        <div
+          style={{
+            borderRadius: "var(--radius-sm)",
+            overflow: "hidden",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "var(--bg)",
+          }}
+        >
+          <img
+            src={getImageUrl(b.photoUrl)}
+            alt=""
+            className="photo"
+            loading="lazy"
+            decoding="async"
+            draggable={showEditorHeader ? false : undefined}
+            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          />
+        </div>
+      )}
+
+      {b.type === "link" && b.linkUrl && (() => {
+        const isVertical = (colSpan ?? 1) === 1;
+        /** Не уменьшаем иконку в «компактном» режиме — только скрываем текст */
+        const iconBox = LINK_TILE_ICON_PX;
+
+        const linkTilePanel: React.CSSProperties = {
+          flex: 1,
+          minHeight: 0,
+          alignSelf: "stretch",
+          width: "100%",
+          boxSizing: "border-box",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius-md)",
+          padding: 16,
+          display: "flex",
+          flexDirection: "column",
+        };
+
+        const linkFill: React.CSSProperties = {
+          textDecoration: "none",
+          color: "inherit",
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          minHeight: 0,
+          height: "100%",
+          width: "100%",
+          boxSizing: "border-box",
+        };
+
+        const rowStyle = (textMode: boolean): React.CSSProperties => ({
+          display: "flex",
+          flexDirection: isVertical ? "column" : "row",
+          alignItems: textMode ? (isVertical ? "flex-start" : "center") : "center",
+          justifyContent: textMode ? "flex-start" : "center",
+          gap: 12,
+          flex: 1,
+          minHeight: 0,
+          width: "100%",
+        });
+
+        const socialInfo = getSocialInfo(b.linkUrl);
+        const isSupported = socialInfo.platform !== "other";
+
+        if (isSupported) {
+          let IconComponent = null;
+          switch (socialInfo.platform) {
+            case "telegram": IconComponent = TelegramIcon; break;
+            case "instagram": IconComponent = InstagramIcon; break;
+            case "vk": IconComponent = VKIcon; break;
+            case "twitter": IconComponent = TwitterIcon; break;
+            case "linkedin": IconComponent = LinkedInIcon; break;
+            case "github": IconComponent = GitHubIcon; break;
+            case "youtube": IconComponent = YouTubeIcon; break;
+            case "dribbble": IconComponent = DribbbleIcon; break;
+            case "behance": IconComponent = BehanceIcon; break;
+            case "max": IconComponent = MaxIcon; break;
+            case "dprofile": IconComponent = DprofileIcon; break;
+            case "figma": IconComponent = FigmaIcon; break;
+            case "pinterest": IconComponent = PinterestIcon; break;
+            case "tiktok": IconComponent = TikTokIcon; break;
+            case "spotify": IconComponent = SpotifyIcon; break;
+            default: break;
+          }
+
+          if (!IconComponent) return null;
+
+          return (
+            <>
+              <a
+                href={b.linkUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{ ...linkFill, cursor: "pointer" }}
+                data-draggable-tile-link=""
+              >
+                <div style={linkTilePanel}>
+                  <div style={rowStyle(linkCardShowText)}>
+                    <span style={{ flexShrink: 0, lineHeight: 0 }}>
+                      <IconComponent width={iconBox} height={iconBox} fill="white" />
+                    </span>
+                    {linkCardShowText ? (
+                      <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text)", marginBottom: 4 }}>{socialInfo.name}</div>
+                        {socialInfo.username ? (
+                          <div
+                            style={{
+                              fontSize: 14,
+                              color: "var(--muted)",
+                              wordBreak: "break-word",
+                              lineHeight: 1.45,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
+                          >
+                            {socialInfo.username}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </a>
+              {showEditorHeader ? <LinkEditorEdgeDragRails /> : null}
+            </>
+          );
+        }
+
+        const host = safeDomain(b.linkUrl);
+        const hostKey = host.replace(/^www\./i, "").toLowerCase().replace(/\/$/, "");
+        const titleRaw = linkMetadata?.title?.trim() ?? "";
+        const descRaw = linkMetadata?.description?.trim() ?? "";
+
+        const redundantTitle = (t: string) => {
+          if (!t) return true;
+          const k = t.replace(/^www\./i, "").toLowerCase().replace(/\/$/, "");
+          return k === hostKey || t === b.linkUrl;
+        };
+        const redundantDesc = (d: string) => {
+          if (!d) return true;
+          if (d === b.linkUrl) return true;
+          if (/^https?:\/\//i.test(d)) return true;
+          const k = d.replace(/^www\./i, "").toLowerCase().replace(/\/$/, "");
+          return k === hostKey;
+        };
+
+        const headline = !redundantTitle(titleRaw) ? titleRaw : brandLabelFromHost(host);
+
+        const subCandidate = (() => {
+          if (!linkCardShowText) return null;
+          if (!redundantDesc(descRaw)) return descRaw;
+          return shortUrlPath(b.linkUrl, { maxLen: linkCardHeightPx >= 260 ? null : 52 });
+        })();
+
+        const subline = subCandidate && subCandidate !== headline ? subCandidate : null;
+
+        /** Высокая карточка — подпись скроллится; иначе до 4 строк при достаточной высоте ячейки */
+        const sublineExpand = linkCardShowText && linkCardHeightPx >= 260;
+        const sublineClampLines = linkCardHeightPx >= 220 ? 4 : 2;
+
+        const thumbStyle: React.CSSProperties = {
+          width: iconBox,
+          height: iconBox,
+          borderRadius: 12,
+          flexShrink: 0,
+          display: "block",
+        };
+
+        return (
+          <>
+            <a
+              href={b.linkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ ...linkFill, cursor: "pointer" }}
+              data-draggable-tile-link=""
+            >
+              <div style={linkTilePanel}>
+                {loadingMetadata ? (
+                  <div
+                    style={{
+                      ...rowStyle(true),
+                      flex: 1,
+                      color: "var(--muted)",
+                      fontSize: 14,
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    {linkCardShowText ? "Загрузка…" : "…"}
+                  </div>
+                ) : (
+                  <div style={rowStyle(linkCardShowText)}>
+                    {linkMetadata?.image ? (
+                      <img
+                        src={linkMetadata.image}
+                        alt=""
+                        draggable={showEditorHeader ? false : undefined}
+                        style={{ ...thumbStyle, objectFit: "cover" }}
+                      />
+                    ) : (
+                      <img
+                        src={faviconUrlForHost(host)}
+                        alt=""
+                        draggable={false}
+                        style={{ ...thumbStyle, objectFit: "contain", background: "var(--bg)" }}
+                      />
+                    )}
+                    {linkCardShowText ? (
+                      <div
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          minHeight: 0,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignSelf: "stretch",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 16,
+                            color: "var(--text)",
+                            marginBottom: subline ? 4 : 0,
+                            lineHeight: 1.35,
+                            wordBreak: "break-word",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {headline}
+                        </div>
+                        {subline ? (
+                          <div
+                            style={{
+                              fontSize: 14,
+                              color: "var(--muted)",
+                              lineHeight: 1.45,
+                              wordBreak: "break-word",
+                              ...(sublineExpand
+                                ? {
+                                    flex: 1,
+                                    minHeight: 0,
+                                    overflowY: "auto",
+                                    WebkitOverflowScrolling: "touch",
+                                  }
+                                : {
+                                    display: "-webkit-box",
+                                    WebkitLineClamp: sublineClampLines,
+                                    WebkitBoxOrient: "vertical",
+                                    overflow: "hidden",
+                                  }),
+                            }}
+                          >
+                            {subline}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            </a>
+            {showEditorHeader ? <LinkEditorEdgeDragRails /> : null}
+          </>
+        );
+      })()}
+
+      {b.type === "music" && b.musicEmbed && musicKind?.kind === "yandex" && (
+        <div style={{ position: "relative", width: "100%", maxWidth: YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX, margin: "0 auto" }}>
+          <iframe
+            className="yandex-music-embed"
+            title="Яндекс Музыка"
+            src={musicKind.src}
+            loading="lazy"
+            allow="clipboard-write; autoplay; encrypted-media"
+            width={YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX}
+            height={YANDEX_MUSIC_IFRAME_HEIGHT_PX}
+          />
+          <EditorIframeEdgeDragHandles show={showEditorHeader && !isDragPreview} />
+        </div>
+      )}
+
+      {!isSection && useContentScale && (
+        <CardContentScaleToFit
+          deps={[...scaleDeps]}
+          layoutReferenceWidthPx={280}
+          passthrough={showEditorHeader}
+        >
         {b.type === "note" && (() => {
           const ns = b.noteStyle;
           const textCss = noteStyleToTextCss(ns);
@@ -497,76 +952,6 @@ export default function BlockCard({
           );
         })()}
 
-        {b.type === "link" && b.linkUrl && (() => {
-          const socialInfo = getSocialInfo(b.linkUrl);
-          const isSupported = socialInfo.platform !== 'other';
-
-          if (isSupported) {
-            let IconComponent = null;
-            switch (socialInfo.platform) {
-              case 'telegram': IconComponent = TelegramIcon; break;
-              case 'instagram': IconComponent = InstagramIcon; break;
-              case 'vk': IconComponent = VKIcon; break;
-              case 'twitter': IconComponent = TwitterIcon; break;
-              case 'linkedin': IconComponent = LinkedInIcon; break;
-              case 'github': IconComponent = GitHubIcon; break;
-              case 'youtube': IconComponent = YouTubeIcon; break;
-              case 'dribbble': IconComponent = DribbbleIcon; break;
-              case 'behance': IconComponent = BehanceIcon; break;
-              case 'max': IconComponent = MaxIcon; break;
-              case 'dprofile': IconComponent = DprofileIcon; break;
-              case 'figma': IconComponent = FigmaIcon; break;
-              case 'pinterest': IconComponent = PinterestIcon; break;
-              case 'tiktok': IconComponent = TikTokIcon; break;
-              case 'spotify': IconComponent = SpotifyIcon; break;
-              default: break;
-            }
-
-            if (!IconComponent) return null;
-
-            return (
-              <a href={b.linkUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block', ...scrollableContentStyle }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <IconComponent width={socialIconSize} height={socialIconSize} fill="white" />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)', marginBottom: 4 }}>{socialInfo.name}</div>
-                    {socialInfo.username && <div style={{ fontSize: 14, color: 'var(--muted)' }}>{socialInfo.username}</div>}
-                  </div>
-                </div>
-              </a>
-            );
-          }
-
-          // Обычная ссылка (не соцсеть) – существующий код с метаданными
-          return (
-            <div style={{ cursor: "pointer", ...scrollableContentStyle }}>
-              {loadingMetadata ? (
-                <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-sm)", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  Загрузка...
-                </div>
-              ) : linkMetadata?.image ? (
-                <img src={linkMetadata.image} alt="" draggable={showEditorHeader ? false : undefined} style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-sm)", objectFit: "cover", marginBottom: 12, border: "1px solid var(--border)" }} />
-              ) : (
-                <div style={{ width: "100%", aspectRatio: "1 / 1", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, color: "var(--muted)", fontSize: 13, padding: 12, textAlign: "center" }}>
-                  {safeDomain(b.linkUrl)}
-                </div>
-              )}
-              <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 8, color: "var(--text)", lineHeight: 1.4 }}>
-                {linkMetadata?.title || safeDomain(b.linkUrl)}
-              </div>
-              <div style={{ fontSize: 14, color: "var(--muted)", marginBottom: 8, lineHeight: 1.5 }}>
-                {linkMetadata?.description || b.linkUrl}
-              </div>
-            </div>
-          );
-        })()}
-
-        {b.type === "photo" && b.photoUrl && (
-          <div style={{ borderRadius: "var(--radius-sm)", overflow: "hidden", height: "100%" }}>
-            <img src={getImageUrl(b.photoUrl)} alt="" className="photo" loading="lazy" decoding="async" draggable={showEditorHeader ? false : undefined} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          </div>
-        )}
-
         {b.type === "video" && b.videoUrl && (() => {
           const vid = extractYouTubeId(b.videoUrl);
           const vkEmbedSrc = extractVKVideoId(b.videoUrl) ? toVKVideoEmbed(b.videoUrl) : null;
@@ -601,25 +986,8 @@ export default function BlockCard({
           return <div className="card" style={{ padding: 48, textAlign: "center", color: "var(--muted)" }}>Видео</div>;
         })()}
 
-        {b.type === "music" && b.musicEmbed && (() => {
-          if (!musicKind) return null;
+        {b.type === "music" && b.musicEmbed && musicKind && musicKind.kind !== "yandex" && (() => {
           const kind = musicKind;
-          if (kind.kind === "yandex") {
-            return (
-              <div style={{ position: "relative", width: "100%", maxWidth: YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX, margin: "0 auto" }}>
-                <iframe
-                  className="yandex-music-embed"
-                  title="Яндекс Музыка"
-                  src={kind.src}
-                  loading="lazy"
-                  allow="clipboard-write; autoplay; encrypted-media"
-                  width={YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX}
-                  height={YANDEX_MUSIC_IFRAME_HEIGHT_PX}
-                />
-                <EditorIframeEdgeDragHandles show={showEditorHeader && !isDragPreview} />
-              </div>
-            );
-          }
           if (kind.kind === "audio") {
             return (
               <div style={{ padding: 16, borderRadius: "var(--radius-sm)", background: "var(--bg)", ...scrollableContentStyle }}>
@@ -701,7 +1069,7 @@ export default function BlockCard({
           const isVertical = colSpan === 1;
           
           return (
-            <a href={b.socialUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block', ...scrollableContentStyle }}>
+            <a href={b.socialUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block', ...scrollableContentStyle }} data-draggable-tile-link="">
               <div style={{ 
                 display: 'flex', 
                 flexDirection: isVertical ? 'column' : 'row',
@@ -717,6 +1085,8 @@ export default function BlockCard({
             </a>
           );
         })()}
+        </CardContentScaleToFit>
+      )}
       </div>
 
     </div>

@@ -247,6 +247,8 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
 
   const handlePointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
+    /** Целая карточка-link — `<a>`: иначе stopPropagation ломает dnd-kit на больших тайлах */
+    if (target.closest('[data-draggable-tile-link]')) return;
     const interactive = target.closest(
       'a, button, input, textarea, [contenteditable="true"], .no-drag, audio, video, select, summary, [role="slider"]',
     );

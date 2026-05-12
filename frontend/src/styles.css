@@ -287,6 +287,37 @@ a:hover{color:var(--primary-hover)}
   transform: translateY(-2px);
 }
 
+/* Блок «Ссылка»: без рамки, фона «плашки» и без тени — только превью/контент */
+.card.card--link {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.card.card--link:hover {
+  border: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  background: transparent !important;
+}
+
+/* Рамка фокуса drag: у ссылочной карточки не даём жирный outline вокруг всей плитки */
+[data-drag-item]:focus-visible:has(.card--link) {
+  outline: none;
+}
+
+/* DnD + ссылка: центр тайла — pointer (клик), кромка .link-editor-drag-rail — grab; дети <a> наследуют pointer от ссылки */
+[data-drag-item] .card--link a[data-draggable-tile-link],
+[data-drag-item] .card--link a[data-draggable-tile-link] * {
+  cursor: pointer;
+}
+[data-drag-item] .link-editor-drag-rail {
+  cursor: grab;
+}
+[data-drag-item] .link-editor-drag-rail:active {
+  cursor: grabbing;
+}
+
 /* Buttons */
 .btn{
   display:inline-flex; 
@@ -569,10 +600,27 @@ iframe.yandex-music-embed {
   position: relative;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
 }
 .bento-grid-item > .card{
-  height: 100% !important;
-  min-height: 100% !important;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Редактор: grid-child — обёртка dnd, не .bento-grid-item; иначе .card--link не тянется на высоту строки */
+.bento-grid > [data-drag-item] {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  align-self: stretch;
+  height: 100%;
+  box-sizing: border-box;
+}
+.bento-grid > [data-drag-item] > .card.card--link {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Placeholder для contentEditable заметки */
