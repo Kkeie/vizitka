@@ -91,11 +91,13 @@ export type AuthedRequest = Request & { user?: AuthedUser };
 
 function getTokenBoundUser(id: number, userCreatedAt: string) {
   return db.prepare(`
-    SELECT u.id, u.createdAt, u.passwordHash, p.username
+    SELECT u.id, u.createdAt, u.passwordHash, u.emailVerified, p.username
     FROM User u
     LEFT JOIN Profile p ON p.userId = u.id
     WHERE u.id = ? AND u.createdAt = ?
-  `).get(id, userCreatedAt) as { id: number; createdAt: string; passwordHash: string; username: string | null } | undefined;
+  `).get(id, userCreatedAt) as
+    | { id: number; createdAt: string; passwordHash: string; username: string | null; emailVerified: number | null }
+    | undefined;
 }
 
 export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
@@ -127,6 +129,10 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
     const expectedAuthBinding = user ? buildAuthBinding(user.id, user.createdAt, user.passwordHash) : "";
     if (!user || !safeStringEqual(authBinding, expectedAuthBinding)) {
       return res.status(401).json({ error: "unauthorized" });
+    }
+
+    if (user.emailVerified !== 1) {
+      return res.status(403).json({ error: "email_not_verified" });
     }
 
     const currentUsername = String(user.username || username).trim().toLowerCase();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { register, checkEmail } from "../../api";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../lib/registrationDecoSocials";
 import { PUBLIC_BASE_URL } from "../../lib/publicBaseUrl";
 import PhoneMockup from "./PhoneMockup";
@@ -13,6 +13,7 @@ interface Step2AccountProps {
 }
 
 export default function Step2Account({ username, onBack, onSuccess }: Step2AccountProps) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -126,7 +127,11 @@ export default function Step2Account({ username, onBack, onSuccess }: Step2Accou
 
     setLoading(true);
     try {
-      await register(username, normalizedEmail, password);
+      const result = await register(username, normalizedEmail, password);
+      if (result.verificationRequired) {
+        navigate(`/register/pending?email=${encodeURIComponent(result.email)}`, { replace: true });
+        return;
+      }
       onSuccess();
     } catch (err: unknown) {
       if (err instanceof Error && err.message === "username_taken") {

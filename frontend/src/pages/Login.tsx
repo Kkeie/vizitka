@@ -39,6 +39,8 @@ export default function Login() {
         setErr("The API returned HTML instead of JSON. Check the backend URL and proxy settings.");
       } else if (errorMessage === "network_error") {
         setErr("Could not connect to the API. Make sure the backend is running and reachable.");
+      } else if (errorMessage === "email_not_verified") {
+        setErr("Email ещё не подтверждён. Проверьте почту или зарегистрируйтесь снова.");
       } else {
         setErr("Неверный email или пароль");
       }
