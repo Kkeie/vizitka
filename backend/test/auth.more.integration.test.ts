@@ -38,14 +38,14 @@ describe("Регистрация — поведение, которое долж
     expect(res.body.suggestions.length).toBeGreaterThan(0);
   });
 
-  it("после подтверждения email (или тестовой активации) выдаётся длинная строка-токен — это «пропуск» в кабинет", async () => {
+  it("после успешной регистрации выдаётся длинная строка-токен — это «пропуск» в личный кабинет", async () => {
     const u = uniqueName("tok");
-    const email = `${u}@example.test`;
-    const { status, token } = await register(app, u, email, "password123");
-    expect(status).toBe(200);
-    expect(typeof token).toBe("string");
-    expect(token.length).toBeGreaterThan(20);
-    const me = await request(app).get("/api/user/me").set(auth(token));
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({ username: u, email: `${u}@example.test`, password: "password123" });
+    expect(res.status).toBe(200);
+    expect(res.body.token.length).toBeGreaterThan(20);
+    const me = await request(app).get("/api/user/me").set(auth(res.body.token));
     expect(me.status).toBe(200);
   });
 });

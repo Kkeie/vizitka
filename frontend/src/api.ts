@@ -44,9 +44,6 @@ export type User = {
   id: number;
   username: string;
   createdAt: string;
-  /** Email входа (приходит с GET /api/user/me) */
-  email?: string;
-  emailVerified?: boolean;
   profile: Profile | null;
 };
 
@@ -268,34 +265,12 @@ interface ApiError {
   suggestions?: string[];
 }
 
-export type RegisterResult =
-  | { verificationRequired: true; user: User; email: string }
-  | { verificationRequired: false; token: string; user: User };
-
-function mapUserFromApi(raw: Record<string, unknown>): User {
-  const profile = raw.profile as User["profile"];
-  return {
-    id: Number(raw.id),
-    username: String(raw.username ?? ""),
-    createdAt: String(raw.createdAt ?? ""),
-    email: raw.email != null ? String(raw.email) : undefined,
-    emailVerified:
-      raw.emailVerified === true || raw.emailVerified === 1
-        ? true
-        : raw.emailVerified === false || raw.emailVerified === 0
-          ? false
-          : undefined,
-    profile: profile ?? null,
-  };
-}
-
 // Auth
-export async function register(username: string, email: string, password: string): Promise<RegisterResult> {
+export async function register(username: string, email: string, password: string): Promise<{ token: string; user: User }> {
   setToken(null);
-  const normalizedEmail = email.trim().toLowerCase();
   const payload = {
     username,
-    email: normalizedEmail,
+    email: email.trim().toLowerCase(),
     password,
   };
   const url = `${API}/auth/register`;
@@ -323,30 +298,13 @@ export async function register(username: string, email: string, password: string
     throw new Error(errorMessage);
   }
 
-  const data = await safeJsonParse<{
-    verificationRequired?: boolean;
-    token?: string;
-    user?: Record<string, unknown>;
-  }>(r);
-
-  if (data.verificationRequired && data.user) {
-    return {
-      verificationRequired: true,
-      user: mapUserFromApi(data.user),
-      email: normalizedEmail,
-    };
-  }
-
+  const data = await safeJsonParse<{ token: string; user: User }>(r);
   if (!data.token || !data.user) {
     setToken(null);
     throw new Error("invalid_auth_response");
   }
   setToken(data.token);
-  return {
-    verificationRequired: false,
-    token: data.token,
-    user: mapUserFromApi(data.user),
-  };
+  return data;
 }
 export async function login(email: string, password: string): Promise<{ token: string; user: User }> {
   const r = await fetch(`${API}/auth/login`, {
@@ -361,13 +319,13 @@ export async function login(email: string, password: string): Promise<{ token: s
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     throw new Error(errorData.error || errorData.message || "login_failed");
   }
-  const data = await safeJsonParse<{ token: string; user: Record<string, unknown> }>(r);
+  const data = await safeJsonParse<{ token: string; user: User }>(r);
   if (!data.token || !data.user) {
     setToken(null);
     throw new Error("invalid_auth_response");
   }
   setToken(data.token);
-  return { token: data.token, user: mapUserFromApi(data.user) };
+  return data;
 }
 export async function me(): Promise<User> {
   const r = await fetch(`${API}/user/me`, { headers: authHeaders(), cache: "no-store" });
@@ -375,8 +333,7 @@ export async function me(): Promise<User> {
     clearTokenIfUnauthorized(r);
     throw new Error("unauthorized");
   }
-  const raw = await safeJsonParse<Record<string, unknown>>(r);
-  return mapUserFromApi(raw);
+  return safeJsonParse<User>(r);
 }
 
 // Profile
@@ -609,44 +566,6 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
   const data = await safeJsonParse<{ ok: boolean; token: string }>(r);
   return { token: data.token };
-}
-
-export async function verifyEmailWithToken(verificationToken: string): Promise<{ token: string; user: User }> {
-  setToken(null);
-  const r = await fetch(`${API}/auth/verify-email`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token: verificationToken.trim() }),
-  }).catch((error: unknown) => {
-    console.error("[API] verify-email network error:", error);
-    throw new Error("network_error");
-  });
-  if (!r.ok) {
-    const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
-    throw new Error(errorData.error || errorData.message || "verify_failed");
-  }
-  const data = await safeJsonParse<{ token: string; user: Record<string, unknown> }>(r);
-  if (!data.token || !data.user) {
-    setToken(null);
-    throw new Error("invalid_auth_response");
-  }
-  setToken(data.token);
-  return { token: data.token, user: mapUserFromApi(data.user) };
-}
-
-export async function resendVerificationEmail(email: string): Promise<void> {
-  const r = await fetch(`${API}/auth/resend-verification`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: email.trim().toLowerCase() }),
-  }).catch((error: unknown) => {
-    console.error("[API] resend-verification network error:", error);
-    throw new Error("network_error");
-  });
-  if (!r.ok) {
-    const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
-    throw new Error(errorData.error || errorData.message || "resend_failed");
-  }
 }
 
 export async function getTodayViews(): Promise<number> {

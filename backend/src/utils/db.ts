@@ -69,42 +69,6 @@ export function initDatabase() {
     )
   `);
 
-  // Подтверждение email (миграция для существующих БД)
-  try {
-    db.exec(`ALTER TABLE User ADD COLUMN emailVerified INTEGER`);
-  } catch (e: any) {
-    if (!e.message?.includes("duplicate column")) {
-      console.warn("[DB] Could not add emailVerified column:", e.message);
-    }
-  }
-  try {
-    db.exec(`ALTER TABLE User ADD COLUMN emailVerifyTokenHash TEXT`);
-  } catch (e: any) {
-    if (!e.message?.includes("duplicate column")) {
-      console.warn("[DB] Could not add emailVerifyTokenHash column:", e.message);
-    }
-  }
-  try {
-    db.exec(`ALTER TABLE User ADD COLUMN emailVerifyExpiresAt TEXT`);
-  } catch (e: any) {
-    if (!e.message?.includes("duplicate column")) {
-      console.warn("[DB] Could not add emailVerifyExpiresAt column:", e.message);
-    }
-  }
-  try {
-    db.exec(`ALTER TABLE User ADD COLUMN emailVerifySentAt TEXT`);
-  } catch (e: any) {
-    if (!e.message?.includes("duplicate column")) {
-      console.warn("[DB] Could not add emailVerifySentAt column:", e.message);
-    }
-  }
-  // Аккаунты до введения верификации считаем подтверждёнными (NULL -> 1)
-  try {
-    db.exec(`UPDATE User SET emailVerified = 1 WHERE emailVerified IS NULL`);
-  } catch (e: any) {
-    console.warn("[DB] Could not backfill emailVerified:", e.message);
-  }
-
   // Таблица профилей
   db.exec(`
     CREATE TABLE IF NOT EXISTS Profile (
@@ -268,10 +232,6 @@ export interface User {
   email: string;
   passwordHash: string;
   createdAt: string;
-  emailVerified?: number | null;
-  emailVerifyTokenHash?: string | null;
-  emailVerifyExpiresAt?: string | null;
-  emailVerifySentAt?: string | null;
 }
 
 export interface Profile {

@@ -89,7 +89,7 @@ function signToken(payload) {
 }
 function getTokenBoundUser(id, userCreatedAt) {
     return db_1.db.prepare(`
-    SELECT u.id, u.createdAt, u.passwordHash, u.emailVerified, p.username
+    SELECT u.id, u.createdAt, u.passwordHash, p.username
     FROM User u
     LEFT JOIN Profile p ON p.userId = u.id
     WHERE u.id = ? AND u.createdAt = ?
@@ -121,9 +121,6 @@ function requireAuth(req, res, next) {
         const expectedAuthBinding = user ? buildAuthBinding(user.id, user.createdAt, user.passwordHash) : "";
         if (!user || !safeStringEqual(authBinding, expectedAuthBinding)) {
             return res.status(401).json({ error: "unauthorized" });
-        }
-        if (user.emailVerified !== 1) {
-            return res.status(403).json({ error: "email_not_verified" });
         }
         const currentUsername = String(user.username || username).trim().toLowerCase();
         req.user = { id, username: currentUsername, userCreatedAt };

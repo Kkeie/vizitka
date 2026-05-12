@@ -8,8 +8,6 @@ import "./styles/drag-reorder.css";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import RegisterPending from "./pages/RegisterPending";
-import VerifyEmail from "./pages/VerifyEmail";
 import Editor from "./pages/Editor";
 import Public from "./pages/Public";
 import { getToken, me, setToken, subscribeAuthToken, type User } from "./api";
@@ -51,8 +49,6 @@ const router = createBrowserRouter([
   { path: "/index.html", element: <NavLayout><HomeWrapper /></NavLayout> },
   { path: "/login", element: <NavLayout><Login /></NavLayout> },
   { path: "/register", element: <NavLayout><Register /></NavLayout> },
-  { path: "/register/pending", element: <NavLayout><RegisterPending /></NavLayout> },
-  { path: "/verify-email", element: <NavLayout><VerifyEmail /></NavLayout> },
   { path: "/editor", element: <NavLayout><EditorWrapper /></NavLayout> },
   { path: "/public/:username", element: <NavLayout><Public /></NavLayout> },
   { path: "/u/:username", element: <NavLayout><Public /></NavLayout> },
