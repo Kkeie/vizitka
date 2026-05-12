@@ -40,39 +40,55 @@ function fetchHtml(url: URL): Promise<string> {
   return new Promise((resolve, reject) => {
     const client = url.protocol === 'https:' ? https : http;
     
-    // Специальные заголовки только для Instagram
     const isInstagram = url.hostname.includes('instagram.com');
-    // Для Telegram используем простые заголовки (как было раньше)
-    // Для Instagram - более полные заголовки
-    const headers: any = isInstagram ? {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Connection': 'keep-alive',
-      'Upgrade-Insecure-Requests': '1',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'none',
-      'Cache-Control': 'max-age=0',
-    } : {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-    };
+    const isTrello =
+      url.hostname === 'trello.com' ||
+      url.hostname.endsWith('.trello.com');
+    // Instagram — полные браузерные заголовки; Trello — «как браузер», без br (сырой ответ Node не распакует)
+    const headers: any = isInstagram
+      ? {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Cache-Control': 'max-age=0',
+        }
+      : isTrello
+        ? {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'ru,en-US;q=0.9,en;q=0.8',
+          }
+        : {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+          };
     
+    // pathname из WHATWG URL — в UTF-8; для HTTP нужен percent-encoding (иначе часть серверов/прокси рвёт запрос)
+    const requestPath = encodeURI(url.pathname) + url.search;
+
     const options = {
       hostname: url.hostname,
       port: url.port || (url.protocol === 'https:' ? 443 : 80),
-      path: url.pathname + url.search,
+      path: requestPath,
       method: 'GET',
       headers,
-      timeout: isInstagram ? 15000 : 10000,
+      timeout: isInstagram || isTrello ? 15000 : 10000,
     };
 
     const req = client.get(options, (res) => {
-      // Обрабатываем редиректы только для Instagram
-      if (isInstagram && (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308)) {
+      // Редиректы: Instagram и Trello часто отдают цепочку 302
+      if (
+        (isInstagram || isTrello) &&
+        (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308)
+      ) {
         const location = res.headers.location;
         if (location) {
           try {
