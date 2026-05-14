@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { checkUsername } from "../api";
 import { PUBLIC_BASE_URL_WITH_SLASH } from "../lib/publicBaseUrl";
 import { USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from "../lib/authFieldLimits";
@@ -14,6 +14,7 @@ interface UsernameInputWithSuggestionsProps {
   onSelectSuggestion?: (suggestion: string) => void;
   disabled?: boolean;
   hideLabel?: boolean;
+  onErrorChange?: (hasError: boolean) => void;
 }
 
 export default function UsernameInputWithSuggestions({
@@ -22,12 +23,17 @@ export default function UsernameInputWithSuggestions({
   onSelectSuggestion,
   disabled,
   hideLabel = false,
+  onErrorChange,
 }: UsernameInputWithSuggestionsProps) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const checkIdRef = useRef(0);
+
+  useEffect(() => {
+    onErrorChange?.(!!error);
+  }, [error, onErrorChange]);
 
   const validate = (val: string) => {
     if (!val) return null;
