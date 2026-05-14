@@ -14,6 +14,7 @@ export default function Step1Username({ onNext, initialUsername = "" }: Step1Use
   const [username, setUsername] = useState(initialUsername);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inputHasError, setInputHasError] = useState(false);
 
   const handleNext = async () => {
     const normalized = username.trim().toLowerCase();
@@ -51,7 +52,8 @@ export default function Step1Username({ onNext, initialUsername = "" }: Step1Use
     <div className="login-bento min-h-screen">
       <div className="login-bento__inner">
         <div className="login-bento__form-col">
-          <h1 className="login-bento__title">Сначала выберите уникальную ссылку</h1>
+          <h1 className="login-bento__title">Для начала укажите свою уникальную ссылку</h1>
+          <p className="login-bento__subtitle">Лучшие из них всё еще доступны!</p>
           <UsernameInputWithSuggestions
             value={username}
             onChange={(val) => {
@@ -59,11 +61,19 @@ export default function Step1Username({ onNext, initialUsername = "" }: Step1Use
               setError(null);
             }}
             disabled={loading}
+            onErrorChange={setInputHasError}
           />
-          <button className="login-bento__submit step-next" onClick={handleNext} disabled={username.length < USERNAME_MIN_LENGTH || loading}>
-            {loading ? "Проверяем..." : "Продолжить"}
-          </button>
-          {error && <div className="login-bento__error">{error}</div>}
+          {(() => {
+            const normalized = username.trim().toLowerCase();
+            const valid = normalized.length >= USERNAME_MIN_LENGTH && /^[a-z0-9_]+$/.test(normalized) && !inputHasError;
+            if (loading) {
+              return <button className="login-bento__submit step-next" disabled>Проверяем...</button>;
+            }
+            if (valid) {
+              return <button className="login-bento__submit step-next" onClick={handleNext}>Использовать мою ссылку</button>;
+            }
+            return null;
+          })()}
           <p className="login-bento__foot">
             <Link to="/login">Уже есть аккаунт? Войти</Link>
           </p>
