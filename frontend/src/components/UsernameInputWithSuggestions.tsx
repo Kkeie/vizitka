@@ -94,6 +94,7 @@ export default function UsernameInputWithSuggestions({
     onChange(suggestion);
     setSuggestions([]);
     setError(null);
+    checkIdRef.current++;
     if (onSelectSuggestion) onSelectSuggestion(suggestion);
   };
 
@@ -125,7 +126,7 @@ export default function UsernameInputWithSuggestions({
               onClick={() => selectSuggestion(s)}
               className="suggestion-item"
             >
-              @{s}
+              {s}
             </button>
           ))}
         </div>
