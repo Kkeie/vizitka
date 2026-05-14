@@ -62,6 +62,10 @@ export default function Step1Username({ onNext, initialUsername = "" }: Step1Use
             }}
             disabled={loading}
             onErrorChange={setInputHasError}
+            onSelectSuggestion={(val) => {
+              setUsername(val);
+              onNext(val);
+            }}
           />
           {(() => {
             const normalized = username.trim().toLowerCase();
