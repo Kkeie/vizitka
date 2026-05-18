@@ -75,7 +75,7 @@ export default function Avatar({ src, size = 96, editable, onChange, onRemove, c
         boxSizing: "border-box",
       }}
     >
-      Загрузить<br />аватар
+      Загрузить фото
     </div>
   );
 
