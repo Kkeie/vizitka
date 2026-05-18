@@ -29,7 +29,6 @@ import {
   SpotifyIcon,
 } from './SocialIconsWithBg';
 import { getLinkMetadata, getImageUrl, Block } from "../api";
-import type { NoteTextStyle } from "../api";
 import { noteStyleToTextCss } from "../lib/noteStyle";
 import { sanitizeNoteHtml, looksLikeHtml } from "../lib/sanitizeNoteHtml";
 import NoteFloatingToolbar from "./NoteFloatingToolbar";
@@ -236,19 +235,8 @@ export default function BlockCard({
     return () => ro.disconnect();
   }, [b.type, b.id, colSpan]);
 
-  const stopControlEvent = (event: React.MouseEvent | React.PointerEvent) => {
-    event.stopPropagation();
-  };
-
   React.useEffect(() => {
     if (b.type === "link" && b.linkUrl) {
-      const socialInfo = getSocialInfo(b.linkUrl);
-      // Для поддерживаемых соцсетей метаданные не нужны
-      if (socialInfo.platform !== 'other') {
-        setLinkMetadata(null);
-        setLoadingMetadata(false);
-        return;
-      }
       setLoadingMetadata(true);
       setLinkMetadata(null);
       getLinkMetadata(b.linkUrl)
@@ -283,7 +271,6 @@ export default function BlockCard({
   // };
 
   const socialIconSize = 56;  // единый размер для всех соцсетей
-  const previewTileSize = 64; // для обычных ссылок (не соцсетей)
   const playButtonSize = 72;
 
   const musicKind = React.useMemo(
@@ -634,25 +621,55 @@ export default function BlockCard({
                 <div style={linkTilePanel}>
                   <div style={rowStyle(linkCardShowText)}>
                     <span style={{ flexShrink: 0, lineHeight: 0 }}>
-                      <IconComponent width={iconBox} height={iconBox} fill="white" />
+                      {linkMetadata?.image ? (
+                        <img
+                          src={linkMetadata.image}
+                          alt=""
+                          draggable={false}
+                          style={{
+                            width: iconBox,
+                            height: iconBox,
+                            borderRadius: 12,
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        <IconComponent width={iconBox} height={iconBox} fill="white" />
+                      )}
                     </span>
                     {linkCardShowText ? (
                       <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text)", marginBottom: 4 }}>{socialInfo.name}</div>
-                        {socialInfo.username ? (
+                        <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text)", marginBottom: 2 }}>{socialInfo.name}</div>
+                        {(linkMetadata?.title || socialInfo.username) ? (
                           <div
                             style={{
                               fontSize: 14,
                               color: "var(--muted)",
-                              wordBreak: "break-word",
-                              lineHeight: 1.45,
-                              display: "-webkit-box",
-                              WebkitLineClamp: 3,
-                              WebkitBoxOrient: "vertical",
+                              lineHeight: 1.4,
                               overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
                             }}
                           >
-                            {socialInfo.username}
+                            {linkMetadata?.title || socialInfo.username}
+                          </div>
+                        ) : null}
+                        {linkMetadata?.description ? (
+                          <div
+                            style={{
+                              fontSize: 13,
+                              color: "var(--muted)",
+                              lineHeight: 1.4,
+                              marginTop: 3,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {linkMetadata.description}
                           </div>
                         ) : null}
                       </div>
@@ -1025,7 +1042,6 @@ export default function BlockCard({
 
         {b.type === "social" && b.socialType && b.socialUrl && (() => {
           let IconComponent = null;
-          let gradient = '';
           let name = '';
           const platform = b.socialType;
           
