@@ -141,7 +141,21 @@ export function getPersistedGridSpans(
   return { colSpan: r.colSpan, rowSpan: r.rowSpan };
 }
 
-/** Координаты курсора → якорь сетки (линии 1-based) для свободного переноса */
+/**
+ * Шаг сетки в микро-строках, равный высоте самой маленькой ячейки 1×1.
+ * Используется для снапа drop-позиции при drag-and-drop: курсор всегда
+ * попадает в начало строки самого маленького блока, без свободной расстановки.
+ */
+export function getCellRowMicroSteps(
+  cellSize: number | null,
+  gap: number,
+  rowUnit = BENTO_ROW_UNIT,
+): number {
+  const cell = cellSize && cellSize > 0 ? cellSize : DEFAULT_BENTO_CELL_SIZE;
+  return Math.max(1, Math.ceil((cell + gap) / (rowUnit + gap)));
+}
+
+/** Координаты курсора → якорь сетки (линии 1-based), снапом по cell-row */
 export function clientPointToGridAnchor(
   clientX: number,
   clientY: number,
@@ -165,8 +179,10 @@ export function clientPointToGridAnchor(
   const w = Math.min(colSpan, gridColumns);
   col0 = Math.max(0, Math.min(gridColumns - w, col0));
 
-  const strideY = rowUnit + gap;
-  const rowMicro = Math.max(0, Math.floor(Math.max(0, relY) / strideY));
+  const cellStride = cw + gap;
+  const cellRow = Math.max(0, Math.floor(Math.max(0, relY) / cellStride));
+  const cellRowMicroSteps = getCellRowMicroSteps(cellSize, gap, rowUnit);
+  const rowMicro = cellRow * cellRowMicroSteps;
 
   return clampAnchor(
     { gridColumnStart: col0 + 1, gridRowStart: rowMicro + 1 },
@@ -427,11 +443,20 @@ function compactAnchorsUpward(
   cellSize: number | null,
   gap: number,
   rowUnit = BENTO_ROW_UNIT,
+  priorityBlockId?: number,
 ): BlockSizes {
   const next: BlockSizes = JSON.parse(JSON.stringify(blockSizes)) as BlockSizes;
   const placed: Rect[] = [];
 
-  for (const id of orderedIds) {
+  // Приоритетный блок размещается первым в той точке, куда его поставил пользователь,
+  // и не «всасывается» вверх — без этого drag-and-drop был бы недоступен:
+  // компактация возвращала бы блок на исходную позицию.
+  const processOrder =
+    priorityBlockId !== undefined && orderedIds.includes(priorityBlockId)
+      ? [priorityBlockId, ...orderedIds.filter((id) => id !== priorityBlockId)]
+      : [...orderedIds];
+
+  for (const id of processOrder) {
     const block = blocks.find((b) => b.id === id);
     if (!block) continue;
     const gs = getResolvedGridSize(block, next[id], gridColumns);
@@ -440,12 +465,18 @@ function compactAnchorsUpward(
     const anchor = next[id]?.anchorsByBreakpoint?.[bp];
     const c0 = Math.max(0, Math.min(gridColumns - w, (anchor?.gridColumnStart ?? 1) - 1));
 
-    let r0 = 0;
-    while (true) {
-      const probe: Rect = { id, c0, r0, w, h };
-      const hasCollision = placed.some((p) => colsOverlap(probe, p) && rowsOverlap(probe, p));
-      if (!hasCollision) break;
-      r0 += 1;
+    let r0: number;
+    if (id === priorityBlockId && anchor) {
+      // Priority block keeps the row chosen by the user; снап на cell-row уже произведён в clientPointToGridAnchor
+      r0 = Math.max(0, anchor.gridRowStart - 1);
+    } else {
+      r0 = 0;
+      while (true) {
+        const probe: Rect = { id, c0, r0, w, h };
+        const hasCollision = placed.some((p) => colsOverlap(probe, p) && rowsOverlap(probe, p));
+        if (!hasCollision) break;
+        r0 += 1;
+      }
     }
 
     const prevEntry = next[id];
@@ -480,6 +511,7 @@ export function resolveAnchorOverlaps(
   cellSize: number | null,
   gap: number,
   rowUnit = BENTO_ROW_UNIT,
+  priorityBlockId?: number,
 ): BlockSizes {
   const validIds = orderedIdsForExistingBlocks(orderedIds, blocks);
   let next: BlockSizes = compactAnchorsUpward(
@@ -491,6 +523,7 @@ export function resolveAnchorOverlaps(
     cellSize,
     gap,
     rowUnit,
+    priorityBlockId,
   );
 
   for (let iter = 0; iter < 80; iter++) {
@@ -502,6 +535,8 @@ export function resolveAnchorOverlaps(
         const A = rects[i];
         const B = rects[j];
         if (!A || !B || !colsOverlap(A, B) || !rowsOverlap(A, B)) continue;
+        // Не двигаем приоритетный блок: его позиция задана пользователем
+        if (B.id === priorityBlockId) continue;
 
         const bottomLine = A.r0 + A.h;
         const newRowStart = bottomLine + 1;
@@ -571,5 +606,17 @@ export function getGridRowSpan(
   rowUnit = BENTO_ROW_UNIT,
 ): number {
   const blockHeight = getBlockHeightPx(block, gridSize, cellSize, gap);
-  return Math.max(1, Math.ceil((blockHeight + gap) / (rowUnit + gap)));
+  const naturalMicroRows = Math.max(1, Math.ceil((blockHeight + gap) / (rowUnit + gap)));
+
+  // Section blocks are thin headers; Yandex music blocks need exact iframe height — keep natural.
+  if (block.type === "section") return naturalMicroRows;
+  if (block.type === "music" && block.musicEmbed && classifyMusic(block.musicEmbed).kind === "yandex") {
+    return naturalMicroRows;
+  }
+
+  // Standard blocks must occupy whole cell-rows so that N×1 blocks match one N-tall block.
+  // naturalMicroRows may not be a multiple of the cell-row step due to floating-point ceil;
+  // round up to the nearest multiple to fix the visual size mismatch.
+  const step = getCellRowMicroSteps(cellSize, gap, rowUnit);
+  return Math.ceil(naturalMicroRows / step) * step;
 }

@@ -39,7 +39,6 @@ import {
   BENTO_ROW_UNIT,
   GRID_COLUMNS,
   assignSparseAnchorsForBreakpoint,
-  clampGridSize,
   clientPointToGridAnchor,
   flattenLayoutIds,
   getResolvedGridSize,
@@ -78,24 +77,6 @@ import "../styles/drag-reorder.css";
 const DRAG_BOTTOM_EDGE_PX = 110;
 const DRAG_BOTTOM_EXPAND_STEP = 14;
 
-function pointerInExtendedGrid(
-  clientX: number,
-  clientY: number,
-  gridEl: HTMLElement,
-  committedPadBottom: number,
-  desiredPadBottom: number,
-): boolean {
-  const r = gridEl.getBoundingClientRect();
-  const extra = Math.max(0, desiredPadBottom - committedPadBottom);
-  const bottom = r.bottom + extra;
-  return (
-    clientX >= r.left &&
-    clientX <= r.right &&
-    clientY >= r.top &&
-    clientY <= bottom
-  );
-}
-
 function debounce<T extends (...args: any[]) => void>(fn: T, wait: number): T & { cancel: () => void } {
   let timeoutId: number | null = null;
   const debounced = ((...args: any[]) => {
@@ -119,16 +100,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [blockSizes, setBlockSizes] = useState<BlockSizes>({});
   const [profile, setProfile] = useState<Profile | null>(null);
   const [layout, setLayout] = useState<Layout | null>(null);
-  const [savingProfile, setSavingProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editingProfile, setEditingProfile] = useState(false);
-   const [profileForm, setProfileForm] = useState({
-     username: "",
-     name: "",
-     bio: "",
-     email: "",
-   });
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<BlockType | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
@@ -142,6 +115,10 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     isDraggingRef.current = isDragging;
   }, [isDragging]);
   const [dragCellSize, setDragCellSize] = useState<number | null>(null);
+  /** Виртуальная раскладка во время drag — показывает «как будет выглядеть после drop». */
+  const [virtualBlockSizes, setVirtualBlockSizes] = useState<BlockSizes | null>(null);
+  /** Последний спроецированный якорь — для дедупа: пересчитываем только при пересечении границы клетки. */
+  const lastProjectedAnchorRef = useRef<BlockGridAnchor | null>(null);
   const lastPointerRef = useRef({ x: 0, y: 0 });
   const revealTimeoutsRef = useRef<number[]>([]);
 
@@ -149,11 +126,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const onboardingMode = searchParams.get("onboarding") === "true";
   const [onboardingComplete, setOnboardingComplete] = useState(false);
 
-  // Рефы для отложенного перестроения
-  const dragTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasVirtualLayoutRef = useRef(false);
-  const lastVirtualBlockSizesRef = useRef<BlockSizes | null>(null);
-  // Новый реф для хранения исходного состояния якорей на момент начала драга
+  // Реф для хранения исходного состояния якорей на момент начала drag
   const originalBlockSizesRef = useRef<BlockSizes>({});
 
   // Реф для FLIP-анимации
@@ -173,8 +146,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<DOMRect | null>(null);
    const [activeInlineField, setActiveInlineField] = useState<"username" | "email" | null>(null);
   const [inlineAnchor, setInlineAnchor] = useState<DOMRect | null>(null);
-  const [editingName, setEditingName] = useState(false);
-  const [editingBio, setEditingBio] = useState(false);
   const [tempName, setTempName] = useState("");
   const [tempBio, setTempBio] = useState("");
 
@@ -182,7 +153,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [passwordAnchor, setPasswordAnchor] = useState<DOMRect | null>(null);
 
   const [todayViews, setTodayViews] = useState<number | null>(null);
-  const [viewsLoading, setViewsLoading] = useState(false);
 
   // Для быстрого добавления блоков
   const [inlineInput, setInlineInput] = useState<{
@@ -263,12 +233,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         updateProfile({ layout: initialLayout }).catch(console.error);
       }
 
-       setProfileForm({
-         username: p.username || "",
-         name: p.name || "",
-         bio: p.bio || "",
-         email: (p as any).email || "",
-       });
       setIsAuthorized(true);
     } catch (e: any) {
       console.error("Ошибка загрузки данных:", e);
@@ -518,33 +482,40 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       }
   }, [blocks, breakpoint, layout, saveLayoutDebounced]);
 
-  // Функция перестроения по координатам курсора, используя базовое состояние (originalBlockSizes)
-  const recalcVirtualLayout = useCallback((
-    draggedId: number,
-    cursorX: number,
-    cursorY: number,
-    baseSizes: BlockSizes,
-  ) => {
+  const refreshViews = useCallback(async () => {
+    try {
+      const views = await getTodayViews();
+      setTodayViews(views);
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
 
+  /**
+   * Спроецировать раскладку, как будто блок `draggedId` уже отпущен в (cursorX, cursorY).
+   * Возвращает якорь drop-цели и полный пересчитанный BlockSizes (для рендера превью).
+   */
+  const projectLayoutFromCursor = useCallback(
+    (draggedId: number, cursorX: number, cursorY: number) => {
       const gridEl = gridRef.current;
-    if (!gridEl) {
-      return;
-    }
-    const draggedBlock = blocks.find(b => b.id === draggedId);
-    if (!draggedBlock) {
-      return;
-    }
-
-      const beforeRects = measureBlockRects(currentOrder);
-
-      const gs = getResolvedGridSize(draggedBlock, baseSizes[draggedId], currentGridColumns);
-      let anchor = clientPointToGridAnchor(
-      cursorX, cursorY, gridEl, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, gs.colSpan
+      if (!gridEl) return null;
+      const block = blocks.find((b) => b.id === draggedId);
+      if (!block) return null;
+      const r = gridEl.getBoundingClientRect();
+      const extra = Math.max(0, canvasPadDesiredRef.current - editorCanvasPadBottom);
+      const bottom = r.bottom + extra;
+      if (cursorX < r.left || cursorX > r.right || cursorY < r.top || cursorY > bottom) {
+        return null;
+      }
+      const baseSizes = originalBlockSizesRef.current;
+      const gs = getResolvedGridSize(block, baseSizes[draggedId], currentGridColumns);
+      const anchor = clientPointToGridAnchor(
+        cursorX, cursorY, gridEl, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, gs.colSpan,
       );
       const maxStartCol = currentGridColumns - gs.colSpan + 1;
       if (anchor.gridColumnStart > maxStartCol) anchor.gridColumnStart = Math.max(1, maxStartCol);
 
-      let newSizes: BlockSizes = {
+      const newSizes: BlockSizes = {
         ...baseSizes,
         [draggedId]: {
           ...(baseSizes[draggedId] || {}),
@@ -556,70 +527,53 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           },
         },
       };
-
-      let assigned = assignSparseAnchorsForBreakpoint(
-      currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
-      { onlyMissing: true, priorityBlockId: draggedId }
+      const assigned = assignSparseAnchorsForBreakpoint(
+        currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
+        { onlyMissing: true, priorityBlockId: draggedId },
       );
-    let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
-
-      setBlockSizes(resolved);
-      syncLayoutFromBlockSizes(resolved); // синхронизация порядка
-      lastVirtualBlockSizesRef.current = resolved;
-      hasVirtualLayoutRef.current = true;
-
-      requestAnimationFrame(() => {
-        window.setTimeout(() => {
-          const afterRects = measureBlockRects(currentOrder);
-          if (flipAnimationRef.current) flipAnimationRef.current.cancel();
-          flipAnimationRef.current = animateFlip(beforeRects, afterRects, 300, () => {
-            if (flipAnimationRef.current?.cancel === flipAnimationRef.current?.cancel) {
-              flipAnimationRef.current = null;
-            }
-          });
-        }, 0);
-      });
-  }, [blocks, currentOrder, breakpoint, currentGridColumns, cellSize, currentGridGap, gridRef, syncLayoutFromBlockSizes]);
-
-  const refreshViews = useCallback(async () => {
-    setViewsLoading(true);
-    try {
-      const views = await getTodayViews();
-      setTodayViews(views);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setViewsLoading(false);
-    }
-  }, []);
+      const resolved = resolveAnchorOverlaps(
+        assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap,
+        BENTO_ROW_UNIT, draggedId,
+      );
+      return { anchor, resolved };
+    },
+    [blocks, currentOrder, breakpoint, currentGridColumns, currentGridGap, cellSize, editorCanvasPadBottom, gridRef],
+  );
 
   // Обработчики перетаскивания
   const handleDragStart = (event: DragStartEvent) => {
-    if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
-    // Отменяем предыдущую анимацию
     if (flipAnimationRef.current) {
       flipAnimationRef.current.cancel();
       flipAnimationRef.current = null;
     }
     setIsDragging(true);
     setDragCellSize(cellSize);
-    setActiveId(event.active.id as number);
-    hasVirtualLayoutRef.current = false;
-    lastVirtualBlockSizesRef.current = null;
-    // Сохраняем исходное состояние якорей на момент начала драга
+    const draggedId = event.active.id as number;
+    setActiveId(draggedId);
+    // Сохраняем исходное состояние якорей на момент начала drag
     originalBlockSizesRef.current = blockSizes;
+    lastProjectedAnchorRef.current = null;
     const e = event.activatorEvent as PointerEvent;
     if (e?.clientX != null) {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
     }
+    const projection = projectLayoutFromCursor(
+      draggedId,
+      lastPointerRef.current.x,
+      lastPointerRef.current.y,
+    );
+    if (projection) {
+      lastProjectedAnchorRef.current = projection.anchor;
+      setVirtualBlockSizes(projection.resolved);
+    } else {
+      setVirtualBlockSizes(null);
+    }
   };
 
   const handleDragMove = (_event: DragMoveEvent) => {
-    // Сбрасываем таймер при любом движении
-    if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
     const { x, y } = lastPointerRef.current;
 
-    // Расширение скролла вниз
+    // Расширение нижнего холста для drop в конце страницы
     const gridEl = gridRef.current;
     if (gridEl) {
       const r = gridEl.getBoundingClientRect();
@@ -640,77 +594,75 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       window.scrollBy({ top: Math.min(delta, 28), left: 0, behavior: "auto" });
     }
 
-    // Запускаем таймер перестроения (200 мс), используя исходное состояние originalBlockSizesRef
     if (activeId !== null) {
-      dragTimeoutRef.current = setTimeout(() => {
-        recalcVirtualLayout(
-          activeId,
-          lastPointerRef.current.x,
-          lastPointerRef.current.y,
-          originalBlockSizesRef.current
-        );
-        dragTimeoutRef.current = null;
-      }, 200);
+      const projection = projectLayoutFromCursor(activeId, x, y);
+      const scheduleFlip = () => {
+        const beforeRects = measureBlockRects(currentOrder);
+        requestAnimationFrame(() => {
+          window.setTimeout(() => {
+            const afterRects = measureBlockRects(currentOrder);
+            if (flipAnimationRef.current) flipAnimationRef.current.cancel();
+            flipAnimationRef.current = animateFlip(beforeRects, afterRects, 180, () => {
+              flipAnimationRef.current = null;
+            });
+          }, 0);
+        });
+      };
+
+      if (!projection) {
+        // Курсор вышел из сетки — плавно возвращаем карточки на исходные места
+        if (virtualBlockSizes) {
+          scheduleFlip();
+          lastProjectedAnchorRef.current = null;
+          setVirtualBlockSizes(null);
+        }
+        return;
+      }
+
+      const last = lastProjectedAnchorRef.current;
+      // Дедуп: пока курсор не пересёк границу клетки — раскладка не меняется, обновлять нечего.
+      if (last &&
+        last.gridColumnStart === projection.anchor.gridColumnStart &&
+        last.gridRowStart === projection.anchor.gridRowStart) {
+        return;
+      }
+      lastProjectedAnchorRef.current = projection.anchor;
+      scheduleFlip();
+      setVirtualBlockSizes(projection.resolved);
     }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
-    if (flipAnimationRef.current) {
-      flipAnimationRef.current.cancel();
-      flipAnimationRef.current = null;
-    }
     setIsDragging(false);
     setDragCellSize(null);
     const draggedId = event.active.id as number;
     setActiveId(null);
 
-    if (hasVirtualLayoutRef.current && lastVirtualBlockSizesRef.current) {
-      await saveBlockSizesDebounced(lastVirtualBlockSizesRef.current);
-      syncLayoutFromBlockSizes(lastVirtualBlockSizesRef.current);
-      hasVirtualLayoutRef.current = false;
-      lastVirtualBlockSizesRef.current = null;
-    } else {
-      const gridEl = gridRef.current;
-      if (gridEl && draggedId) {
-        const pointer = lastPointerRef.current;
-        const r = gridEl.getBoundingClientRect();
-        const extra = Math.max(0, canvasPadDesiredRef.current - editorCanvasPadBottom);
-        const bottom = r.bottom + extra;
-        const inGrid = pointer.x >= r.left && pointer.x <= r.right && pointer.y >= r.top && pointer.y <= bottom;
-        if (inGrid) {
-          const block = blocks.find(b => b.id === draggedId);
-          if (block) {
-            const baseSizes = originalBlockSizesRef.current;
-            const gs = getResolvedGridSize(block, baseSizes[draggedId], currentGridColumns);
-            let anchor = clientPointToGridAnchor(
-              pointer.x, pointer.y, gridEl, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, gs.colSpan
-            );
-            const maxStartCol = currentGridColumns - gs.colSpan + 1;
-            if (anchor.gridColumnStart > maxStartCol) anchor.gridColumnStart = Math.max(1, maxStartCol);
-            let newSizes: BlockSizes = {
-              ...baseSizes,
-              [draggedId]: {
-                ...(baseSizes[draggedId] || {}),
-                colSpan: gs.colSpan,
-                rowSpan: gs.rowSpan,
-                anchorsByBreakpoint: {
-                  ...(baseSizes[draggedId]?.anchorsByBreakpoint || {}),
-                  [breakpoint]: anchor,
-                },
-              },
-            };
-            let assigned = assignSparseAnchorsForBreakpoint(
-              currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
-              { onlyMissing: true, priorityBlockId: draggedId }
-            );
-            let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
-            setBlockSizes(resolved);
-            syncLayoutFromBlockSizes(resolved);
-            await saveBlockSizesDebounced(resolved);
-          }
-        }
-      }
+    const virtual = virtualBlockSizes;
+    const gridEl = gridRef.current;
+    let committedSizes: BlockSizes | null = null;
+
+    if (virtual && draggedId) {
+      // Превью уже совпадает с финальной раскладкой — просто фиксируем её,
+      // в одном батче с очисткой virtualBlockSizes (никакого визуального скачка).
+      committedSizes = virtual;
+    } else if (gridEl && draggedId) {
+      // Курсор был вне сетки и превью пустое: пересчитаем по последней позиции
+      const projection = projectLayoutFromCursor(
+        draggedId,
+        lastPointerRef.current.x,
+        lastPointerRef.current.y,
+      );
+      if (projection) committedSizes = projection.resolved;
+    }
+
+    setVirtualBlockSizes(null);
+    lastProjectedAnchorRef.current = null;
+
+    if (committedSizes) {
+      setBlockSizes(committedSizes);
+      syncLayoutFromBlockSizes(committedSizes);
+      await saveBlockSizesDebounced(committedSizes);
     }
     originalBlockSizesRef.current = {};
   };
@@ -730,27 +682,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     resizeBlockIdRef.current = null;
     lastResizeSizeRef.current = null;
   }, [blockSizes, saveBlockSizesDebounced]);
-
-   async function saveProfile(e: React.FormEvent) {
-     e.preventDefault();
-     if (!profile) return;
-     setSavingProfile(true);
-     try {
-       const updated = await updateProfile({
-         username: profileForm.username,
-         name: profileForm.name || null,
-         bio: profileForm.bio || null,
-         email: profileForm.email || null,
-       } as any);
-       setProfile(updated);
-       setEditingProfile(false);
-     } catch (e) {
-       alert("Не удалось сохранить профиль");
-       console.error(e);
-     } finally {
-       setSavingProfile(false);
-     }
-   }
 
   async function handleDeleteBlock(id: number) {
     if (!confirm("Удалить этот блок?")) return;
@@ -846,7 +777,10 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
         { onlyMissing: true, priorityBlockId: id }
       );
-      let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
+      let resolved = resolveAnchorOverlaps(
+        assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap,
+        BENTO_ROW_UNIT, id,
+      );
       setBlockSizes(resolved);
       syncLayoutFromBlockSizes(resolved); // синхронизация
       requestAnimationFrame(() => {
@@ -887,7 +821,10 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
       { onlyMissing: true, priorityBlockId: id }
     );
-    let resolved = resolveAnchorOverlaps(assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap);
+    let resolved = resolveAnchorOverlaps(
+      assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap,
+      BENTO_ROW_UNIT, id,
+    );
     setBlockSizes(resolved);
     syncLayoutFromBlockSizes(resolved); // синхронизация
     saveBlockSizesDebounced(resolved);
@@ -1122,34 +1059,24 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const handleSaveName = async () => {
     if (!profile) return;
     const newName = tempName.trim() || null;
-    if (newName === profile.name) {
-      setEditingName(false);
-      return;
-    }
+    if (newName === profile.name) return;
     try {
       const updated = await updateProfile({ name: newName });
       setProfile(updated);
     } catch (err) {
       alert("Не удалось сохранить имя");
-    } finally {
-      setEditingName(false);
     }
   };
 
   const handleSaveBio = async () => {
     if (!profile) return;
     const newBio = tempBio.trim() || null;
-    if (newBio === profile.bio) {
-      setEditingBio(false);
-      return;
-    }
+    if (newBio === profile.bio) return;
     try {
       const updated = await updateProfile({ bio: newBio });
       setProfile(updated);
     } catch (err) {
       alert("Не удалось сохранить описание");
-    } finally {
-      setEditingBio(false);
     }
   };
 
@@ -1185,8 +1112,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   const MenuItem = ({ onClick, children }: { onClick: (rect: DOMRect) => void; children: React.ReactNode }) => (
     <button
-      data-menu-item
-      onMouseDown={(e) => e.stopPropagation()}  // ← не даём событию всплыть
+      data-menu-item="true"
+      onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         onClick(rect);
@@ -1214,7 +1141,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   if (error) return <div className="page-bg min-h-screen flex items-center justify-center"><div className="ribbon error">{error}</div></div>;
   if (!profile || !layout) return null;
 
-  const totalBlocks = blocks.length;
   const showOnboardingPanel = onboardingMode && !onboardingComplete;
   const compactProfileText = previewMode === "phone" || viewportBreakpoint === "mobile";
   const useFramedPhonePreview = previewMode === "phone" && viewportBreakpoint !== "mobile";
@@ -1373,8 +1299,9 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               onDragCancel={() => {
                 setIsDragging(false);
                 setDragCellSize(null);
+                setVirtualBlockSizes(null);
+                lastProjectedAnchorRef.current = null;
                 setActiveId(null);
-                if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
                 if (flipAnimationRef.current) {
                   flipAnimationRef.current.cancel();
                   flipAnimationRef.current = null;
@@ -1402,27 +1329,30 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                     boxSizing: 'border-box',
                 }}
               >
-                  {currentOrder.map(blockId => {
-                    const block = blocks.find(b => b.id === blockId);
-                  if (!block) return null;
-                  const gridSize = getResolvedGridSize(block, blockSizes[blockId], currentGridColumns);
-                  const anchor = blockSizes[blockId]?.anchorsByBreakpoint?.[breakpoint];
-                  return (
-                    <DraggableBlockCard
-                      key={block.id}
-                      block={block}
-                      gridColumns={currentGridColumns}
-                      cellSize={isDragging && dragCellSize !== null ? dragCellSize : cellSize}
-                      gridGap={currentGridGap}
-                      gridSize={gridSize}
-                      gridAnchor={anchor}
-                      onGridSizeChange={(dimensions) => handleBlockDimensionsChange(block.id, dimensions)}
-                      onResizeEnd={handleResizeEnd}
-                      onDelete={() => handleDeleteBlock(block.id)}
-                      onUpdate={(partial) => handleUpdateBlock(block.id, partial)}
-                    />
-                  );
-                })}
+                  {(() => {
+                    const renderSizes = virtualBlockSizes ?? blockSizes;
+                    return currentOrder.map(blockId => {
+                      const block = blocks.find(b => b.id === blockId);
+                      if (!block) return null;
+                      const gridSize = getResolvedGridSize(block, renderSizes[blockId], currentGridColumns);
+                      const anchor = renderSizes[blockId]?.anchorsByBreakpoint?.[breakpoint];
+                      return (
+                        <DraggableBlockCard
+                          key={block.id}
+                          block={block}
+                          gridColumns={currentGridColumns}
+                          cellSize={isDragging && dragCellSize !== null ? dragCellSize : cellSize}
+                          gridGap={currentGridGap}
+                          gridSize={gridSize}
+                          gridAnchor={anchor}
+                          onGridSizeChange={(dimensions) => handleBlockDimensionsChange(block.id, dimensions)}
+                          onResizeEnd={handleResizeEnd}
+                          onDelete={() => handleDeleteBlock(block.id)}
+                          onUpdate={(partial) => handleUpdateBlock(block.id, partial)}
+                        />
+                      );
+                    });
+                  })()}
               </div>
                 <DragOverlay>
                   {activeId ? <BlockCard b={blocks.find(b => b.id === activeId)!} isDragPreview colSpan={1} /> : null}
@@ -1614,7 +1544,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         >
           {/* Кнопка настроек (оставляем как есть) */}
           <button
-            data-menu-button
+            data-menu-button="true"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               if (showProfileMenu) {

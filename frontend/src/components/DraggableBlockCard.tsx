@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { useDraggable } from '@dnd-kit/core';
+import { useDraggable, useDndMonitor } from '@dnd-kit/core';
 import type { BlockGridAnchor, BlockGridSize, NoteTextStyle, Block } from '../api';
 import BlockCard from './BlockCard';
 import { clampGridSize, getGridRowSpan, getResolvedGridSize } from '../lib/block-grid';
@@ -43,6 +43,15 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
   const isNote = block.type === 'note';
   const isMap = block.type === 'map';
   const isMusic = block.type === 'music';
+
+  // Если перетаскивается любой блок в DndContext — глушим hover/menu на всех карточках,
+  // иначе при пробегании курсора над соседями постоянно подскакивают меню → «бегающие» карточки.
+  const [isAnyDragging, setIsAnyDragging] = React.useState(false);
+  useDndMonitor({
+    onDragStart: () => setIsAnyDragging(true),
+    onDragEnd: () => setIsAnyDragging(false),
+    onDragCancel: () => setIsAnyDragging(false),
+  });
 
   const [isHovered, setIsHovered] = React.useState(false);
   const [isMenuVisible, setIsMenuVisible] = React.useState(false);
@@ -104,9 +113,18 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
   }, [isSearchActive, menuPosition]);
 
   const handleMouseEnter = () => {
+    if (isAnyDragging) return;
     setIsHovered(true);
     setIsMenuVisible(true);
   };
+
+  React.useEffect(() => {
+    if (isAnyDragging) {
+      setIsHovered(false);
+      setIsMenuVisible(false);
+      setIsTextMenuVisible(false);
+    }
+  }, [isAnyDragging]);
 
   const handleCardMouseLeave = (e: React.MouseEvent) => {
     if (isSearchActive) return;
