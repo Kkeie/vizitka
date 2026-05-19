@@ -34,38 +34,28 @@ Start backend first (`npm start` in `backend/`), then frontend (`npm run dev` in
 
 No lint script is configured in either package.
 
-## Project specification
+## Documentation
 
-Full spec (user flows, API, data models, block types, grid system): `docs/agents/SPEC.md`
+| Документ | Содержание |
+|---|---|
+| `docs/ARCHITECTURE.md` | Полная архитектура backend + frontend |
+| `docs/FRONTEND.md` | Компоненты, state, grid engine, паттерны |
+| `docs/SECURITY.md` | Auth, JWT, валидация, известные пробелы |
+| `docs/TESTING.md` | Как запускать тесты, структура тест-файлов |
+| `docs/product-specs/` | Продуктовые спеки: user flows, типы блоков, API |
+| `docs/design-docs/` | Дизайн-решения: принципы, bento-grid движок |
+| `docs/generated/db-schema.md` | Схема БД с миграциями |
+| `docs/agents/SPEC.md` | Полная спека (legacy, для обратной совместимости) |
 
-## Architecture
+## Architecture (краткая версия)
 
-### Backend (`backend/src/`)
+**Backend:** Express + better-sqlite3. Роуты: `auth`, `profile`, `blocks`, `public`, `uploads`, `qr`, `stats`, `metadata`. Auth через JWT (`utils/auth.ts`). Нет Prisma.
 
-- `server.ts` — creates HTTP server, calls `initDatabase()`, starts listening
-- `app.ts` — Express setup: CORS, JSON parsing, static `/uploads`, all route mounts under `/api/*`
-- `utils/db.ts` — single better-sqlite3 connection, schema creation + inline `ALTER TABLE` migrations, exports `User`, `Profile`, `Block` types. **There is no Prisma** (the `prisma/` folder is unused)
-- `utils/auth.ts` — JWT sign/verify helpers, `requireAuth` middleware
-- `routes/` — one file per resource: `auth`, `user`, `blocks`, `profile`, `public`, `uploads`, `qr`, `stats`, `metadata`
+**Frontend:** React 18 + Vite. JWT в localStorage. `SessionContext` для auth state. `pages/Editor.tsx` — редактор, `pages/Public.tsx` — публичный вид. Grid engine: `lib/block-grid.ts`.
 
-DB schema: `User` (auth) → `Profile` (1:1, public info + layout JSON) and `User` → `Block[]` (1:many, content blocks). `daily_views` tracks per-user page views by date.
+**DB:** `User → Profile` (1:1), `User → Block[]` (1:many), `daily_views`. Подробно: `docs/generated/db-schema.md`.
 
-### Frontend (`frontend/src/`)
-
-- `main.tsx` — `Shell` component owns JWT auth state, `subscribeAuthToken` reactive helper, wraps the whole app in `SessionContext`
-- `sessionContext.tsx` — React context for `{ user, authReady, setUser }`
-- `api.ts` — all API calls + re-exported types (`User`, `Block`, `Profile`, etc.)
-- `types.ts` — `Block`, `Profile`, `Layout`, `BlockSizes`, `BlockGridSize`, `BlockGridAnchor`
-- `pages/Editor.tsx` — main editor: block CRUD, drag-and-drop reorder, grid resize, profile editing
-- `pages/Public.tsx` — read-only public profile view
-- `components/` — UI building blocks; `BlockCard` renders a single block, `DraggableBlockCard` wraps it for dnd-kit
-- `lib/block-grid.ts` — grid engine: 2 columns on mobile/tablet, 4 on desktop (`GRID_COLUMNS`), `BENTO_ROW_UNIT=8` micro-rows per cell, `BlockGridSize` = `{ colSpan, rowSpan, anchorsByBreakpoint? }`
-
-### Block grid system
-
-Block layout is stored as JSON in `Profile.blockSizes` (`BlockSizes = Record<blockId, BlockGridSize>`) and `Profile.layout` (`Layout = { mobile, tablet, desktop: number[][] }`). `block-grid.ts` handles sparse-anchor assignment, overlap resolution, and clamping. Breakpoints: `mobile | tablet | desktop`.
-
-### Environment variables
+## Environment variables
 
 | Variable | Where | Purpose |
 |---|---|---|
@@ -76,12 +66,16 @@ Block layout is stored as JSON in `Profile.blockSizes` (`BlockSizes = Record<blo
 | `DOCKER` | backend | set to `"1"` in Docker to skip Render-specific paths |
 | `VITE_BACKEND_URL` | frontend dev | proxy target (default: `http://localhost:3000`) |
 | `VITE_BACKEND_API_URL` | frontend build | production API base URL |
+| `VK_API_TOKEN` | backend | optional — VK service token for `/api/metadata` |
+| `META_APP_TOKEN` | backend | optional — Meta App token for Instagram oEmbed |
 
-### Testing
+## Testing
 
-Backend tests are integration tests that run against a real SQLite DB created in `/tmp` per process (see `test/setup.ts`). Tests are **not** parallel (`fileParallelism: false`, `pool: forks`). Run a single test file: `npx vitest run test/auth.integration.test.ts`.
+Backend: vitest, реальная SQLite в `/tmp`. `npm test`. Один файл: `npx vitest run test/auth.integration.test.ts`.
 
-E2e tests (`frontend/e2e/`) use Playwright. `playwright.config.ts` starts the backend (builds it first) and Vite dev server automatically.
+Frontend e2e: Playwright. `npm run test:e2e`. Автоматически запускает backend + Vite.
+
+Подробно: `docs/TESTING.md`
 
 ## Task tracker (Trello)
 
