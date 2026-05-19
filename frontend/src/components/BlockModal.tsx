@@ -985,7 +985,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
               Отмена
             </button>
             <button type="submit" className="btn btn-primary" style={{ fontSize: 14, padding: "12px 24px", width: isCompactViewport ? "100%" : undefined }}>
-              Добавить блок
+              Добавить карточку
             </button>
           </div>
         </form>
