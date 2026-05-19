@@ -1383,10 +1383,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: compactToolbarMode ? "6px" : "4px", flexWrap: "nowrap", whiteSpace: "nowrap" }}>
               <button
                 type="button"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(publicUrl(profile.username));
-                  setToast("Ссылка скопирована");
-                }}
+                onClick={() => setShowQr(true)}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -1406,14 +1403,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 Поделиться Визиткой
               </button>
               <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 26, background: "var(--border)", margin: "0 2px" }} />
-              <button
-                data-add-type="qr"
-                onClick={() => setShowQr(true)}
-                title="QR"
-                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 14 }}
-              >
-                📱
-              </button>
               {primaryActions.map(({ type, label, icon }) => (
                 <button
                   key={type}
