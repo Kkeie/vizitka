@@ -130,18 +130,28 @@ export default function ImageUploader({
       />
 
       {preview && (
-        <div style={{ marginBottom: 12, position: "relative" }}>
+        <div style={{
+          marginBottom: 12,
+          position: "relative",
+          borderRadius: "var(--radius-sm)",
+          border: "1px solid var(--border)",
+          background: "var(--accent)",
+          overflow: "hidden",
+          maxHeight: "40vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}>
           <img
             src={preview}
             alt="Превью"
             style={{
-              width: "100%",
-              aspectRatio: "1 / 1",
-              objectFit: "cover",
-              objectPosition: "center",
-              borderRadius: "var(--radius-sm)",
-              border: "1px solid var(--border)",
               display: "block",
+              maxWidth: "100%",
+              maxHeight: "40vh",
+              width: "auto",
+              height: "auto",
+              objectFit: "contain",
             }}
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
@@ -187,7 +197,7 @@ export default function ImageUploader({
         style={{
           border: `2px dashed ${isDragging ? "var(--primary)" : "var(--border)"}`,
           borderRadius: "var(--radius-sm)",
-          padding: 20,
+          padding: preview ? "10px 16px" : 20,
           background: isDragging ? "var(--accent)" : "transparent",
           transition: "all 0.2s ease",
           cursor: "pointer",
@@ -199,6 +209,10 @@ export default function ImageUploader({
         {loading ? (
           <div style={{ fontSize: 14, color: "var(--text)" }}>
             <span>⏳</span> Загрузка...
+          </div>
+        ) : preview ? (
+          <div style={{ fontSize: 13, color: "var(--muted)" }}>
+            {isDragging ? "Отпустите для замены" : displayLabel}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
