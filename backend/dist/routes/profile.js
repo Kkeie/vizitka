@@ -89,6 +89,9 @@ router.patch("/", async (req, res) => {
         if (normalized.length < 3) {
             return res.status(400).json({ error: "username_too_short", message: "Username must be at least 3 characters" });
         }
+        if (normalized.length > constants_1.USERNAME_MAX_LENGTH) {
+            return res.status(400).json({ error: "username_too_long", message: "Username is too long" });
+        }
         if (!(0, usernameGenerator_1.isValidUsernameFormat)(normalized)) {
             return res.status(400).json({ error: "invalid_username_format", message: "Only latin letters, numbers and underscore are allowed" });
         }
@@ -126,12 +129,16 @@ router.patch("/", async (req, res) => {
     }
     if (email !== undefined) {
         // Валидация email
-        const EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
-        if (!EMAIL_RE.test(email)) {
+        const emailStr = String(email).trim();
+        if (emailStr.length > constants_1.EMAIL_MAX_LENGTH) {
+            return res.status(400).json({ error: "email_too_long" });
+        }
+        const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!EMAIL_RE.test(emailStr)) {
             return res.status(400).json({ error: "invalid_email_format" });
         }
         profileUpdates.push("email = ?");
-        profileValues.push(email);
+        profileValues.push(emailStr);
     }
     if (telegram !== undefined) {
         profileUpdates.push("telegram = ?");

@@ -12,6 +12,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESEND_VERIFICATION_COOLDOWN_MS = 60000;
 const resendVerificationLastAt = new Map();
 const VERIFY_TOKEN_TTL_MS = 48 * 60 * 60 * 1000;
+/** Тот же срок: пока пользователь может подтвердить почту, вкладка «ожидание» может подхватить сессию. */
+const DEVICE_RESUME_TOKEN_TTL_MS = VERIFY_TOKEN_TTL_MS;
 function issueAuthForUser(userId) {
     const row = db_1.db.prepare(`
     SELECT u.id, u.email, u.createdAt, u.passwordHash, u.emailVerified, p.id AS profileId,
@@ -63,14 +65,21 @@ router.post("/register", async (req, res) => {
         const normalizedEmail = email.trim().toLowerCase();
         if (uname.length < 3)
             return res.status(400).json({ error: "username_too_short" });
+        if (uname.length > constants_1.USERNAME_MAX_LENGTH)
+            return res.status(400).json({ error: "username_too_long" });
         if (!(0, usernameGenerator_1.isValidUsernameFormat)(uname)) {
             return res.status(400).json({ error: "invalid_username_format", message: "Only latin letters, numbers and underscore are allowed" });
         }
         if (!EMAIL_RE.test(normalizedEmail)) {
             return res.status(400).json({ error: "invalid_email_format" });
         }
-        if (password.length < 4)
+        if (normalizedEmail.length > constants_1.EMAIL_MAX_LENGTH) {
+            return res.status(400).json({ error: "email_too_long" });
+        }
+        if (password.length < constants_1.PASSWORD_MIN_LENGTH)
             return res.status(400).json({ error: "password_too_short" });
+        if (password.length > constants_1.PASSWORD_MAX_LENGTH)
+            return res.status(400).json({ error: "password_too_long" });
         // Если имя зарезервировано – генерируем предложения и отвечаем как при занятом
         if (constants_1.RESERVED_USERNAMES.includes(uname)) {
             const suggestions = await (0, usernameGenerator_1.findAvailableUsernames)(db_1.db, uname, 42);
@@ -102,15 +111,18 @@ router.post("/register", async (req, res) => {
         const verifyHash = (0, verificationToken_1.hashVerificationToken)(rawVerify);
         const verifyExpires = new Date(Date.now() + VERIFY_TOKEN_TTL_MS).toISOString();
         const verifySentAt = new Date().toISOString();
+        const rawDeviceResume = (0, verificationToken_1.generateVerificationToken)();
+        const deviceResumeHash = (0, verificationToken_1.hashVerificationToken)(rawDeviceResume);
+        const deviceResumeExpires = new Date(Date.now() + DEVICE_RESUME_TOKEN_TTL_MS).toISOString();
         // Создаем пользователя и профиль в транзакции
         const insertUser = db_1.db.prepare(`
-       INSERT INTO User (email, passwordHash, emailVerified, emailVerifyTokenHash, emailVerifyExpiresAt, emailVerifySentAt)
-       VALUES (?, ?, 0, ?, ?, ?)
+       INSERT INTO User (email, passwordHash, emailVerified, emailVerifyTokenHash, emailVerifyExpiresAt, emailVerifySentAt, deviceResumeTokenHash, deviceResumeTokenExpiresAt)
+       VALUES (?, ?, 0, ?, ?, ?, ?, ?)
      `);
         const insertProfile = db_1.db.prepare("INSERT INTO Profile (username, name, email, userId) VALUES (?, ?, ?, ?)");
         const selectUser = db_1.db.prepare("SELECT createdAt FROM User WHERE id = ?");
         const transaction = db_1.db.transaction(() => {
-            const userResult = insertUser.run(normalizedEmail, passwordHash, verifyHash, verifyExpires, verifySentAt);
+            const userResult = insertUser.run(normalizedEmail, passwordHash, verifyHash, verifyExpires, verifySentAt, deviceResumeHash, deviceResumeExpires);
             const userId = userResult.lastInsertRowid;
             const profileResult = insertProfile.run(uname, uname, normalizedEmail, userId);
             const profileId = profileResult.lastInsertRowid;
@@ -131,6 +143,7 @@ router.post("/register", async (req, res) => {
         });
         res.json({
             verificationRequired: true,
+            deviceResumeToken: rawDeviceResume,
             user: {
                 id: result.userId,
                 username: uname,
@@ -164,6 +177,12 @@ router.post("/login", async (req, res) => {
         const normalizedEmail = email.trim().toLowerCase();
         if (!EMAIL_RE.test(normalizedEmail)) {
             return res.status(400).json({ error: "invalid_email_format" });
+        }
+        if (normalizedEmail.length > constants_1.EMAIL_MAX_LENGTH) {
+            return res.status(400).json({ error: "email_too_long" });
+        }
+        if (password.length > constants_1.PASSWORD_MAX_LENGTH) {
+            return res.status(400).json({ error: "password_too_long" });
         }
         // Получаем пользователя с профилем по email
         const profile = db_1.db.prepare(`
@@ -221,6 +240,9 @@ router.post("/check-username", async (req, res) => {
         return res.status(400).json({ error: "username_too_short" });
     }
     const normalized = raw.toLowerCase();
+    if (normalized.length > constants_1.USERNAME_MAX_LENGTH) {
+        return res.status(400).json({ error: "username_too_long" });
+    }
     const isValidFormat = /^[a-z0-9_]+$/.test(normalized);
     // Если формат правильный и имя не зарезервировано – проверяем, свободно ли оно
     if (isValidFormat && !constants_1.RESERVED_USERNAMES.includes(normalized)) {
@@ -245,6 +267,9 @@ router.post("/check-email", (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!EMAIL_RE.test(normalizedEmail)) {
         return res.status(400).json({ error: "invalid_email_format" });
+    }
+    if (normalizedEmail.length > constants_1.EMAIL_MAX_LENGTH) {
+        return res.status(400).json({ error: "email_too_long" });
     }
     const existing = db_1.db
         .prepare("SELECT id FROM User WHERE email = ? COLLATE NOCASE")
@@ -292,6 +317,44 @@ router.post("/verify-email", async (req, res) => {
     }
 });
 /**
+ * POST /api/auth/resume-registration
+ * { deviceResumeToken } — вкладка, где открыли /register/pending, получает JWT после подтверждения почты на другом устройстве.
+ */
+router.post("/resume-registration", (req, res) => {
+    var _a, _b;
+    try {
+        const raw = String((_b = (_a = req.body) === null || _a === void 0 ? void 0 : _a.deviceResumeToken) !== null && _b !== void 0 ? _b : "").trim();
+        if (!raw)
+            return res.status(400).json({ error: "device_resume_token_required" });
+        const tokenHash = (0, verificationToken_1.hashVerificationToken)(raw);
+        const row = db_1.db.prepare(`
+      SELECT id, emailVerified, deviceResumeTokenExpiresAt
+      FROM User WHERE deviceResumeTokenHash = ?
+    `).get(tokenHash);
+        if (!row) {
+            return res.status(400).json({ error: "invalid_or_expired_device_resume" });
+        }
+        const expires = row.deviceResumeTokenExpiresAt ? new Date(row.deviceResumeTokenExpiresAt).getTime() : 0;
+        if (!expires || expires < Date.now()) {
+            return res.status(400).json({ error: "invalid_or_expired_device_resume" });
+        }
+        if (row.emailVerified !== 1) {
+            return res.json({ ready: false });
+        }
+        const issued = issueAuthForUser(row.id);
+        if (!issued)
+            return res.status(500).json({ error: "internal_error" });
+        db_1.db.prepare(`
+      UPDATE User SET deviceResumeTokenHash = NULL, deviceResumeTokenExpiresAt = NULL WHERE id = ?
+    `).run(row.id);
+        return res.json({ ready: true, token: issued.token, user: issued.user });
+    }
+    catch (e) {
+        console.error(e);
+        return res.status(500).json({ error: "internal_error" });
+    }
+});
+/**
  * POST /api/auth/resend-verification
  * { email } — повторная отправка письма (только для неподтверждённых аккаунтов)
  */
@@ -303,6 +366,8 @@ router.post("/resend-verification", async (req, res) => {
             return res.status(400).json({ error: "email_required" });
         if (!EMAIL_RE.test(email))
             return res.status(400).json({ error: "invalid_email_format" });
+        if (email.length > constants_1.EMAIL_MAX_LENGTH)
+            return res.status(400).json({ error: "email_too_long" });
         const userRow = db_1.db.prepare(`
       SELECT id, email, emailVerified FROM User WHERE email = ? COLLATE NOCASE
     `).get(email);
@@ -341,8 +406,11 @@ router.post("/change-password", auth_1.requireAuth, async (req, res) => {
         if (!currentPassword || !newPassword) {
             return res.status(400).json({ error: "current_password_and_new_password_required" });
         }
-        if (newPassword.length < 4) {
+        if (newPassword.length < constants_1.PASSWORD_MIN_LENGTH) {
             return res.status(400).json({ error: "new_password_too_short" });
+        }
+        if (newPassword.length > constants_1.PASSWORD_MAX_LENGTH) {
+            return res.status(400).json({ error: "new_password_too_long" });
         }
         const userId = req.user.id;
         const user = db_1.db.prepare("SELECT id, passwordHash, createdAt FROM User WHERE id = ?").get(userId);

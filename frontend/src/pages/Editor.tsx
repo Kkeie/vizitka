@@ -1658,10 +1658,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               <div>Изменить пароль</div>
             </MenuItem>
             <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
-            <MenuItem onClick={() => alert("Функция в разработке")}>
-              <div>Экспорт данных</div>
-            </MenuItem>
-            <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
             <MenuItem onClick={() => { onLogout(); }}>
               <div>Выйти из аккаунта</div>
             </MenuItem>
