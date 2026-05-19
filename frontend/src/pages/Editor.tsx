@@ -433,6 +433,14 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     getTodayViews()
       .then(setTodayViews)
       .catch(err => console.error("Failed to load today views:", err));
+
+    const interval = setInterval(() => {
+      getTodayViews()
+        .then(setTodayViews)
+        .catch(err => console.error("Failed to auto-refresh views:", err));
+    }, 60000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const syncLayoutFromBlockSizes = useCallback((newBlockSizes: BlockSizes) => {
