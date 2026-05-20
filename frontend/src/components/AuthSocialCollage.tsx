@@ -1,31 +1,24 @@
 import React from "react";
 import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../lib/registrationDecoSocials";
+import SocialIconCard from "./SocialIconCard";
 import "../pages/LoginPage.css";
 
 const DECO_FRAMES: Array<{
-  w: number;
-  h: number;
   top?: string;
   left?: string;
   right?: string;
   bottom?: string;
   rot: number;
   z: number;
-  iconW: number;
-  border?: string;
-  radius?: number;
 }> = [
-  { w: 64, h: 140, top: "4%", left: "8%", rot: -8, z: 3, iconW: 32 },
-  { w: 88, h: 88, top: "0", left: "32%", rot: 4, z: 2, iconW: 40 },
-  { w: 80, h: 80, top: "6%", right: "10%", rot: -3, z: 2, iconW: 40 },
-  { w: 200, h: 86, top: "36%", left: "18%", rot: -2, z: 4, iconW: 32 },
-  { w: 80, h: 80, top: "36%", right: "4%", rot: 6, z: 3, iconW: 40, border: "1px solid #30363d" },
-  { w: 88, h: 88, bottom: "6%", right: "8%", rot: -5, z: 2, iconW: 40 },
+  { top: "2%",  left: "8%",  rot: -8, z: 3 },
+  { top: "0",   left: "48%", rot: 4,  z: 2 },
+  { top: "30%", left: "4%",  rot: -3, z: 4 },
+  { top: "28%", left: "50%", rot: 6,  z: 3 },
+  { top: "58%", left: "12%", rot: -5, z: 2 },
+  { top: "56%", left: "54%", rot: 3,  z: 3 },
 ];
 
-/**
- * Правая колонка на логине: плавающие плитки; подпись сети — на самой плитке (как на шаге 1 регистрации).
- */
 export default function AuthSocialCollage() {
   return (
     <div className="login-bento__art" aria-hidden="true">
@@ -33,7 +26,7 @@ export default function AuthSocialCollage() {
         {REGISTRATION_DECO_SOCIALS.map((item: RegistrationDecoSocial, i: number) => {
           const frame = DECO_FRAMES[i];
           if (!frame) return null;
-          const { Icon, color, label } = item;
+          const { Icon } = item;
           const groupStyle: React.CSSProperties = {
             zIndex: frame.z,
             ["--tilt" as string]: `${frame.rot}deg`,
@@ -51,28 +44,8 @@ export default function AuthSocialCollage() {
           if (frame.bottom != null) groupStyle.bottom = frame.bottom;
 
           return (
-            <div key={label} className="login-bento__tile-group" style={groupStyle}>
-              <div
-                className="login-bento__tile"
-                style={{
-                  width: frame.w,
-                  height: frame.h,
-                  background: color,
-                  borderRadius: frame.radius ?? 12,
-                  border: frame.border,
-                }}
-              >
-                <div className="login-bento__tile-icon-wrap">
-                  <Icon
-                    width={frame.iconW}
-                    height={frame.iconW}
-                    fill="#ffffff"
-                    className="login-bento__tile-icon"
-                    aria-hidden
-                  />
-                </div>
-                <span className="login-bento__tile-label">{label}</span>
-              </div>
+            <div key={item.label} className="login-bento__tile-group" style={groupStyle}>
+              <SocialIconCard Icon={Icon} />
             </div>
           );
         })}
