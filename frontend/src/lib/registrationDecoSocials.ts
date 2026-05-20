@@ -16,7 +16,7 @@ export type RegistrationDecoSocial = {
 
 /** Декоративные «плитки» соцсетей: логин, онбординг регистрации */
 export const REGISTRATION_DECO_SOCIALS: RegistrationDecoSocial[] = [
-  { Icon: TelegramIcon, color: "#0088cc", label: "Telegram" },
+  { Icon: TelegramIcon, color: "#419FD9", label: "Telegram" },
   { Icon: VKIcon, color: "#0077FF", label: "VK" },
   { Icon: GitHubIcon, color: "#24292e", label: "GitHub" },
   { Icon: DprofileIcon, color: "#1E2A3A", label: "Dprofile" },

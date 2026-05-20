@@ -1,5 +1,6 @@
 import React from "react";
 import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../lib/registrationDecoSocials";
+import { AUTH_DECO } from "../../lib/authSocialConfig";
 import { PUBLIC_BASE_URL } from "../../lib/publicBaseUrl";
 import SocialIconCard from "../SocialIconCard";
 
@@ -35,7 +36,7 @@ export default function FloatingCards({ username, withLinkCard = true }: Floatin
               animationDuration: `${6 + idx}s`,
             }}
           >
-            <SocialIconCard Icon={Icon} />
+            <SocialIconCard Icon={Icon} size={AUTH_DECO.ICON_SIZE} />
           </div>
         );
       })}
@@ -52,7 +53,10 @@ export default function FloatingCards({ username, withLinkCard = true }: Floatin
           }}
         >
           <div className="link-card-content">
-            <span className="link-url">{PUBLIC_BASE_URL}/{username || "ваш-логин"}</span>
+            <span className="link-card__text">
+              <span className="pill__gray">{PUBLIC_BASE_URL}/</span>
+              <span className="pill__dark">{username || "ваш-логин"}</span>
+            </span>
           </div>
         </div>
       )}
@@ -78,20 +82,27 @@ export default function FloatingCards({ username, withLinkCard = true }: Floatin
           backdrop-filter: none;
           box-shadow: 0 1px 3px rgba(0,0,0,0.1);
           border: 1px solid #e2e8f0;
+          text-align: center;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .link-card-content {
           display: flex;
           align-items: center;
-          gap: 6px;
-          justify-content: flex-start;
+          justify-content: center;
           font-family: var(--login-font, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
         }
-        .link-url {
-          font-size: 12px;
-          color: #1a1a1a;
+        .link-card__text {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          min-width: 0;
+          font-size: 14px;
           font-weight: 500;
-          word-break: break-all;
         }
+        .pill__gray { color: #9ca3af; }
+        .pill__dark { color: #1a1a1a; }
         @keyframes floatAround {
           0% { transform: translate(0, 0) rotate(0deg); }
           25% { transform: translate(6px, -10px) rotate(2deg); }

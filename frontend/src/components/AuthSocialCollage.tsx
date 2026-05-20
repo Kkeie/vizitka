@@ -1,5 +1,6 @@
 import React from "react";
 import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../lib/registrationDecoSocials";
+import { AUTH_DECO } from "../lib/authSocialConfig";
 import SocialIconCard from "./SocialIconCard";
 import "../pages/LoginPage.css";
 
@@ -45,7 +46,7 @@ export default function AuthSocialCollage() {
 
           return (
             <div key={item.label} className="login-bento__tile-group" style={groupStyle}>
-              <SocialIconCard Icon={Icon} />
+                <SocialIconCard Icon={Icon} size={AUTH_DECO.ICON_SIZE} />
             </div>
           );
         })}

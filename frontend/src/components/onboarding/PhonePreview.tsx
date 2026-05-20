@@ -1,8 +1,7 @@
-import React from "react";
-import { REGISTRATION_DECO_SOCIALS, type RegistrationDecoSocial } from "../../lib/registrationDecoSocials";
+import React, { useEffect, useState } from "react";
+import { REGISTRATION_DECO_SOCIALS } from "../../lib/registrationDecoSocials";
 import { PUBLIC_BASE_URL } from "../../lib/publicBaseUrl";
-import PhoneMockup from "./PhoneMockup";
-import SocialIconCard from "../SocialIconCard";
+import { AUTH_DECO, DECO_LAYOUT_3COL, DECO_LAYOUT_2COL } from "../../lib/authSocialConfig";
 
 interface PhonePreviewProps {
   username: string;
@@ -10,22 +9,72 @@ interface PhonePreviewProps {
 }
 
 export default function PhonePreview({ username, visible = false }: PhonePreviewProps) {
+  const [is3Col, setIs3Col] = useState(true);
+  const step = AUTH_DECO.ICON_SIZE + AUTH_DECO.GAP;
+
+  useEffect(() => {
+    const check = () => {
+      const w = window.innerWidth;
+      setIs3Col(w >= 900 || (w >= 450 && w <= 769));
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const layout = is3Col ? DECO_LAYOUT_3COL : DECO_LAYOUT_2COL;
+  const cols = is3Col ? 3 : 2;
+  const maxRow = Math.max(...layout.map(s => s.row + (s.rowSpan ?? 1)));
+  const gridW = cols * AUTH_DECO.ICON_SIZE + (cols - 1) * AUTH_DECO.GAP;
+  const gridH = maxRow * AUTH_DECO.ICON_SIZE + (maxRow - 1) * AUTH_DECO.GAP;
+  const PILL_OFFSET = 56;
+
   return (
     <div className="step2-reg__right">
       <div className={`step2-reg__phone ${visible ? "step2-reg__phone--visible" : ""}`}>
-        <PhoneMockup>
-          <div className="step2-reg__link-pill">{PUBLIC_BASE_URL}/{username}</div>
-          <div className="step2-reg__icons">
-            {REGISTRATION_DECO_SOCIALS.map((item: RegistrationDecoSocial) => {
-              const Icon = item.Icon;
-              return (
-                <div key={item.label} className="step2-reg__icon-tile">
-                  <SocialIconCard Icon={Icon} />
-                </div>
-              );
-            })}
+        <div className="phone-mockup step2-reg__mockup">
+          <div className="phone-screen">
+            <div className="step2-reg__deco-grid" style={{ width: gridW, height: gridH + PILL_OFFSET }}>
+              <div className="step2-reg__link-pill">
+                <span className="pill__gray">{PUBLIC_BASE_URL}/</span>
+                <span className="pill__dark">{username}</span>
+              </div>
+              {layout.map((slot) => {
+                const item = REGISTRATION_DECO_SOCIALS.find(s => s.label === slot.label)!;
+                const Icon = item.Icon;
+                const cs = slot.colSpan ?? 1;
+                const rs = slot.rowSpan ?? 1;
+                const left = slot.col * step;
+                const top = slot.row * step + PILL_OFFSET;
+                const w = cs * AUTH_DECO.ICON_SIZE + (cs - 1) * AUTH_DECO.GAP;
+                const h = rs * AUTH_DECO.ICON_SIZE + (rs - 1) * AUTH_DECO.GAP;
+                const isSquare = cs === rs;
+
+                return (
+                  <div
+                    key={slot.label}
+                    style={{
+                      position: "absolute",
+                      top,
+                      left,
+                      width: w,
+                      height: h,
+                      backgroundColor: item.color,
+                      borderRadius: 20,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <Icon
+                      width={isSquare ? w : AUTH_DECO.ICON_SIZE}
+                      height={isSquare ? h : AUTH_DECO.ICON_SIZE}
+                      fill="#ffffff"
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </PhoneMockup>
+        </div>
       </div>
       <style>{`
         .step2-reg__right {
@@ -43,48 +92,60 @@ export default function PhonePreview({ username, visible = false }: PhonePreview
           opacity: 1;
           transform: scale(1) translateY(0);
         }
+        .phone-mockup {
+          background: #e8e8e8;
+          border-radius: 24px;
+          padding: 16px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+          width: 300px;
+          margin: 0 auto;
+        }
+        .phone-screen {
+          position: relative;
+          background: transparent;
+        }
         .step2-reg__link-pill {
-          font-weight: 600;
-          text-align: center;
+          position: absolute;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 280px;
           padding: 12px 16px;
-          background: #e9ecef;
-          border-radius: 40px;
-          margin-bottom: 20px;
+          background: #f8f9fa;
+          border: 1px solid #e2e8f0;
+          border-radius: 20px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          text-align: center;
           font-size: 14px;
-          color: #1a1a1a;
-          overflow-wrap: anywhere;
-          word-break: break-word;
+          font-weight: 500;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
-        .step2-reg__icons {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 20px;
-          justify-items: center;
+        .pill__gray { color: #9ca3af; }
+        .pill__dark { color: #1a1a1a; }
+        .step2-reg__deco-grid {
+          position: relative;
+          margin: 0 auto;
         }
-        .step2-reg__icon-tile {
-          width: 88px;
-          height: 88px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .step2-reg__mockup {
+          width: 304px;
         }
-        @media (max-width: 900px) {
-          .step2-reg {
-            align-items: start;
-          }
+        @media (min-width: 770px) and (max-width: 900px) {
+          .login-bento__inner.step2-reg { grid-template-columns: 1fr 1fr; }
+          .login-bento__inner.step2-reg .login-bento__form-col { order: unset; }
+          .step2-reg__mockup { width: 208px; }
+        }
+        @media (max-width: 769px) {
+          .step2-reg { align-items: start; }
           .step2-reg__right {
             order: -1;
             width: 100%;
             margin-bottom: 24px;
           }
-          .step2-reg__icon-tile {
-            width: 72px;
-            height: 72px;
-          }
-          .step2-reg__icon-tile svg {
-            width: 72px;
-            height: 72px;
-          }
+        }
+        @media (max-width: 449px) {
+          .step2-reg__mockup { width: 208px; }
         }
       `}</style>
     </div>
