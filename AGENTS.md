@@ -158,6 +158,12 @@ bash scripts/trello.sh comment <card-id> "Done. Changed: ... Checks: ... Risks: 
 
 Short summary: what changed, what was validated, residual risks.
 
+## Cursor skills and subagents
+
+**Skills** (20): index `.cursor/skills/README.md`, adapter `docs/agents/CURSOR.md`.
+
+**Subagents**: `docs/agents/SUBAGENTS.md` — when to use explore / shell / generalPurpose / ci-investigator; orchestration with skills.
+
 ## Agent policy
 
 Full contract: `docs/agents/COMMON-QUALITY-CONTRACT.md`. Workflows: `docs/agents/WORKFLOWS.md`.

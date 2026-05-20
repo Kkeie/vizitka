@@ -1,37 +1,64 @@
 # Cursor Adapter
 
-Use this document to apply the shared playbook in Cursor.
-
 ## Source of truth
-
-Always follow:
 
 1. `docs/agents/COMMON-QUALITY-CONTRACT.md`
 2. `docs/agents/WORKFLOWS.md`
 3. `docs/agents/ESCALATION-MATRIX.md`
 
-## Cursor-specific guidance
+## Skills (20)
 
-- Keep progress updates short and frequent during long tasks.
-- After substantial edits, check lints/diagnostics for changed files.
-- If a requested check is not configured in scripts, state it explicitly and run the remaining required checks.
+Полный индекс: `.cursor/skills/README.md`.
 
-## Recommended prompt preface
+| Skill | Use when |
+|-------|----------|
+| **do-task** | Trello: полный цикл до «Сделано» |
+| **quality-gate** | test / build / e2e после правок |
+| **bugfix** | Баг + регрессионный тест |
+| **code-review** | Ревью по контракту качества |
+| **ci-recovery** | Починка GitHub Actions |
+| **trello-manage** | Статус/комментарий без реализации |
+| **bento-grid** | Сетка, layout, resize, DnD |
+| **block-types** | Типы блоков, валидация полей |
+| **editor-page** | `Editor.tsx`, модалки, CRUD в редакторе |
+| **public-page** | Публичная `/:username` |
+| **auth-flow** | Login, JWT, register, пароль |
+| **auth-onboarding** | Только wizard onboarding |
+| **uploads-media** | Фото, `/uploads` |
+| **api-contract** | Синхронизация api.ts ↔ routes |
+| **stats-qr-metadata** | Просмотры, QR, OG metadata |
+| **backend-feature** | Express, SQLite, tests |
+| **frontend-feature** | React, components, api.ts |
+| **frontend-e2e** | Playwright |
+| **deploy-infra** | Deploy, Terraform, Docker |
+| **spec-check** | Сверка с SPEC.md |
 
-For non-trivial tasks, prepend:
+Примеры: «**do-task**», «**bugfix** для …», «**spec-check** перед закрытием карточки».
 
-`Follow docs/agents/COMMON-QUALITY-CONTRACT.md and docs/agents/WORKFLOWS.md. Use escalation rules from docs/agents/ESCALATION-MATRIX.md.`
+## Subagents
 
-## Repository command map
+`docs/agents/SUBAGENTS.md` — 10 готовых сценариев, таблица skill×subagent.
 
-### Frontend (`frontend/`)
+Кратко: **explore** = поиск; **shell** = терминал; **ci-investigator** = CI; **generalPurpose** = сквозной баг.
 
-- build: `npm run build`
-- tests: `npm run test:e2e` (end-to-end)
-- lint: not currently defined in package scripts
+Пример: «Параллельно **explore** ищет resize в Editor, **shell** гоняет backend test».
 
-### Backend (`backend/`)
+## Trello
 
-- test: `npm run test`
-- build: `npm run build`
-- lint: not currently defined in package scripts
+MCP (`.mcp.json`) или `bash scripts/trello.sh` (Git Bash/WSL).
+
+## Prompt preface
+
+```
+Follow docs/agents/COMMON-QUALITY-CONTRACT.md and WORKFLOWS.md.
+Escalation: docs/agents/ESCALATION-MATRIX.md.
+```
+
+Trello: `Use skill do-task.`
+
+## Commands
+
+| Package | test | build | lint |
+|---------|------|-------|------|
+| backend | `npm test` | `npm run build` | — |
+| frontend | `npm run test:e2e` | `npm run build` | — |
