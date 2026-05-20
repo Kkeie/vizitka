@@ -15,7 +15,7 @@ export default function PhonePreview({ username, visible = false }: PhonePreview
   useEffect(() => {
     const check = () => {
       const w = window.innerWidth;
-      setIs3Col(w >= 900 || (w >= 450 && w <= 769));
+      setIs3Col(w >= 370);
     };
     check();
     window.addEventListener("resize", check);
@@ -36,7 +36,7 @@ export default function PhonePreview({ username, visible = false }: PhonePreview
           <div className="phone-screen">
             <div className="step2-reg__deco-grid" style={{ width: gridW, height: gridH + PILL_OFFSET }}>
               <div className="step2-reg__link-pill">
-                <span className="pill__gray">{PUBLIC_BASE_URL}/</span>
+                <span className="pill__gray pill__domain">{PUBLIC_BASE_URL}/</span>
                 <span className="pill__dark">{username}</span>
               </div>
               {layout.map((slot) => {
@@ -131,12 +131,7 @@ export default function PhonePreview({ username, visible = false }: PhonePreview
         .step2-reg__mockup {
           width: 304px;
         }
-        @media (min-width: 770px) and (max-width: 900px) {
-          .login-bento__inner.step2-reg { grid-template-columns: 1fr 1fr; }
-          .login-bento__inner.step2-reg .login-bento__form-col { order: unset; }
-          .step2-reg__mockup { width: 208px; }
-        }
-        @media (max-width: 769px) {
+        @media (max-width: 836px) {
           .step2-reg { align-items: start; }
           .step2-reg__right {
             order: -1;
@@ -144,8 +139,10 @@ export default function PhonePreview({ username, visible = false }: PhonePreview
             margin-bottom: 24px;
           }
         }
-        @media (max-width: 449px) {
+        @media (max-width: 369px) {
           .step2-reg__mockup { width: 208px; }
+          .step2-reg__link-pill { width: 176px; }
+          .pill__domain { display: none; }
         }
       `}</style>
     </div>

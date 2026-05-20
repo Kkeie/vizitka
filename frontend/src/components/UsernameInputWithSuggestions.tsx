@@ -134,7 +134,9 @@ export default function UsernameInputWithSuggestions({
       <style>{`
         .username-field {
           width: 100%;
+          min-width: 0;
         }
+        .username-field style { display: none; }
         .prefixed-input {
           display: flex;
           align-items: center;
@@ -163,27 +165,6 @@ export default function UsernameInputWithSuggestions({
           outline: none;
           background: transparent;
           font-family: var(--login-font, "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
-        }
-        @media (max-width: 560px) {
-          .prefixed-input {
-            flex-direction: column;
-            align-items: stretch;
-            height: auto;
-            gap: 6px;
-            padding: 10px 12px;
-          }
-          .prefix {
-            margin-right: 0;
-            font-size: 12px;
-            line-height: 1.25;
-            white-space: normal;
-            overflow-wrap: anywhere;
-          }
-          .input-prefixed {
-            padding: 0;
-            min-height: 30px;
-            line-height: 1.4;
-          }
         }
         .checking-muted {
           font-size: 12px;

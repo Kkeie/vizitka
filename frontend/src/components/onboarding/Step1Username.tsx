@@ -50,7 +50,7 @@ export default function Step1Username({ onNext, initialUsername = "" }: Step1Use
 
   return (
     <div className="login-bento min-h-screen">
-      <div className="login-bento__inner">
+        <div className="login-bento__inner">
         <div className="login-bento__form-col">
           <h1 className="login-bento__title">Для начала укажите свою уникальную ссылку</h1>
           <p className="login-bento__subtitle">Лучшие из них всё еще доступны!</p>

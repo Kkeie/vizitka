@@ -1,7 +1,7 @@
 import React from "react";
 import { login } from "../api";
 import { useNavigate, Link, Navigate } from "react-router-dom";
-import AuthSocialCollage from "../components/AuthSocialCollage";
+import FloatingCards from "../components/onboarding/FloatingCards";
 import { useSession } from "../sessionContext";
 import "./LoginPage.css";
 import { EMAIL_MAX_LENGTH, PASSWORD_MAX_LENGTH } from "../lib/authFieldLimits";
@@ -121,7 +121,9 @@ export default function Login() {
            </p>
         </div>
 
-        <AuthSocialCollage />
+        <div className="step1-right">
+          <FloatingCards username="" withLinkCard={false} />
+        </div>
       </div>
     </div>
   );

@@ -44,6 +44,7 @@
   text-align: left;
   max-width: 456px;
   width: 100%;
+  min-width: 0;
   margin-right: auto;
   padding-right: 8px;
 }
@@ -320,7 +321,7 @@
   flex-shrink: 0;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 836px) {
   .login-bento__inner {
     grid-template-columns: 1fr;
     gap: 48px;
@@ -360,38 +361,11 @@
   position: relative;
   min-height: 500px;
 }
-@media (max-width: 900px) {
+
+@media (max-width: 836px) {
   .step1-right {
     order: -1;
     width: 100%;
     min-height: 300px;
-  }
-}
-.step1-username .login-bento__title {
-  margin-bottom: 8px;
-}
-
-.step1-username > .login-bento__form-col {
-  max-width: 440px;
-}
-
-.step1-right {
-  flex: 1;
-  position: relative;
-  min-height: 500px;
-}
-
-@media (max-width: 900px) {
-  .step1-username {
-    flex-direction: column;
-    padding: 24px;
-  }
-  .step1-right {
-    order: -1;
-    width: 100%;
-    min-height: 300px;
-  }
-  .step1-username > .login-bento__form-col {
-    max-width: 100%;
   }
 }
