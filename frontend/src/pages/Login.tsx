@@ -1,20 +1,17 @@
 import React from "react";
 import { login } from "../api";
-import { useNavigate, Link, Navigate, useLocation } from "react-router-dom";
-import DecoCards from "../components/onboarding/DecoCards";
+import { useNavigate, Link } from "react-router-dom";
 import { useSession } from "../sessionContext";
 import "./LoginPage.css";
 import { EMAIL_MAX_LENGTH, PASSWORD_MAX_LENGTH } from "../lib/authFieldLimits";
 
 export default function Login() {
-  const { user, authReady, setUser: onAuthed } = useSession();
+  const { setUser: onAuthed } = useSession();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [err, setErr] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const nav = useNavigate();
-  const location = useLocation();
-  const enterAnimated = (location.state as { from?: string })?.from === "register";
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -55,78 +52,54 @@ export default function Login() {
     }
   };
 
-  if (!authReady) {
-    return (
-      <div className="login-bento min-h-screen" aria-busy="true">
-        <div className="login-bento__inner">
-          <div className="login-bento__form-col">
-            <p className="login-bento__subtitle">Проверяем сессию…</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (user) {
-    return <Navigate to="/editor" replace />;
-  }
-
   return (
-    <div className="login-bento min-h-screen">
-      <div className="login-bento__inner">
-        <div className="login-bento__form-col">
-          <h1 className="login-bento__title">Войдите в Визитку</h1>
-          <p className="login-bento__subtitle">Рады видеть вас снова!</p>
+    <>
+      <h1 className="login-bento__title">Войдите в Визитку</h1>
+      <p className="login-bento__subtitle">Рады видеть вас снова!</p>
 
-          <form onSubmit={submit} noValidate>
-            {err && (
-              <p className="login-bento__error" role="alert">
-                {err}
-              </p>
-            )}
-            <div className="login-bento__row">
-              <input
-                className="login-bento__input"
-                name="email"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                placeholder="Email адрес"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                maxLength={EMAIL_MAX_LENGTH}
-                required
-                autoFocus
-                spellCheck={false}
-              />
-              <input
-                className="login-bento__input"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                placeholder="Пароль"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                maxLength={PASSWORD_MAX_LENGTH}
-                required
-              />
-            </div>
-
-            <button className="login-bento__submit" type="submit" disabled={loading}>
-              {loading ? "Вход…" : "Войти"}
-            </button>
-          </form>
-
-            <p className="login-bento__foot">
-             или{" "}
-             <Link to="/register">зарегистрируйтесь</Link>
-           </p>
+      <form onSubmit={submit} noValidate>
+        {err && (
+          <p className="login-bento__error" role="alert">
+            {err}
+          </p>
+        )}
+        <div className="login-bento__row">
+          <input
+            className="login-bento__input"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="Email адрес"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            maxLength={EMAIL_MAX_LENGTH}
+            required
+            autoFocus
+            spellCheck={false}
+          />
+          <input
+            className="login-bento__input"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Пароль"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            maxLength={PASSWORD_MAX_LENGTH}
+            required
+          />
         </div>
 
-        <div className="step1-right">
-          <DecoCards username="" mode="floating-nopill" enterAnimated={enterAnimated} />
-        </div>
-      </div>
-    </div>
+        <button className="login-bento__submit" type="submit" disabled={loading}>
+          {loading ? "Вход…" : "Войти"}
+        </button>
+      </form>
+
+        <p className="login-bento__foot">
+         или{" "}
+         <Link to="/register">зарегистрируйтесь</Link>
+       </p>
+    </>
   );
 }

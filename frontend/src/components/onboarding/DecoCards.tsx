@@ -9,7 +9,6 @@ type DecoMode = "floating" | "floating-nopill" | "phone";
 interface DecoCardsProps {
   username: string;
   mode: DecoMode;
-  enterAnimated?: boolean;
 }
 
 interface ScatterConfig {
@@ -29,7 +28,7 @@ const SCATTER: Record<string, ScatterConfig> = {
   pill:      { sx:   0, sy: -22, sr:  4, dur: 6  },
 };
 
-export default function DecoCards({ username, mode, enterAnimated = false }: DecoCardsProps) {
+export default function DecoCards({ username, mode }: DecoCardsProps) {
   const [is3Col, setIs3Col] = useState(true);
 
   useEffect(() => {
@@ -52,11 +51,8 @@ export default function DecoCards({ username, mode, enterAnimated = false }: Dec
   const ps = SCATTER.pill ?? { sx: 0, sy: 0, sr: 0, dur: 6 };
 
   const prevMode = useRef<DecoMode>(mode);
-  const [enteringFloating, setEnteringFloating] = useState(() => isFloating && !!enterAnimated);
-  const [loopMode, setLoopMode] = useState(() => {
-    if (isFloating && enterAnimated) return false;
-    return isFloating;
-  });
+  const [enteringFloating, setEnteringFloating] = useState(() => false);
+  const [loopMode, setLoopMode] = useState(() => isFloating);
 
   if (prevMode.current !== mode) {
     const wasPhone = prevMode.current === "phone";
@@ -109,7 +105,7 @@ export default function DecoCards({ username, mode, enterAnimated = false }: Dec
             >
               <motion.div
                 style={{ width: "fit-content" }}
-                initial={(isFloating && !enterAnimated) ? { x: ps.sx, y: ps.sy, rotate: ps.sr } : { x: 0, y: 0, rotate: 0 }}
+                initial={isFloating ? { x: ps.sx, y: ps.sy, rotate: ps.sr } : { x: 0, y: 0, rotate: 0 }}
                 animate={isFloating ? (
                   loopMode ? {
                     x: [ps.sx, ps.sx + 8, ps.sx - 6, ps.sx + 12, ps.sx],
@@ -166,7 +162,7 @@ export default function DecoCards({ username, mode, enterAnimated = false }: Dec
                 borderRadius: 20,
                 overflow: "hidden",
               }}
-              initial={(isFloating && !enterAnimated) ? { x: s.sx, y: s.sy, rotate: s.sr } : { x: 0, y: 0, rotate: 0 }}
+              initial={isFloating ? { x: s.sx, y: s.sy, rotate: s.sr } : { x: 0, y: 0, rotate: 0 }}
               animate={isFloating ? (
                 loopMode ? {
                   x: [s.sx, s.sx + 8, s.sx - 6, s.sx + 12, s.sx],

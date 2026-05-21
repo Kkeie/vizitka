@@ -236,7 +236,7 @@ export default function Step2Form({ username, onBack, onSuccess }: Step2FormProp
       </form>
 
       <p className="login-bento__foot">
-        <Link to="/login" state={{ from: "register" }}>Уже есть аккаунт? Войти</Link>
+        <Link to="/login">Уже есть аккаунт? Войти</Link>
       </p>
     </>
   );

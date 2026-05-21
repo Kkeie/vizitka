@@ -78,7 +78,7 @@ export default function Step1Form({ onNext, initialUsername = "", onUsernameChan
         return null;
       })()}
       <p className="login-bento__foot">
-        <Link to="/login" state={{ from: "register" }}>Уже есть аккаунт? Войти</Link>
+        <Link to="/login">Уже есть аккаунт? Войти</Link>
       </p>
     </>
   );
