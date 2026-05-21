@@ -61,7 +61,7 @@ export default function RegisterPending() {
         if (cancelled) return;
         if (out.ready) {
           onAuthed(out.user);
-          navigate("/editor", { replace: true });
+          navigate("/editor?onboarding=true", { replace: true });
         }
       } catch (e) {
         if (cancelled) return;

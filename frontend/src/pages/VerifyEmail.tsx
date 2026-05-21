@@ -31,7 +31,7 @@ export default function VerifyEmail() {
         if (guardKey) sessionStorage.setItem(guardKey, "done");
         onAuthed(user);
         setState("ok");
-        navigate("/editor", { replace: true });
+        navigate("/editor?onboarding=true", { replace: true });
       } catch (e) {
         if (cancelled) return;
         setState("bad");
