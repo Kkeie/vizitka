@@ -1,7 +1,7 @@
 import React from "react";
 import { login } from "../api";
-import { useNavigate, Link, Navigate } from "react-router-dom";
-import FloatingCards from "../components/onboarding/FloatingCards";
+import { useNavigate, Link, Navigate, useLocation } from "react-router-dom";
+import DecoCards from "../components/onboarding/DecoCards";
 import { useSession } from "../sessionContext";
 import "./LoginPage.css";
 import { EMAIL_MAX_LENGTH, PASSWORD_MAX_LENGTH } from "../lib/authFieldLimits";
@@ -13,6 +13,8 @@ export default function Login() {
   const [err, setErr] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
   const nav = useNavigate();
+  const location = useLocation();
+  const enterAnimated = (location.state as { from?: string })?.from === "register";
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -122,7 +124,7 @@ export default function Login() {
         </div>
 
         <div className="step1-right">
-          <FloatingCards username="" withLinkCard={false} />
+          <DecoCards username="" mode="floating-nopill" enterAnimated={enterAnimated} />
         </div>
       </div>
     </div>
