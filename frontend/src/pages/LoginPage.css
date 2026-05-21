@@ -44,6 +44,7 @@
   text-align: left;
   max-width: 456px;
   width: 100%;
+  min-width: 0;
   margin-right: auto;
   padding-right: 8px;
 }
@@ -100,18 +101,6 @@
 .login-bento__input:focus {
   background: #f0f0f0;
   box-shadow: 0 0 0 2px #e5e5e5;
-}
-
-.login-bento__or {
-  display: block;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--login-separator);
-  margin: 20px 0 0;
-  line-height: 1;
 }
 
 .login-bento__submit {
@@ -227,100 +216,7 @@
   color: #0a0a0a;
 }
 
-/* Decorative collage (reference right column) */
-.login-bento__art {
-  position: relative;
-  min-height: 460px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  user-select: none;
-}
-
-.login-bento__art-inner {
-  position: relative;
-  width: 100%;
-  max-width: 420px;
-  height: 420px;
-  margin: 0 auto;
-}
-
-/* Обёртка: позиция + анимация «парения»; подписи и иконка — внутри цветной .login-bento__tile (как .floating-card) */
-.login-bento__tile-group {
-  --tilt: 0deg;
-  position: absolute;
-  transform: translate(0, 0) rotate(var(--tilt, 0deg));
-  backface-visibility: hidden;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.login-bento__tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  box-sizing: border-box;
-  padding: 8px 5px 9px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  flex-shrink: 0;
-}
-
-.login-bento__tile-icon-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  line-height: 0;
-}
-
-/* Подпись бренда на плитке, как .card-label в FloatingCards */
-.login-bento__tile-label {
-  display: block;
-  width: 100%;
-  text-align: center;
-  font-size: 10px;
-  line-height: 1.2;
-  font-weight: 600;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  padding: 0 2px;
-  word-break: break-word;
-  hyphens: auto;
-  max-width: 100%;
-  flex: 0 0 auto;
-}
-
-/* Как .floating-card: анимация на группе; --tilt задаётся инлайн */
-@keyframes loginBentoFloat {
-  0% {
-    transform: translate(0, 0) rotate(var(--tilt));
-  }
-  25% {
-    transform: translate(6px, -10px) rotate(calc(var(--tilt) + 2deg));
-  }
-  50% {
-    transform: translate(-4px, -16px) rotate(calc(var(--tilt) - 2deg));
-  }
-  75% {
-    transform: translate(10px, -6px) rotate(calc(var(--tilt) + 1deg));
-  }
-  100% {
-    transform: translate(0, 0) rotate(var(--tilt));
-  }
-}
-
-.login-bento__tile svg,
-.login-bento__tile-icon {
-  display: block;
-  flex-shrink: 0;
-}
-
-@media (max-width: 900px) {
+@media (max-width: 836px) {
   .login-bento__inner {
     grid-template-columns: 1fr;
     gap: 48px;
@@ -334,11 +230,6 @@
     margin-right: auto;
   }
 
-  .login-bento__art {
-    min-height: 400px;
-    order: 2;
-  }
-
   .login-bento__form-col {
     order: 1;
   }
@@ -348,10 +239,6 @@
   .login-bento__row {
     flex-direction: column;
   }
-
-  .login-bento__tile-label {
-    font-size: 9px;
-  }
 }
 
 /* Step1Username: right side for floating cards */
@@ -360,38 +247,11 @@
   position: relative;
   min-height: 500px;
 }
-@media (max-width: 900px) {
+
+@media (max-width: 836px) {
   .step1-right {
     order: -1;
     width: 100%;
     min-height: 300px;
-  }
-}
-.step1-username .login-bento__title {
-  margin-bottom: 8px;
-}
-
-.step1-username > .login-bento__form-col {
-  max-width: 440px;
-}
-
-.step1-right {
-  flex: 1;
-  position: relative;
-  min-height: 500px;
-}
-
-@media (max-width: 900px) {
-  .step1-username {
-    flex-direction: column;
-    padding: 24px;
-  }
-  .step1-right {
-    order: -1;
-    width: 100%;
-    min-height: 300px;
-  }
-  .step1-username > .login-bento__form-col {
-    max-width: 100%;
   }
 }

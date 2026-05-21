@@ -1,12 +1,12 @@
 import type { FC, SVGProps } from "react";
 import {
-  InstagramIcon,
-  TwitterIcon,
-  YouTubeIcon,
   TelegramIcon,
   VKIcon,
   GitHubIcon,
-} from "../components/SocialIcons";
+  DprofileIcon,
+  MaxIcon,
+  DribbbleIcon,
+} from "../components/SocialIconsWithBg";
 
 export type RegistrationDecoSocial = {
   Icon: FC<SVGProps<SVGSVGElement>>;
@@ -16,10 +16,10 @@ export type RegistrationDecoSocial = {
 
 /** Декоративные «плитки» соцсетей: логин, онбординг регистрации */
 export const REGISTRATION_DECO_SOCIALS: RegistrationDecoSocial[] = [
-  { Icon: InstagramIcon, color: "#E1306C", label: "Instagram" },
-  { Icon: YouTubeIcon, color: "#FF0000", label: "YouTube" },
-  { Icon: TelegramIcon, color: "#0088cc", label: "Telegram" },
-  { Icon: TwitterIcon, color: "#1DA1F2", label: "X" },
+  { Icon: TelegramIcon, color: "#419FD9", label: "Telegram" },
   { Icon: VKIcon, color: "#0077FF", label: "VK" },
-  { Icon: GitHubIcon, color: "#333333", label: "GitHub" },
+  { Icon: GitHubIcon, color: "#24292e", label: "GitHub" },
+  { Icon: DprofileIcon, color: "#1E2A3A", label: "Dprofile" },
+  { Icon: MaxIcon, color: "#000000", label: "Max" },
+  { Icon: DribbbleIcon, color: "#EA4C89", label: "Dribbble" },
 ];

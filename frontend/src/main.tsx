@@ -5,6 +5,7 @@ import { createBrowserRouter, RouterProvider, useLocation, useNavigate } from "r
 import "./index.css";
 import "./styles.css";
 import "./styles/drag-reorder.css";
+import AuthDecoLayout from "./components/auth/AuthDecoLayout";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -49,8 +50,13 @@ function EditorWrapper() {
 const router = createBrowserRouter([
   { path: "/", element: <NavLayout><HomeWrapper /></NavLayout> },
   { path: "/index.html", element: <NavLayout><HomeWrapper /></NavLayout> },
-  { path: "/login", element: <NavLayout><Login /></NavLayout> },
-  { path: "/register", element: <NavLayout><Register /></NavLayout> },
+  {
+    element: <NavLayout><AuthDecoLayout /></NavLayout>,
+    children: [
+      { path: "/login", element: <Login /> },
+      { path: "/register", element: <Register /> },
+    ],
+  },
   { path: "/register/pending", element: <NavLayout><RegisterPending /></NavLayout> },
   { path: "/verify-email", element: <NavLayout><VerifyEmail /></NavLayout> },
   { path: "/editor", element: <NavLayout><EditorWrapper /></NavLayout> },
