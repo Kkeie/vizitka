@@ -421,7 +421,7 @@ export default function BlockCard({
       <div style={cardBodyStyle}>
       {isSection && (
         <div
-          className="card__content"
+          className="card__content section-card__content"
           style={{
             height: "100%",
             display: "flex",
@@ -431,84 +431,58 @@ export default function BlockCard({
           }}
         >
           {isSectionEditable ? (
-            <input
-              className="input"
-              type="text"
-              value={sectionValue}
-              placeholder="Новый раздел"
-              maxLength={80}
-              onPointerDown={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  e.currentTarget.blur();
-                }
-                if (e.key === ' ') {
-                  e.stopPropagation();
-                }
-              }}
-              onChange={(e) => {
-                const nextValue = e.target.value;
-                setSectionValue(nextValue);
-                sectionValueRef.current = nextValue;
-                if (saveNoteDebounceRef.current) clearTimeout(saveNoteDebounceRef.current);
-                saveNoteDebounceRef.current = setTimeout(() => {
-                  const normalized = nextValue.trim();
+            <div className="section-card__input-wrap">
+              <span className="section-card__input-sizer" aria-hidden="true">
+                {sectionValue || "Новый раздел"}
+              </span>
+              <input
+                className="section-card__input"
+                type="text"
+                value={sectionValue}
+                placeholder="Новый раздел"
+                maxLength={80}
+                data-testid="section-title-input"
+                onPointerDown={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                  if (e.key === ' ') {
+                    e.stopPropagation();
+                  }
+                }}
+                onChange={(e) => {
+                  const nextValue = e.target.value;
+                  setSectionValue(nextValue);
+                  sectionValueRef.current = nextValue;
+                  if (saveNoteDebounceRef.current) clearTimeout(saveNoteDebounceRef.current);
+                  saveNoteDebounceRef.current = setTimeout(() => {
+                    const normalized = nextValue.trim();
+                    const prev = (b.note ?? "").trim();
+                    if (normalized !== prev) {
+                      onUpdate?.({ note: normalized || null });
+                    }
+                  }, 500);
+                }}
+                onFocus={() => {
+                  setIsSectionFocused(true);
+                  setIsSectionEditing(true);
+                }}
+                onBlur={() => {
+                  setIsSectionFocused(false);
+                  setIsSectionEditing(false);
+                  const normalized = sectionValue.trim();
                   const prev = (b.note ?? "").trim();
                   if (normalized !== prev) {
                     onUpdate?.({ note: normalized || null });
                   }
-                }, 500);
-              }}
-              onFocus={() => {
-                setIsSectionFocused(true);
-                setIsSectionEditing(true);
-              }}
-              onBlur={() => {
-                setIsSectionFocused(false);
-                setIsSectionEditing(false);
-                const normalized = sectionValue.trim();
-                const prev = (b.note ?? "").trim();
-                if (normalized !== prev) {
-                  onUpdate?.({ note: normalized || null });
-                }
-              }}
-              style={{
-                width: "100%",
-                maxWidth: "100%",
-                padding: "0",
-                textAlign: "left",
-                fontSize: 16,
-                fontWeight: 700,
-                letterSpacing: "normal",
-                textTransform: "none",
-                borderRadius: 0,
-                border: "none",
-                background: "transparent",
-                boxShadow: "none",
-                outline: "none",
-              }}
-            />
+                }}
+              />
+            </div>
           ) : (
             <div
-              style={{
-                width: "100%",
-                maxWidth: "100%",
-                padding: "0",
-                borderRadius: 0,
-                border: "none",
-                background: "transparent",
-                boxShadow: "none",
-                color: "var(--text)",
-                fontSize: 16,
-                fontWeight: 700,
-                letterSpacing: "normal",
-                textTransform: "none",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                textAlign: "left",
-              }}
+              className="section-card__label"
               title={b.note ?? ""}
             >
               {b.note ?? "Раздел"}
