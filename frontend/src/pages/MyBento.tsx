@@ -159,10 +159,10 @@ export default function MyVizitka() {
               <div className="card reveal reveal-in" style={{ padding: 60, textAlign: "center" }}>
                 <div style={{ fontSize: 64, marginBottom: 20 }}>📦</div>
                 <h3 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12, color: "var(--text)" }}>
-                  Пока нет блоков
+                  Пока нет карточек
                 </h3>
                 <p style={{ color: "var(--muted)", fontSize: 15 }}>
-                  Добавьте блоки в редакторе, чтобы они появились здесь
+                  Добавьте карточки в редакторе, чтобы они появились здесь
                 </p>
               </div>
             )}

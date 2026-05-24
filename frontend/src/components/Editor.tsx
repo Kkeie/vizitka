@@ -177,7 +177,7 @@ export default function Editor() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Удалить блок?")) return;
+    if (!confirm("Удалить карточку?")) return;
     try {
       await deleteBlock(id);
       setBlocks((prev) => prev.filter((x) => x.id !== id));
@@ -209,11 +209,11 @@ export default function Editor() {
 
   return (
     <div style={wrap}>
-      <h1 style={h1}>Конструктор блоков</h1>
+      <h1 style={h1}>Конструктор карточек</h1>
 
       {!authed && (
         <div style={alertErr}>
-          Вы не авторизованы. Войдите, чтобы редактировать блоки.
+          Вы не авторизованы. Войдите, чтобы редактировать карточки.
         </div>
       )}
 
@@ -247,7 +247,7 @@ export default function Editor() {
         <div>Загрузка…</div>
       ) : blocks.length === 0 ? (
         <div style={hint}>
-          Пока нет блоков. Добавьте сверху «Заметка», «Ссылка», «Фото» и т.д.
+          Пока нет карточек. Добавьте сверху «Заметка», «Ссылка», «Фото» и т.д.
         </div>
       ) : (
         blocks.map((b) => (

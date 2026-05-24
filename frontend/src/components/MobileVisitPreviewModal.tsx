@@ -288,7 +288,7 @@ export default function MobileVisitPreviewModal({
                         background: "rgba(255,255,255,0.6)",
                       }}
                     >
-                      Добавьте блоки — здесь появится сетка
+                      Добавьте карточки — здесь появится сетка
                     </div>
                   ) : (
                     <div
