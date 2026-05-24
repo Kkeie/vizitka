@@ -283,6 +283,7 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
         style={style}
         onPointerDownCapture={handlePointerDownCapture}
         data-drag-item=""
+        data-block-type={block.type}
         data-block-id={block.id}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleCardMouseLeave}

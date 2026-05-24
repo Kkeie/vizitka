@@ -11,6 +11,76 @@
   touch-action: none;
 }
 
+/* Заголовок раздела: вертикальный скролл пальцем вне строки текста */
+[data-drag-item][data-block-type="section"] {
+  touch-action: pan-y;
+}
+
+.section-card__content {
+  pointer-events: none;
+}
+
+.section-card__input-wrap {
+  display: inline-grid;
+  max-width: 100%;
+  pointer-events: auto;
+  vertical-align: middle;
+}
+
+.section-card__input-sizer,
+.section-card__input {
+  grid-area: 1 / 1;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1.25;
+  padding: 0;
+  margin: 0;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  box-sizing: content-box;
+}
+
+.section-card__input-sizer {
+  visibility: hidden;
+  white-space: pre;
+  min-width: max-content;
+  padding-right: 2px;
+}
+
+.section-card__input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  cursor: text;
+  border-radius: 0;
+  color: var(--text);
+}
+
+.section-card__input::placeholder {
+  color: var(--muted);
+}
+
+.section-card__label {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
 [data-drag-item].dragging,
 [data-drag-item].dragging-keyboard {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
