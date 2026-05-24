@@ -694,7 +694,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   }, [blockSizes, saveBlockSizesDebounced]);
 
   async function handleDeleteBlock(id: number) {
-    if (!confirm("Удалить этот блок?")) return;
+    if (!confirm("Удалить эту карточку?")) return;
     try {
       await deleteBlock(id);
       setBlocks(prev => prev.filter(b => b.id !== id));
@@ -714,7 +714,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       setLayout(newLayout);
       saveLayoutDebounced(newLayout);
     } catch (e) {
-      alert("Не удалось удалить блок");
+      alert("Не удалось удалить карточку");
       console.error(e);
     }
   }
@@ -980,7 +980,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         appendCreatedBlocks([newBlock], { focusType: type });
       } catch (e) {
         console.error(e);
-        setToast("Не удалось создать блок");
+        setToast("Не удалось создать карточку");
       }
   }, [appendCreatedBlocks]);
 
@@ -1030,7 +1030,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         }
       } catch (err) {
         console.error(err);
-        setToast("Не удалось создать блок. Проверьте ссылку.");
+        setToast("Не удалось создать карточку. Проверьте ссылку.");
       }
   }, [blocks.length]);
 
@@ -1082,7 +1082,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       }
     } catch (e) {
       console.error(e);
-      setToast("Не удалось создать блок");
+      setToast("Не удалось создать карточку");
     }
     setInlineInput(null);
   };
@@ -1106,7 +1106,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       const newBlock = await createBlock(data as any);
       appendCreatedBlocks([newBlock]);
     } catch (e) {
-      alert("Не удалось создать блок");
+      alert("Не удалось создать карточку");
       console.error(e);
     }
   }

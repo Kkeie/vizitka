@@ -298,7 +298,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
       case "music": {
         const musicResult = validateMusicInput(formData.musicEmbed || "");
         if (!musicResult.ok || !musicResult.value) {
-          setFormError(musicResult.message || "Неверный формат музыкального блока.");
+          setFormError(musicResult.message || "Неверный формат музыкальной карточки.");
           return;
         }
         submitData.musicEmbed = musicResult.value;

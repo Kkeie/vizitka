@@ -59,7 +59,7 @@ export default function CongratsStep({ onComplete }: CongratsStepProps) {
         <h2 className="congrats-title">Поздравляем!</h2>
         <p className="congrats-message">
           Вы успешно настроили свою визитку. <br />
-          Теперь вы можете добавлять любые блоки, менять их размер и порядок.
+          Теперь вы можете добавлять любые карточки, менять их размер и порядок.
         </p>
         <button className="btn btn-primary congrats-button" onClick={onComplete}>
           Перейти к редактированию

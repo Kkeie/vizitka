@@ -67,7 +67,7 @@ export default function InlineInputCard({
     if (validate) {
       const result = validate(value);
       if (result !== true) {
-        setError(typeof result === "string" ? result : "Некорректное значение для этого блока.");
+        setError(typeof result === "string" ? result : "Некорректное значение для этой карточки.");
         return;
       }
     }

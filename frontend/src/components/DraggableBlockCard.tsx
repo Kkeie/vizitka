@@ -296,7 +296,7 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
           <button
             onClick={onDelete}
             onPointerDown={(e) => e.stopPropagation()}
-            aria-label="Удалить блок"
+            aria-label="Удалить карточку"
             style={{
               position: 'absolute', top: -8, left: -8, zIndex: 4, width: 30, height: 30,
               fontSize: 10, color: '#000', background: '#fff', border: '1px solid #e2e8f0',
