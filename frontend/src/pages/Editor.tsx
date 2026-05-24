@@ -1152,15 +1152,105 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const showOnboardingPanel = onboardingMode && !onboardingComplete;
   const compactProfileText = previewMode === "phone" || viewportBreakpoint === "mobile";
   const useFramedPhonePreview = previewMode === "phone" && viewportBreakpoint !== "mobile";
-  const addActions: Array<{ type: BlockType; label: string; icon: string }> = [
-    { type: "section", label: "Заголовок", icon: "📑" },
-    { type: "note", label: "Заметка", icon: "📝" },
-    { type: "link", label: "Ссылка", icon: "🔗" },
-    { type: "social", label: "Соцсеть", icon: "💬" },
-    { type: "photo", label: "Фото", icon: "🖼️" },
-    { type: "video", label: "Видео", icon: "🎥" },
-    { type: "music", label: "Музыка", icon: "🎵" },
-    { type: "map", label: "Карта", icon: "🗺️" },
+  const dockIconProps = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.75,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    width: 20,
+    height: 20,
+  };
+  const addActions: Array<{ type: BlockType; label: string; icon: React.ReactNode }> = [
+    {
+      type: "section",
+      label: "Заголовок",
+      icon: (
+        <svg {...dockIconProps}>
+          <rect x="3" y="6" width="13" height="3.5" rx="0.8" />
+          <path d="M3 14h18" />
+          <path d="M3 18h13" />
+        </svg>
+      ),
+    },
+    {
+      type: "note",
+      label: "Заметка",
+      icon: (
+        <svg {...dockIconProps}>
+          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+          <path d="M14 3v5h5" />
+          <path d="M9 14h6" />
+          <path d="M9 17h4" />
+        </svg>
+      ),
+    },
+    {
+      type: "link",
+      label: "Ссылка",
+      icon: (
+        <svg {...dockIconProps}>
+          <path d="M10.5 13.5a4 4 0 0 0 5.6 0l2.4-2.4a4 4 0 1 0-5.6-5.6L11.5 6.9" />
+          <path d="M13.5 10.5a4 4 0 0 0-5.6 0l-2.4 2.4a4 4 0 1 0 5.6 5.6l1.4-1.4" />
+        </svg>
+      ),
+    },
+    {
+      type: "social",
+      label: "Соцсеть",
+      icon: (
+        <svg {...dockIconProps}>
+          <circle cx="9" cy="8" r="3.2" />
+          <path d="M3 19a6 6 0 0 1 12 0" />
+          <path d="M16 4.2a3.2 3.2 0 0 1 0 6.2" />
+          <path d="M17 13.2a5 5 0 0 1 4 5.8" />
+        </svg>
+      ),
+    },
+    {
+      type: "photo",
+      label: "Фото",
+      icon: (
+        <svg {...dockIconProps}>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <circle cx="8.5" cy="10" r="1.5" />
+          <path d="M21 15l-5-5L7 19" />
+        </svg>
+      ),
+    },
+    {
+      type: "video",
+      label: "Видео",
+      icon: (
+        <svg {...dockIconProps}>
+          <rect x="2.5" y="6" width="13.5" height="12" rx="2" />
+          <path d="M16 10l5.5-3v10L16 14z" />
+        </svg>
+      ),
+    },
+    {
+      type: "music",
+      label: "Музыка",
+      icon: (
+        <svg {...dockIconProps}>
+          <path d="M9 17V5l10-2v12" />
+          <circle cx="6" cy="17" r="3" />
+          <circle cx="16" cy="15" r="3" />
+        </svg>
+      ),
+    },
+    {
+      type: "map",
+      label: "Карта",
+      icon: (
+        <svg {...dockIconProps}>
+          <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z" />
+          <path d="M9 4v14" />
+          <path d="M15 6v14" />
+        </svg>
+      ),
+    },
   ];
   const visibleActionCount = toolbarWidth < 560 ? 2 : toolbarWidth < 760 ? 3 : toolbarWidth < 980 ? 5 : toolbarWidth < 1240 ? 6 : addActions.length;
   const primaryActions = addActions.slice(0, visibleActionCount);
