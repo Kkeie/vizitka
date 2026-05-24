@@ -41,6 +41,8 @@ import {
   assignSparseAnchorsForBreakpoint,
   clientPointToGridAnchor,
   flattenLayoutIds,
+  getGridRowSpan,
+  getPersistedGridSpans,
   getResolvedGridSize,
   resolveAnchorOverlaps,
   sanitizeBlockSizes,
@@ -904,6 +906,52 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       if (createdBlocks.length === 0) return;
       const newIds = createdBlocks.map((block) => block.id);
       setBlocks((prev) => [...prev, ...createdBlocks]);
+
+      // Pre-assign anchors at the very bottom of the grid for each breakpoint,
+      // so assignSparseAnchorsForBreakpoint (onlyMissing) won't fill them into
+      // the first empty space above existing content.
+      setBlockSizes((prevSizes) => {
+        const existingBlocks = blocksRef.current;
+        const nextSizes = { ...prevSizes };
+
+        for (const bp of ['mobile', 'tablet', 'desktop'] as const) {
+          const cols = GRID_COLUMNS[bp];
+
+          // Find the lowest occupied micro-row across all existing blocks
+          let bottomRow = 0;
+          for (const block of existingBlocks) {
+            const anchor = prevSizes[block.id]?.anchorsByBreakpoint?.[bp];
+            if (!anchor) continue;
+            const gs = getResolvedGridSize(block, prevSizes[block.id], cols);
+            const h = getGridRowSpan(block, gs, cellSize, currentGridGap);
+            const blockBottom = anchor.gridRowStart - 1 + h;
+            if (blockBottom > bottomRow) bottomRow = blockBottom;
+          }
+
+          // Stack new blocks one after another below all existing content
+          let row = bottomRow;
+          for (const newBlock of createdBlocks) {
+            const gs = getResolvedGridSize(newBlock, null, cols);
+            const h = getGridRowSpan(newBlock, gs, cellSize, currentGridGap);
+            const prevEntry = nextSizes[newBlock.id];
+            const persisted = getPersistedGridSpans(newBlock, prevEntry);
+            nextSizes[newBlock.id] = {
+              ...(prevEntry ?? {}),
+              colSpan: persisted.colSpan,
+              rowSpan: persisted.rowSpan,
+              anchorsByBreakpoint: {
+                ...(prevEntry?.anchorsByBreakpoint ?? {}),
+                [bp]: { gridColumnStart: 1, gridRowStart: row + 1 },
+              },
+            };
+            row += h;
+          }
+        }
+
+        saveBlockSizesDebounced(nextSizes);
+        return nextSizes;
+      });
+
       setLayout((prev) => {
         if (!prev) return prev;
         const nextLayout = { ...prev };
@@ -922,7 +970,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         );
       }, 100);
     },
-    [revealCreatedBlock, saveLayoutDebounced],
+    [revealCreatedBlock, saveLayoutDebounced, saveBlockSizesDebounced, cellSize, currentGridGap],
   );
 
   const createEmptyBlock = useCallback(async (type: BlockType, initialData: Partial<Block> = {}) => {
@@ -1417,6 +1465,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               <div
                 ref={gridRef}
                 className="bento-grid"
+                onPointerDownCapture={() => {
+                  if (flipAnimationRef.current) {
+                    flipAnimationRef.current.cancel();
+                    flipAnimationRef.current = null;
+                  }
+                }}
                 style={{
                     display: 'grid',
                   gridTemplateColumns: `repeat(${currentGridColumns}, minmax(0, 1fr))`,

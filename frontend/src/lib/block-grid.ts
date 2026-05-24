@@ -341,61 +341,47 @@ export function assignSparseAnchorsForBreakpoint(
     }
   };
 
-  // Определяем порядок обработки: сначала приоритетный блок (если есть), затем остальные в исходном порядке
-  let processOrder: number[];
-  if (priorityBlockId !== undefined && orderedIds.includes(priorityBlockId)) {
-    processOrder = [priorityBlockId, ...orderedIds.filter(id => id !== priorityBlockId)];
-  } else {
-    processOrder = [...orderedIds];
-  }
-
-  for (const id of processOrder) {
-    const block = blocks.find(b => b.id === id);
-    if (!block) continue;
-
-    const gs = getResolvedGridSize(block, next[id], gridColumns);
-    const h = getGridRowSpan(block, gs, cellSize, gap, rowUnit);
-    const w = Math.min(gs.colSpan, gridColumns);
-
-    // Если нужно сохранить существующий якорь (onlyMissing = true) и он есть
-    if (onlyMissing) {
-      const ex = next[id]?.anchorsByBreakpoint?.[bp];
-      if (ex?.gridColumnStart != null && ex?.gridRowStart != null) {
-        const c = ex.gridColumnStart - 1;
-        const r = ex.gridRowStart - 1;
-        if (c >= 0 && c + w <= gridColumns && r >= 0) {
-          ensureRows(r + h);
-          let ok = true;
-          for (let dr = 0; dr < h; dr++) {
-            for (let dc = 0; dc < w; dc++) {
-              if (occupancy[r + dr]?.[c + dc]) { ok = false; break; }
-            }
-            if (!ok) break;
-          }
-          if (ok) {
-            for (let dr = 0; dr < h; dr++) {
-              for (let dc = 0; dc < w; dc++) {
-                if (!occupancy[r + dr]) occupancy[r + dr] = Array(gridColumns).fill(false);
-                occupancy[r + dr][c + dc] = true;
-              }
-            }
-            continue;
-          }
-        }
+  const tryPlaceAtExistingAnchor = (
+    id: number,
+    w: number,
+    h: number,
+  ): number | null => {
+    if (!onlyMissing) return null;
+    const ex = next[id]?.anchorsByBreakpoint?.[bp];
+    if (ex?.gridColumnStart == null || ex?.gridRowStart == null) return null;
+    const c = ex.gridColumnStart - 1;
+    const r = ex.gridRowStart - 1;
+    if (c < 0 || c + w > gridColumns || r < 0) return null;
+    ensureRows(r + h);
+    for (let dr = 0; dr < h; dr++) {
+      for (let dc = 0; dc < w; dc++) {
+        if (occupancy[r + dr]?.[c + dc]) return null;
       }
     }
+    for (let dr = 0; dr < h; dr++) {
+      for (let dc = 0; dc < w; dc++) {
+        if (!occupancy[r + dr]) occupancy[r + dr] = Array(gridColumns).fill(false);
+        occupancy[r + dr][c + dc] = true;
+      }
+    }
+    return r;
+  };
 
-    // Ищем первое свободное место (жадная упаковка)
-    let placed = false;
-    for (let r = 0; !placed && r < 10000; r++) {
+  const greedyPlace = (
+    id: number,
+    block: Block,
+    w: number,
+    h: number,
+    minRow: number,
+  ): number => {
+    for (let r = minRow; r < 10000; r++) {
       for (let c = 0; c <= gridColumns - w; c++) {
         ensureRows(r + h);
         let free = true;
-        for (let dr = 0; dr < h; dr++) {
+        for (let dr = 0; dr < h && free; dr++) {
           for (let dc = 0; dc < w; dc++) {
             if (occupancy[r + dr][c + dc]) { free = false; break; }
           }
-          if (!free) break;
         }
         if (free) {
           for (let dr = 0; dr < h; dr++) {
@@ -419,10 +405,54 @@ export function assignSparseAnchorsForBreakpoint(
               [bp]: anchor,
             },
           };
-          placed = true;
-          break;
+          return r;
         }
       }
+    }
+    return -1;
+  };
+
+  // Приоритетный блок (drag/resize) фиксируется первым — без этого его бы вытеснили
+  // в первое свободное место остальные блоки. Floor-правило к нему не применяем:
+  // позиция выбрана пользователем явно.
+  let priorityRow: number | null = null;
+  if (priorityBlockId !== undefined && orderedIds.includes(priorityBlockId)) {
+    const block = blocks.find((b) => b.id === priorityBlockId);
+    if (block) {
+      const gs = getResolvedGridSize(block, next[priorityBlockId], gridColumns);
+      const h = getGridRowSpan(block, gs, cellSize, gap, rowUnit);
+      const w = Math.min(gs.colSpan, gridColumns);
+      const existingRow = tryPlaceAtExistingAnchor(priorityBlockId, w, h);
+      priorityRow =
+        existingRow !== null ? existingRow : greedyPlace(priorityBlockId, block, w, h, 0);
+    }
+  }
+
+  // Section-блок = разделитель «зон». Все блоки после секции в orderedIds, у которых
+  // нет своего якоря (или onlyMissing=false), не должны утягиваться выше неё, иначе
+  // новые карточки «улетают» в предыдущий ряд (см. issue #134).
+  let floor = 0;
+  for (const id of orderedIds) {
+    const block = blocks.find((b) => b.id === id);
+    if (!block) continue;
+    const gs = getResolvedGridSize(block, next[id], gridColumns);
+    const h = getGridRowSpan(block, gs, cellSize, gap, rowUnit);
+    const w = Math.min(gs.colSpan, gridColumns);
+
+    if (id === priorityBlockId) {
+      if (block.type === "section" && priorityRow !== null && priorityRow >= 0) {
+        floor = Math.max(floor, priorityRow + h);
+      }
+      continue;
+    }
+
+    let placedRow = tryPlaceAtExistingAnchor(id, w, h);
+    if (placedRow === null) {
+      placedRow = greedyPlace(id, block, w, h, floor);
+    }
+
+    if (block.type === "section" && placedRow !== null && placedRow >= 0) {
+      floor = Math.max(floor, placedRow + h);
     }
   }
 
@@ -448,37 +478,7 @@ function compactAnchorsUpward(
   const next: BlockSizes = JSON.parse(JSON.stringify(blockSizes)) as BlockSizes;
   const placed: Rect[] = [];
 
-  // Приоритетный блок размещается первым в той точке, куда его поставил пользователь,
-  // и не «всасывается» вверх — без этого drag-and-drop был бы недоступен:
-  // компактация возвращала бы блок на исходную позицию.
-  const processOrder =
-    priorityBlockId !== undefined && orderedIds.includes(priorityBlockId)
-      ? [priorityBlockId, ...orderedIds.filter((id) => id !== priorityBlockId)]
-      : [...orderedIds];
-
-  for (const id of processOrder) {
-    const block = blocks.find((b) => b.id === id);
-    if (!block) continue;
-    const gs = getResolvedGridSize(block, next[id], gridColumns);
-    const h = getGridRowSpan(block, gs, cellSize, gap, rowUnit);
-    const w = gs.colSpan;
-    const anchor = next[id]?.anchorsByBreakpoint?.[bp];
-    const c0 = Math.max(0, Math.min(gridColumns - w, (anchor?.gridColumnStart ?? 1) - 1));
-
-    let r0: number;
-    if (id === priorityBlockId && anchor) {
-      // Priority block keeps the row chosen by the user; снап на cell-row уже произведён в clientPointToGridAnchor
-      r0 = Math.max(0, anchor.gridRowStart - 1);
-    } else {
-      r0 = 0;
-      while (true) {
-        const probe: Rect = { id, c0, r0, w, h };
-        const hasCollision = placed.some((p) => colsOverlap(probe, p) && rowsOverlap(probe, p));
-        if (!hasCollision) break;
-        r0 += 1;
-      }
-    }
-
+  const writeEntry = (id: number, block: Pick<Block, "type">, c0: number, r0: number, w: number) => {
     const prevEntry = next[id];
     const persisted = getPersistedGridSpans(block, prevEntry);
     next[id] = {
@@ -494,8 +494,64 @@ function compactAnchorsUpward(
         ),
       },
     };
+  };
 
+  // Приоритетный блок (последняя drag/resize цель) фиксируется в выбранной
+  // пользователем точке — без этого компактация возвращала бы его на исходное место.
+  // Размещаем его ПЕРВЫМ, чтобы остальные блоки обходили его при поиске свободного места.
+  if (priorityBlockId !== undefined && orderedIds.includes(priorityBlockId)) {
+    const block = blocks.find((b) => b.id === priorityBlockId);
+    if (block) {
+      const gs = getResolvedGridSize(block, next[priorityBlockId], gridColumns);
+      const h = getGridRowSpan(block, gs, cellSize, gap, rowUnit);
+      const w = gs.colSpan;
+      const anchor = next[priorityBlockId]?.anchorsByBreakpoint?.[bp];
+      const c0 = Math.max(0, Math.min(gridColumns - w, (anchor?.gridColumnStart ?? 1) - 1));
+      const r0 = Math.max(0, (anchor?.gridRowStart ?? 1) - 1);
+      writeEntry(priorityBlockId, block, c0, r0, w);
+      placed.push({ id: priorityBlockId, c0, r0, w, h });
+    }
+  }
+
+  // Section-блок = разделитель «зон». Все блоки, идущие после секции в orderedIds,
+  // не должны утягиваться вверх в свободное пространство ДО секции — иначе ломается
+  // логика разделов и при добавлении новой карточки она «улетает» в предыдущий ряд.
+  // Поэтому держим `floor`: минимальную строку, в которой может оказаться следующий блок.
+  let floor = 0;
+  for (const id of orderedIds) {
+    const block = blocks.find((b) => b.id === id);
+    if (!block) continue;
+    const gs = getResolvedGridSize(block, next[id], gridColumns);
+    const h = getGridRowSpan(block, gs, cellSize, gap, rowUnit);
+    const w = gs.colSpan;
+
+    if (id === priorityBlockId) {
+      // Уже размещён в выбранной пользователем точке. Если это секция, её фактическая
+      // позиция задаёт floor для последующих блоков.
+      if (block.type === "section") {
+        const placedRect = placed.find((p) => p.id === id);
+        if (placedRect) floor = Math.max(floor, placedRect.r0 + placedRect.h);
+      }
+      continue;
+    }
+
+    const anchor = next[id]?.anchorsByBreakpoint?.[bp];
+    const c0 = Math.max(0, Math.min(gridColumns - w, (anchor?.gridColumnStart ?? 1) - 1));
+
+    let r0 = floor;
+    while (true) {
+      const probe: Rect = { id, c0, r0, w, h };
+      const hasCollision = placed.some((p) => colsOverlap(probe, p) && rowsOverlap(probe, p));
+      if (!hasCollision) break;
+      r0 += 1;
+    }
+
+    writeEntry(id, block, c0, r0, w);
     placed.push({ id, c0, r0, w, h });
+
+    if (block.type === "section") {
+      floor = Math.max(floor, r0 + h);
+    }
   }
 
   return next;

@@ -55,7 +55,7 @@ export default function AddBlockGrid({ onCreated, nextSort }: { onCreated: (b: B
 
   return (
     <div className="card" style={{ padding: 16 }}>
-      <h3 className="muted" style={{ fontSize: 14, marginBottom: 10 }}>Добавить блок</h3>
+      <h3 className="muted" style={{ fontSize: 14, marginBottom: 10 }}>Добавить карточку</h3>
       <div className="grid">
         <Tile t="section" label="Заголовок" icon="section" />
         <Tile t="note" label="Заметка" icon="note" />

@@ -79,8 +79,12 @@ export function animateFlip(
       isCancelled = true;
       window.clearTimeout(timeout);
       for (const { el } of animations) {
-        el.style.transition = '';
+        // Мгновенно убираем transform без CSS-перехода,
+        // иначе getBoundingClientRect() вернёт промежуточную позицию.
+        el.style.transition = 'none';
         el.style.transform = '';
+        void el.offsetHeight; // force reflow — элемент в финальной позиции сразу
+        el.style.transition = ''; // восстанавливаем CSS-class-переход для будущих анимаций
       }
     },
   };
