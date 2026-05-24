@@ -290,7 +290,7 @@ test.describe("Редактор визитки", () => {
     await expect(page.locator(".editor-phone-preview-shell")).toBeVisible();
     await page.waitForTimeout(500);
 
-    await page.getByTestId("editor-preview-phone-toggle").click();
+    await page.getByTestId("editor-preview-desktop-toggle").click();
     await expect(page.locator(".editor-phone-preview-shell")).toHaveCount(0);
     await page.waitForTimeout(800);
 
