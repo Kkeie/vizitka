@@ -1462,33 +1462,56 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 </div>
               )}
               <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 26, background: "var(--border)", margin: "0 2px" }} />
-              <button
-                type="button"
-                onClick={() => setPreviewMode((prev) => (prev === "desktop" ? "phone" : "desktop"))}
-                title={previewMode === "phone" ? "Переключить на ПК" : "Переключить на телефон"}
-                aria-label={previewMode === "phone" ? "Переключить на ПК" : "Переключить на телефон"}
-                data-testid="editor-preview-phone-toggle"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 40,
-                  height: 32,
-                  padding: 0,
-                  background: previewMode === "phone" ? "#111" : "var(--accent)",
-                  border: "none",
-                  cursor: "pointer",
-                  borderRadius: 8,
-                  color: previewMode === "phone" ? "#fff" : "var(--text)",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                {previewMode === "phone" ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8"/><line x1="10" y1="17" x2="14" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="12.5" rx="1.8" stroke="currentColor" strokeWidth="1.8"/><line x1="8" y1="20" x2="16" y2="20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
-                )}
-              </button>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode("desktop")}
+                  title="ПК"
+                  aria-label="Переключить на ПК"
+                  aria-pressed={previewMode === "desktop"}
+                  data-testid="editor-preview-desktop-toggle"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 32,
+                    height: 32,
+                    padding: 0,
+                    background: previewMode === "desktop" ? "#111" : "var(--accent)",
+                    border: "none",
+                    cursor: "pointer",
+                    borderRadius: 8,
+                    color: previewMode === "desktop" ? "#fff" : "var(--text)",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="12.5" rx="1.8" stroke="currentColor" strokeWidth="1.8"/><line x1="8" y1="20" x2="16" y2="20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode("phone")}
+                  title="Телефон"
+                  aria-label="Переключить на телефон"
+                  aria-pressed={previewMode === "phone"}
+                  data-testid="editor-preview-phone-toggle"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 32,
+                    height: 32,
+                    padding: 0,
+                    background: previewMode === "phone" ? "#111" : "var(--accent)",
+                    border: "none",
+                    cursor: "pointer",
+                    borderRadius: 8,
+                    color: previewMode === "phone" ? "#fff" : "var(--text)",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.8"/><line x1="10" y1="17" x2="14" y2="17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                </button>
+              </div>
             </div>
           </div>
         )}
