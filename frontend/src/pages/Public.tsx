@@ -219,8 +219,11 @@ export default function PublicPage() {
 
   const gridColumns = GRID_COLUMNS[breakpoint];
   const gridGap = breakpoint === "mobile" ? 12 : 16;
+  // Cap cell width: at >=1200 the sidebar takes ~370px and right column is naturally tight;
+  // at 600-1199 the sidebar is hidden and right column = full container — without a cap,
+  // cells balloon to 350+px. 280 keeps cards close to the design baseline (180px).
   const { gridRef, cellSize } = useBentoGridMetrics(gridColumns, gridGap, {
-    maxCellSize: breakpoint === "mobile" ? 100 : undefined,
+    maxCellSize: breakpoint === "mobile" ? 100 : 280,
   });
 
   const effectiveSizes = React.useMemo(() => {
@@ -352,7 +355,14 @@ export default function PublicPage() {
               className="bento-grid bento-grid--public-fit"
               style={{
                 display: 'grid',
-                gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
+                // Use measured (cap-applied) cellSize as explicit column width so cards
+                // stop at maxCellSize instead of stretching to fill the container.
+                // Mobile keeps 1fr: the legacy 100px maxCellSize is for height math only,
+                // not actual card width, so cards still stretch to fill the screen.
+                gridTemplateColumns: cellSize && breakpoint !== 'mobile'
+                  ? `repeat(${gridColumns}, ${cellSize}px)`
+                  : `repeat(${gridColumns}, minmax(0, 1fr))`,
+                justifyContent: 'center',
                 ['--grid-columns' as string]: String(gridColumns),
                 ['--grid-gap' as string]: `${gridGap}px`,
                 ['--bento-cell-size' as string]: cellSize ? `${cellSize}px` : undefined,

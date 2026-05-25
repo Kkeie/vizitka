@@ -8,7 +8,10 @@ export function useBreakpoint(): Breakpoint {
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      if (width < 768) setBreakpoint('mobile');
+      // Mobile: 2 cols.
+      // Tablet: 3 cols, sidebar hidden (matches styles.css `.two-column-layout` collapse at <1200).
+      // Desktop: 4 cols with sidebar visible.
+      if (width < 600) setBreakpoint('mobile');
       else if (width < 1200) setBreakpoint('tablet');
       else setBreakpoint('desktop');
     };

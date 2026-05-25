@@ -34,9 +34,10 @@
   min-width: 0;
 }
 
-/* Обеспечиваем правильную работу sticky для первой колонки */
-/* Используем sticky вместо fixed, чтобы профиль не перекрывал элементы сверху */
-@media (min-width: 969px) {
+/* Сайдбар (профиль слева) виден только когда у grid 4 колонки — иначе правая колонка
+ * слишком узкая и карточки скачут в размере. См. GRID_COLUMNS в block-grid.ts и
+ * useBreakpoint: при <1200 переходим на tablet (3 col) и убираем сайдбар. */
+@media (min-width: 1200px) {
   /* Убираем transform и другие свойства, которые могут мешать sticky */
   .container,
   .two-column-layout,
@@ -85,12 +86,12 @@
   }
 }
 
-@media (max-width: 968px) {
+@media (max-width: 1199px) {
   .two-column-layout {
     grid-template-columns: 1fr;
     gap: 16px;
   }
-  
+
   /* На мобильных устройствах убираем fixed */
   .two-column-layout > div:first-child .profile-column,
   .two-column-layout .profile-column,
@@ -102,7 +103,7 @@
     max-height: none !important;
     overflow-y: visible !important;
   }
-  
+
   /* Placeholder скрыт на мобильных */
   .profile-placeholder {
     display: none !important;
@@ -264,7 +265,7 @@ a:hover{color:var(--primary-hover)}
   }
 }
 
-@media (max-width: 968px) {
+@media (max-width: 900px) {
   .container {
     max-width: 100% !important;
     width: 100% !important;
