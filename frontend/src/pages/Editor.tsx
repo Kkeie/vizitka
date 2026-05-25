@@ -280,7 +280,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   const currentGridColumns = GRID_COLUMNS[breakpoint];
   const currentGridGap = 16;
-  const { gridRef, cellSize } = useBentoGridMetrics(currentGridColumns, currentGridGap);
+  // Cap cell width so that, when sidebar is hidden and right column suddenly widens,
+  // cards don't balloon to absurd sizes. See block-grid.ts DEFAULT_BENTO_CELL_SIZE=180.
+  const maxCellSize = breakpoint === "mobile" ? undefined : 280;
+  const { gridRef, cellSize } = useBentoGridMetrics(currentGridColumns, currentGridGap, {
+    maxCellSize,
+  });
 
   const saveLayoutDebounced = useMemo(
     () =>
@@ -1473,7 +1478,13 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 }}
                 style={{
                     display: 'grid',
-                  gridTemplateColumns: `repeat(${currentGridColumns}, minmax(0, 1fr))`,
+                  // Use measured (already cap-applied) cellSize as the explicit column width.
+                  // With 1fr columns and a hidden sidebar, cards balloon past their natural
+                  // size; explicit width + justify-content: center keeps them sane.
+                  gridTemplateColumns: cellSize
+                    ? `repeat(${currentGridColumns}, ${cellSize}px)`
+                    : `repeat(${currentGridColumns}, minmax(0, 1fr))`,
+                  justifyContent: 'center',
                   gap: `${currentGridGap}px`,
                   gridAutoRows: `${BENTO_ROW_UNIT}px`,
                     gridAutoFlow: 'row',

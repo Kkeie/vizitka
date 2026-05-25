@@ -4,7 +4,7 @@ import { classifyMusic, YANDEX_MUSIC_IFRAME_HEIGHT_PX } from "./embed";
 
 export const GRID_COLUMNS: Record<Breakpoint, number> = {
   mobile: 2,
-  tablet: 2,
+  tablet: 3,
   desktop: 4,
 };
 
@@ -167,12 +167,16 @@ export function clientPointToGridAnchor(
   colSpan: number,
 ): BlockGridAnchor {
   const rect = gridEl.getBoundingClientRect();
-  const relX = clientX - rect.left;
-  const relY = clientY - rect.top;
   const cw =
     cellSize && cellSize > 0
       ? cellSize
       : (rect.width - gap * (gridColumns - 1)) / gridColumns;
+  // Grid is `justify-content: center`: when cellSize is capped, content is narrower
+  // than the container, so columns start at offsetX from the left edge.
+  const contentWidth = cw * gridColumns + gap * (gridColumns - 1);
+  const offsetX = Math.max(0, (rect.width - contentWidth) / 2);
+  const relX = clientX - rect.left - offsetX;
+  const relY = clientY - rect.top;
 
   const strideX = cw + gap;
   let col0 = Math.floor(Math.max(0, relX) / strideX);
