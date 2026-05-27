@@ -1705,16 +1705,18 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       )}
 
       {/* Фиксированная панель слева внизу: настройки + счётчик просмотров */}
-      {!showOnboardingPanel && previewMode !== "phone" && viewportBreakpoint !== "mobile" && (
+      {!showOnboardingPanel && previewMode !== "phone" && (
         <div
           style={{
             position: "fixed",
-            bottom: "24px",
-            left: "24px",
             display: "flex",
             alignItems: "center",
             gap: "8px",
             zIndex: 1000,
+            ...(window.innerWidth >= 700
+              ? { bottom: "24px", left: "24px" }
+              : { top: "24px", right: "24px" }
+            ),
           }}
         >
           {/* Кнопка настроек (оставляем как есть) */}
@@ -1800,7 +1802,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             setActiveInlineField(null);
             setInlineAnchor(null);
           }}
-          position="top"
+          position={window.innerWidth >= 700 ? "top" : "bottom"}
+          align={window.innerWidth >= 700 ? "left" : "right"}
           width={260}
         >
           <div style={{ display: "flex", flexDirection: "column"}}>
