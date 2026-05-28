@@ -1356,6 +1356,92 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               />
             ) : (
             <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%", position: "relative", minHeight: "100%" }}>
+              {/* Панель: настройки + счётчик просмотров */}
+              {!showOnboardingPanel && previewMode !== "phone" && (
+                <div
+                  className={window.innerWidth >= 700 ? undefined : "reveal reveal-in"}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    zIndex: 10,
+                    ...(window.innerWidth >= 700
+                      ? { position: "fixed", bottom: "24px", left: "24px" }
+                      : { position: "absolute", top: "0", right: "0" }
+                    ),
+                  }}
+                >
+                  <button
+                    data-menu-button="true"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      if (showProfileMenu) {
+                        setShowProfileMenu(false);
+                        setActiveInlineField(null);
+                        setInlineAnchor(null);
+                      } else {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setProfileMenuAnchor(rect);
+                        setShowProfileMenu(true);
+                      }
+                    }}
+                    style={{
+                      width: "40px",
+                      height: "40px",
+                      borderRadius: "50%",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "background 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "rgba(0,0,0,0.08)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    <svg width="28" height="28" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="10" y="15" width="30" height="3.5" rx="1.75" fill="black" />
+                      <circle cx="17.5" cy="16.75" r="5.5" fill="black" />
+                      <circle cx="17.5" cy="16.75" r="2.5" fill="white" />
+                      <rect x="10" y="26.5" width="30" height="3.5" rx="1.75" fill="black" />
+                      <circle cx="31.6" cy="28.25" r="5.5" fill="black" />
+                      <circle cx="31.6" cy="28.25" r="2.5" fill="white" />
+                    </svg>
+                  </button>
+
+                  <div style={{ width: 1, height: 24, background: "#ccc" }} />
+                  
+                  {todayViews !== null && (
+                    <div
+                      style={{
+                        background: "#f0f0f0",
+                        borderRadius: "20px",
+                        padding: "6px 14px",
+                        fontSize: "13px",
+                        fontWeight: 500,
+                        color: "#333",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        cursor: "pointer",
+                        transition: "background 0.2s",
+                      }}
+                      onClick={refreshViews}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#e6e6e6")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "#f0f0f0")}
+                      title="Просмотры за день"
+                    >
+                      <span>👁</span>
+                      <span>{todayViews}</span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="reveal reveal-in">
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", alignItems: "flex-start" }}>
                   <Avatar
@@ -1701,95 +1787,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             </div>
             <button className="btn" style={{ width: "100%" }} onClick={() => setShowQr(false)}>Закрыть</button>
           </div>
-        </div>
-      )}
-
-      {/* Фиксированная панель слева внизу: настройки + счётчик просмотров */}
-      {!showOnboardingPanel && previewMode !== "phone" && (
-        <div
-          style={{
-            position: "fixed",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            zIndex: 1000,
-            ...(window.innerWidth >= 700
-              ? { bottom: "24px", left: "24px" }
-              : { top: "24px", right: "24px" }
-            ),
-          }}
-        >
-          {/* Кнопка настроек (оставляем как есть) */}
-          <button
-            data-menu-button="true"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              if (showProfileMenu) {
-                setShowProfileMenu(false);
-                setActiveInlineField(null);
-                setInlineAnchor(null);
-              } else {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setProfileMenuAnchor(rect);
-                setShowProfileMenu(true);
-              }
-            }}
-            style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "50%",
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transition: "background 0.2s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(0,0,0,0.08)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            <svg width="28" height="28" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
-              <rect x="10" y="15" width="30" height="3.5" rx="1.75" fill="black" />
-              <circle cx="17.5" cy="16.75" r="5.5" fill="black" />
-              <circle cx="17.5" cy="16.75" r="2.5" fill="white" />
-              <rect x="10" y="26.5" width="30" height="3.5" rx="1.75" fill="black" />
-              <circle cx="31.6" cy="28.25" r="5.5" fill="black" />
-              <circle cx="31.6" cy="28.25" r="2.5" fill="white" />
-            </svg>
-          </button>
-
-          {/* Вертикальный разделитель */}
-          <div style={{ width: 1, height: 24, background: "#ccc" }} />
-          
-          {todayViews !== null && (
-            <div
-              style={{
-                background: "#f0f0f0",
-                borderRadius: "20px",
-                padding: "6px 14px",
-                fontSize: "13px",
-                fontWeight: 500,
-                color: "#333",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                cursor: "pointer",
-                transition: "background 0.2s",
-              }}
-              onClick={refreshViews}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "#e6e6e6")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "#f0f0f0")}
-              title="Просмотры за день"
-            >
-              <span>👁</span>
-              <span>{todayViews}</span>
-            </div>
-          )}
         </div>
       )}
 
