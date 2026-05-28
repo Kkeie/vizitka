@@ -74,6 +74,7 @@ import {
   DragEndEvent,
 } from "@dnd-kit/core";
 
+import { motion } from "framer-motion";
 import "../styles/drag-reorder.css";
 
 const DRAG_BOTTOM_EDGE_PX = 110;
@@ -169,6 +170,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const overflowToggleRef = useRef<HTMLButtonElement>(null);
   const [toolbarWidth, setToolbarWidth] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1400));
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+  const [overflowClosing, setOverflowClosing] = useState(false);
+  const overflowTimeoutRef = useRef<number | null>(null);
 
   const breakpoint: Breakpoint = previewMode === "phone" ? "mobile" : viewportBreakpoint;
 
@@ -405,7 +408,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       ) {
         return;
       }
-      setShowOverflowMenu(false);
+      setOverflowClosing(true);
+      overflowTimeoutRef.current = window.setTimeout(() => {
+        setShowOverflowMenu(false);
+        setOverflowClosing(false);
+        overflowTimeoutRef.current = null;
+      }, 150);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -1689,10 +1697,16 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 <button
                   key={type}
                   data-add-type={type}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAddBlockClick(type, e.currentTarget);
-                  }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddBlockClick(type, e.currentTarget);
+                              setOverflowClosing(true);
+                              overflowTimeoutRef.current = window.setTimeout(() => {
+                                setShowOverflowMenu(false);
+                                setOverflowClosing(false);
+                                overflowTimeoutRef.current = null;
+                              }, 150);
+                            }}
                   title={label}
                   style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 14 }}
                 >
@@ -1705,20 +1719,45 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                     ref={overflowToggleRef}
                     type="button"
                     onMouseDown={(e) => e.stopPropagation()}
-                    onClick={() => setShowOverflowMenu((prev) => !prev)}
+                    onClick={() => {
+                      if (overflowClosing) {
+                        if (overflowTimeoutRef.current) {
+                          clearTimeout(overflowTimeoutRef.current);
+                          overflowTimeoutRef.current = null;
+                        }
+                        setOverflowClosing(false);
+                        setShowOverflowMenu(true);
+                      } else if (showOverflowMenu) {
+                        setOverflowClosing(true);
+                        overflowTimeoutRef.current = window.setTimeout(() => {
+                          setShowOverflowMenu(false);
+                          setOverflowClosing(false);
+                          overflowTimeoutRef.current = null;
+                        }, 150);
+                      } else {
+                        setShowOverflowMenu(true);
+                      }
+                    }}
                     title="Еще"
                     data-testid="editor-overflow-toggle"
                     style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: showOverflowMenu ? "var(--ring)" : "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 16 }}
                   >
                     <span style={{ lineHeight: 1 }}>⋯</span>
                   </button>
-                  {showOverflowMenu && (
-                    <div
+                  {(showOverflowMenu || overflowClosing) && (
+                    <motion.div
+                      key="overflow-menu"
                       ref={overflowMenuRef}
-                      className="card"
                       data-testid="editor-overflow-menu"
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={
+                        overflowClosing
+                          ? { scale: 0, opacity: 0 }
+                          : { scale: 1, opacity: 1 }
+                      }
+                      transition={{ duration: 0.15, ease: overflowClosing ? "easeIn" : "easeOut" }}
                       onMouseDown={(e) => e.stopPropagation()}
-                      style={{ position: "absolute", bottom: "calc(100% + 10px)", right: 0, minWidth: 170, padding: 8, display: "flex", flexDirection: "column", gap: 4, zIndex: 1200, pointerEvents: "auto" }}
+                      style={{ position: "absolute", bottom: "calc(100% + 10px)", right: 0, minWidth: 170, padding: 8, display: "flex", flexDirection: "column", gap: 4, zIndex: 1200, pointerEvents: "auto", transformOrigin: "bottom right", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow)" }}
                     >
                       {overflowActions.map(({ type, label, icon }) => (
                         <button
@@ -1727,7 +1766,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                           onClick={(e) => {
                             e.stopPropagation();
                             handleAddBlockClick(type, e.currentTarget);
-                            setShowOverflowMenu(false);
+                            setOverflowClosing(true);
+                            overflowTimeoutRef.current = window.setTimeout(() => {
+                              setShowOverflowMenu(false);
+                              setOverflowClosing(false);
+                              overflowTimeoutRef.current = null;
+                            }, 150);
                           }}
                           style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: "none", borderRadius: "var(--radius-sm)", background: "transparent", color: "var(--text)", cursor: "pointer", fontSize: 13, fontWeight: 500, textAlign: "left" }}
                         >
@@ -1735,7 +1779,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                           <span>{label}</span>
                         </button>
                       ))}
-                    </div>
+                    </motion.div>
                   )}
                 </div>
               )}
