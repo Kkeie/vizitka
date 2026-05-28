@@ -160,7 +160,10 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [inlineInput, setInlineInput] = useState<{
     type: 'link' | 'video' | 'music';
     buttonRect: DOMRect;
+    exitButtonRect?: DOMRect;
   } | null>(null);
+  const [inlineClosing, setInlineClosing] = useState(false);
+  const pendingInlineActionRef = useRef<(() => void) | null>(null);
   const bottomBarRef = useRef<HTMLDivElement>(null);
   const overflowMenuRef = useRef<HTMLDivElement>(null);
   const overflowToggleRef = useRef<HTMLButtonElement>(null);
@@ -398,7 +401,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       const target = event.target as Node;
       if (
         overflowToggleRef.current?.contains(target) ||
-        bottomBarRef.current?.contains(target) ||
         overflowMenuRef.current?.contains(target)
       ) {
         return;
@@ -1042,8 +1044,25 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   }, [blocks.length]);
 
   const handleAddWithInline = (type: 'link' | 'video' | 'music', buttonElement: HTMLElement) => {
+    if (inlineClosing) return;
+
     const rect = buttonElement.getBoundingClientRect();
-    setInlineInput({ type, buttonRect: rect });
+    let exitButtonRect: DOMRect | undefined;
+    if (buttonElement.closest('[data-testid="editor-overflow-menu"]') && overflowToggleRef.current) {
+      exitButtonRect = overflowToggleRef.current.getBoundingClientRect();
+    }
+
+    if (inlineInput?.type === type) {
+      pendingInlineActionRef.current = () => setInlineInput(null);
+      setInlineClosing(true);
+      return;
+    }
+    if (inlineInput) {
+      pendingInlineActionRef.current = () => setInlineInput({ type, buttonRect: rect, exitButtonRect });
+      setInlineClosing(true);
+      return;
+    }
+    setInlineInput({ type, buttonRect: rect, exitButtonRect });
   };
 
   const handleInlineSubmit = async (value: string) => {
@@ -1092,6 +1111,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       setToast("Не удалось создать карточку");
     }
     setInlineInput(null);
+    setInlineClosing(false);
   };
 
   const handleAddBlockClick = useCallback((type: BlockType, sourceButton?: HTMLElement) => {
@@ -1103,10 +1123,20 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       const btn = sourceButton ?? (document.querySelector(`[data-add-type="${type}"]`) as HTMLElement | null);
       if (btn) handleAddWithInline(type, btn);
     } else {
+      if (inlineInput) {
+        if (inlineClosing) return;
+        pendingInlineActionRef.current = () => {
+          setInlineInput(null);
+          setModalType(type);
+          setModalOpen(true);
+        };
+        setInlineClosing(true);
+        return;
+      }
       setModalType(type);
       setModalOpen(true);
     }
-  }, [createEmptyBlock, handleAddWithInline]);
+  }, [createEmptyBlock, handleAddWithInline, inlineInput, inlineClosing]);
 
   async function handleBlockSubmit(data: Partial<Block>) {
     try {
@@ -1659,7 +1689,10 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 <button
                   key={type}
                   data-add-type={type}
-                  onClick={(e) => handleAddBlockClick(type, e.currentTarget)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddBlockClick(type, e.currentTarget);
+                  }}
                   title={label}
                   style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 14 }}
                 >
@@ -1691,8 +1724,9 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                         <button
                           key={type}
                           type="button"
-                          onClick={() => {
-                            handleAddBlockClick(type, overflowToggleRef.current ?? undefined);
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddBlockClick(type, e.currentTarget);
                             setShowOverflowMenu(false);
                           }}
                           style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: "none", borderRadius: "var(--radius-sm)", background: "transparent", color: "var(--text)", cursor: "pointer", fontSize: 13, fontWeight: 500, textAlign: "left" }}
@@ -1762,7 +1796,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       </div>
 
       {modalType && <BlockModal type={modalType} isOpen={modalOpen} onClose={() => { setModalOpen(false); setModalType(null); }} onSubmit={handleBlockSubmit} />}
-      {inlineInput && <InlineInputCard buttonRect={inlineInput.buttonRect} onSubmit={handleInlineSubmit} onCancel={() => setInlineInput(null)} placeholder={inlineInput.type === 'link' ? 'https://example.com' : inlineInput.type === 'video' ? 'https://youtu.be/...' : 'https://music.yandex.ru/...'} buttonText="Добавить" type={inlineInput.type === 'link' ? 'url' : 'text'} validate={(val) => {
+      {inlineInput && <InlineInputCard key={inlineInput.type} closing={inlineClosing} buttonRect={inlineInput.buttonRect} exitButtonRect={inlineInput.exitButtonRect} onSubmit={handleInlineSubmit} onCancel={() => { const action = pendingInlineActionRef.current; pendingInlineActionRef.current = null; setInlineClosing(false); setInlineInput(null); action?.(); }} placeholder={inlineInput.type === 'link' ? 'https://example.com' : inlineInput.type === 'video' ? 'https://youtu.be/...' : 'https://music.yandex.ru/...'} buttonText="Добавить" type={inlineInput.type === 'link' ? 'url' : 'text'} validate={(val) => {
         if (inlineInput.type === "link") {
           const result = validateLinkInput(val);
           return result.ok ? true : (result.message || "Неверная ссылка");

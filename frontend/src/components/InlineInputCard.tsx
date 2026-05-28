@@ -1,9 +1,12 @@
-import React, { useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useState } from 'react';
+import { motion } from "framer-motion";
 
 interface InlineInputCardProps {
   buttonRect: DOMRect;
+  exitButtonRect?: DOMRect;
   onSubmit: (value: string) => void;
   onCancel: () => void;
+  closing?: boolean;
   placeholder?: string;
   buttonText?: string;
   type?: 'text' | 'url';
@@ -12,57 +15,100 @@ interface InlineInputCardProps {
 
 export default function InlineInputCard({
   buttonRect,
+  exitButtonRect,
   onSubmit,
   onCancel,
+  closing = false,
   placeholder = 'Введите URL...',
   buttonText = 'Добавить',
   type = 'url',
   validate,
 }: InlineInputCardProps) {
-  const [value, setValue] = React.useState('');
-  const [error, setError] = React.useState<string | null>(null);
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [exiting, setExiting] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, offsetX: 0, offsetY: 0, exitOffsetX: 0, exitOffsetY: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
-        onCancel();
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [onCancel]);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+  const prevClosingRef = useRef(closing);
 
   useLayoutEffect(() => {
-    if (!cardRef.current) return;
+    if (!cardRef.current || ready) return;
     const cardRect = cardRef.current.getBoundingClientRect();
-    let top = buttonRect.top - cardRect.height - 8;
-    let left = buttonRect.left + buttonRect.width / 2 - cardRect.width / 2;
-
-    // Корректировка, чтобы не выходила за пределы экрана
     const padding = 8;
+    let top = buttonRect.top - cardRect.height - 8;
     if (top < padding) {
       top = buttonRect.bottom + 8;
     }
-    if (left < padding) {
-      left = padding;
-    }
+    let left = buttonRect.left + buttonRect.width / 2 - cardRect.width / 2;
+    if (left < padding) left = padding;
     if (left + cardRect.width > window.innerWidth - padding) {
       left = window.innerWidth - cardRect.width - padding;
     }
 
-    cardRef.current.style.top = `${top}px`;
-    cardRef.current.style.left = `${left}px`;
-  }, [buttonRect]);
+    const btnCenterX = buttonRect.left + buttonRect.width / 2;
+    const btnCenterY = buttonRect.top + buttonRect.height / 2;
+    const finalCenterX = left + cardRect.width / 2;
+    const finalCenterY = top + cardRect.height / 2;
+
+    let exitOffsetX = btnCenterX - finalCenterX;
+    let exitOffsetY = btnCenterY - finalCenterY;
+    if (exitButtonRect) {
+      const exitCenterX = exitButtonRect.left + exitButtonRect.width / 2;
+      const exitCenterY = exitButtonRect.top + exitButtonRect.height / 2;
+      exitOffsetX = exitCenterX - finalCenterX;
+      exitOffsetY = exitCenterY - finalCenterY;
+    }
+
+    setPos({
+      top,
+      left,
+      offsetX: btnCenterX - finalCenterX,
+      offsetY: btnCenterY - finalCenterY,
+      exitOffsetX,
+      exitOffsetY,
+    });
+    setReady(true);
+  }, [buttonRect, exitButtonRect, ready]);
+
+  useEffect(() => {
+    if (ready) inputRef.current?.focus();
+  }, [ready]);
+
+  useEffect(() => {
+    if (closing && !prevClosingRef.current) {
+      prevClosingRef.current = true;
+      setExiting(true);
+      setTimeout(() => onCancelRef.current(), 150);
+    } else if (!closing) {
+      prevClosingRef.current = false;
+    }
+  }, [closing]);
+
+  useEffect(() => {
+    if (!ready || exiting || !cardRef.current) return;
+    const el = cardRef.current;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-add-type]')) return;
+      if (!el.contains(event.target as Node)) {
+        setExiting(true);
+        setTimeout(() => onCancel(), 150);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [onCancel, exiting, ready]);
+
+  const handleCancel = () => {
+    setExiting(true);
+    setTimeout(() => onCancel(), 150);
+  };
 
   const handleSubmit = () => {
+    if (exiting) return;
     if (value.trim() === '') return;
     if (validate) {
       const result = validate(value);
@@ -72,7 +118,10 @@ export default function InlineInputCard({
       }
     }
     setError(null);
-    onSubmit(value.trim());
+    setExiting(true);
+    setTimeout(() => {
+      onSubmit(value.trim());
+    }, 150);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -80,27 +129,12 @@ export default function InlineInputCard({
       e.preventDefault();
       handleSubmit();
     } else if (e.key === 'Escape') {
-      onCancel();
+      handleCancel();
     }
   };
 
-  return (
-    <div
-      ref={cardRef}
-      style={{
-        position: 'fixed',
-        zIndex: 1100,
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-sm)',
-        padding: '12px',
-        boxShadow: 'var(--shadow-lg)',
-        width: 'min(400px, calc(100vw - 16px))',
-        minWidth: 'min(320px, calc(100vw - 16px))',
-        maxWidth: 'calc(100vw - 16px)',
-      }}
-      onPointerDown={(e) => e.stopPropagation()}
-    >
+  const content = (
+    <>
       <input
         ref={inputRef}
         type={type}
@@ -139,7 +173,7 @@ export default function InlineInputCard({
       )}
       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
         <button
-          onClick={onCancel}
+          onClick={handleCancel}
           style={{
             padding: '6px 12px',
             fontSize: '12px',
@@ -167,6 +201,60 @@ export default function InlineInputCard({
           {buttonText}
         </button>
       </div>
-    </div>
+    </>
+  );
+
+  if (!ready) {
+    return (
+      <div
+        ref={cardRef}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          visibility: 'hidden',
+          zIndex: 1100,
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '12px',
+          width: 'min(400px, calc(100vw - 16px))',
+          minWidth: 'min(320px, calc(100vw - 16px))',
+          maxWidth: 'calc(100vw - 16px)',
+        }}
+      >
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      key="animated"
+      ref={cardRef}
+      style={{
+        position: 'fixed',
+        top: `${pos.top}px`,
+        left: `${pos.left}px`,
+        zIndex: 1100,
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-sm)',
+        padding: '12px',
+        boxShadow: 'var(--shadow-lg)',
+        width: 'min(400px, calc(100vw - 16px))',
+        minWidth: 'min(320px, calc(100vw - 16px))',
+        maxWidth: 'calc(100vw - 16px)',
+      }}
+      initial={{ x: pos.offsetX, y: pos.offsetY, scale: 0, opacity: 0 }}
+      animate={exiting
+        ? { x: pos.exitOffsetX, y: pos.exitOffsetY, scale: 0, opacity: 0 }
+        : { x: 0, y: 0, scale: 1, opacity: 1 }
+      }
+      transition={exiting ? { duration: 0.15, ease: "easeIn" } : { duration: 0.15, ease: "easeOut" }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {content}
+    </motion.div>
   );
 }
