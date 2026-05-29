@@ -1404,7 +1404,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                     display: "flex",
                     alignItems: "center",
                     gap: "8px",
-                    zIndex: 10,
+                    zIndex: 30,
                     ...(window.innerWidth >= 700
                       ? { position: "fixed", bottom: "24px", left: "24px" }
                       : { position: "absolute", top: "0", right: "0" }
