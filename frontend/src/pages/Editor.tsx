@@ -146,6 +146,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   // Состояния для меню и inline-редактирования профиля
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [menuClosing, setMenuClosing] = useState(false);
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<DOMRect | null>(null);
    const [activeInlineField, setActiveInlineField] = useState<"username" | "email" | null>(null);
   const [inlineAnchor, setInlineAnchor] = useState<DOMRect | null>(null);
@@ -430,7 +431,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       setActiveInlineField(null);
       setInlineAnchor(null);
       setShowPasswordCard(false);
-      setShowProfileMenu(false);
+      setMenuClosing(true);
     };
     document.addEventListener("mousedown", handleCloseCards);
     return () => document.removeEventListener("mousedown", handleCloseCards);
@@ -441,7 +442,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       if (e.key === "Escape") {
         setActiveInlineField(null);
         setShowPasswordCard(false);
-        setShowProfileMenu(false);
+        setMenuClosing(true);
       }
     };
     document.addEventListener("keydown", handleEscape);
@@ -1416,9 +1417,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       if (showProfileMenu) {
-                        setShowProfileMenu(false);
-                        setActiveInlineField(null);
-                        setInlineAnchor(null);
+                        setMenuClosing(true);
                       } else {
                         const rect = e.currentTarget.getBoundingClientRect();
                         setProfileMenuAnchor(rect);
@@ -1872,11 +1871,13 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       )}
 
       {/* Главное меню редактирования — появляется над кнопкой */}
-      {showProfileMenu && profileMenuAnchor && (
+      {(showProfileMenu || menuClosing) && profileMenuAnchor && (
         <MenuCard
           anchorRect={profileMenuAnchor}
+          closing={menuClosing}
           onClose={() => {
             setShowProfileMenu(false);
+            setMenuClosing(false);
             setActiveInlineField(null);
             setInlineAnchor(null);
           }}
