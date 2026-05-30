@@ -1833,6 +1833,10 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               <div>Изменить пароль</div>
             </MenuItem>
             <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
+            <MenuItem onClick={() => { window.open("https://forms.gle/Cp3xcB3FK8kXTYc98", "_blank", "noopener,noreferrer"); setShowProfileMenu(false); }}>
+              <div>Оставить обратную связь</div>
+            </MenuItem>
+            <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
             <MenuItem onClick={() => { onLogout(); }}>
               <div>Выйти из аккаунта</div>
             </MenuItem>
