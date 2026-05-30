@@ -68,3 +68,4 @@ Thumbs.db
 
 # Playwright — снимки для ручного просмотра (без эталонов)
 frontend/e2e/screenshots/
+/.playwright-mcp/
