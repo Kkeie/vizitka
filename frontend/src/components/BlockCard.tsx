@@ -510,7 +510,7 @@ export default function BlockCard({
             loading="lazy"
             decoding="async"
             draggable={showEditorHeader ? false : undefined}
-            style={{ width: "100%", height: "100%", objectFit: "contain" }}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         </div>
       )}
