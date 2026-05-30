@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useDraggable, useDndMonitor } from '@dnd-kit/core';
 import type { BlockGridAnchor, BlockGridSize, NoteTextStyle, Block } from '../api';
 import BlockCard from './BlockCard';
-import { clampGridSize, getGridRowSpan, getResolvedGridSize } from '../lib/block-grid';
+import { BENTO_ROW_UNIT, clampGridSize, getGridRowSpan, getResolvedGridSize } from '../lib/block-grid';
 import SizeMenu from './SizeMenu';
 import TextStyleMenu from './TextStyleMenu';
 import SearchInputCard from './SearchInputCard';
@@ -16,6 +16,7 @@ interface DraggableBlockCardProps {
   gridColumns: number;
   cellSize: number | null;
   gridGap: number;
+  rowUnit?: number;
   onGridSizeChange?: (size: BlockGridSize | null) => void;
   gridAnchor?: BlockGridAnchor | null;
   onResizeEnd?: () => void;
@@ -29,6 +30,7 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
   gridColumns,
   cellSize,
   gridGap,
+  rowUnit = BENTO_ROW_UNIT,
   onGridSizeChange,
   gridAnchor,
   onResizeEnd,
@@ -38,7 +40,7 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
   });
 
   const resolvedGridSize = getResolvedGridSize(block, gridSize, gridColumns);
-  const resolvedRowSpan = getGridRowSpan(block, resolvedGridSize, cellSize, gridGap);
+  const resolvedRowSpan = getGridRowSpan(block, resolvedGridSize, cellSize, gridGap, rowUnit);
   const isSection = block.type === 'section';
   const isNote = block.type === 'note';
   const isMap = block.type === 'map';

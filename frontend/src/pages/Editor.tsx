@@ -36,11 +36,11 @@ import { useBreakpoint, Breakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
 import { getSocialInfo } from "../lib/social-preview";
 import {
-  BENTO_ROW_UNIT,
   GRID_COLUMNS,
   assignSparseAnchorsForBreakpoint,
   clientPointToGridAnchor,
   flattenLayoutIds,
+  getDynamicRowUnit,
   getGridRowSpan,
   getPersistedGridSpans,
   getResolvedGridSize,
@@ -286,6 +286,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const { gridRef, cellSize } = useBentoGridMetrics(currentGridColumns, currentGridGap, {
     maxCellSize,
   });
+  const rowUnit = getDynamicRowUnit(cellSize, currentGridGap);
 
   const saveLayoutDebounced = useMemo(
     () =>
@@ -357,7 +358,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           currentGridColumns,
           cellSize,
           currentGridGap,
-          BENTO_ROW_UNIT,
+          rowUnit,
           { onlyMissing: true },
         );
         const resolved = resolveAnchorOverlaps(
@@ -368,6 +369,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           currentGridColumns,
           cellSize,
           currentGridGap,
+          rowUnit,
         );
         if (JSON.stringify(resolved) === JSON.stringify(prev)) return prev;
         saveBlockSizesDebounced(resolved);
@@ -525,7 +527,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       const baseSizes = originalBlockSizesRef.current;
       const gs = getResolvedGridSize(block, baseSizes[draggedId], currentGridColumns);
       const anchor = clientPointToGridAnchor(
-        cursorX, cursorY, gridEl, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT, gs.colSpan,
+        cursorX, cursorY, gridEl, currentGridColumns, cellSize, currentGridGap, rowUnit, gs.colSpan,
       );
       const maxStartCol = currentGridColumns - gs.colSpan + 1;
       if (anchor.gridColumnStart > maxStartCol) anchor.gridColumnStart = Math.max(1, maxStartCol);
@@ -543,12 +545,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         },
       };
       const assigned = assignSparseAnchorsForBreakpoint(
-        currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
+        currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, rowUnit,
         { onlyMissing: true, priorityBlockId: draggedId },
       );
       const resolved = resolveAnchorOverlaps(
         assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap,
-        BENTO_ROW_UNIT, draggedId,
+        rowUnit, draggedId,
       );
       return { anchor, resolved };
     },
@@ -789,12 +791,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       };
       const beforeRects = measureBlockRects(currentOrder);
       let assigned = assignSparseAnchorsForBreakpoint(
-        currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
+        currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, rowUnit,
         { onlyMissing: true, priorityBlockId: id }
       );
       let resolved = resolveAnchorOverlaps(
         assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap,
-        BENTO_ROW_UNIT, id,
+        rowUnit, id,
       );
       setBlockSizes(resolved);
       syncLayoutFromBlockSizes(resolved); // синхронизация
@@ -833,12 +835,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       },
     };
     let assigned = assignSparseAnchorsForBreakpoint(
-      currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, BENTO_ROW_UNIT,
+      currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, rowUnit,
       { onlyMissing: true, priorityBlockId: id }
     );
     let resolved = resolveAnchorOverlaps(
       assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap,
-      BENTO_ROW_UNIT, id,
+      rowUnit, id,
     );
     setBlockSizes(resolved);
     syncLayoutFromBlockSizes(resolved); // синхронизация
@@ -928,7 +930,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             const anchor = prevSizes[block.id]?.anchorsByBreakpoint?.[bp];
             if (!anchor) continue;
             const gs = getResolvedGridSize(block, prevSizes[block.id], cols);
-            const h = getGridRowSpan(block, gs, cellSize, currentGridGap);
+            const h = getGridRowSpan(block, gs, cellSize, currentGridGap, rowUnit);
             const blockBottom = anchor.gridRowStart - 1 + h;
             if (blockBottom > bottomRow) bottomRow = blockBottom;
           }
@@ -937,7 +939,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           let row = bottomRow;
           for (const newBlock of createdBlocks) {
             const gs = getResolvedGridSize(newBlock, null, cols);
-            const h = getGridRowSpan(newBlock, gs, cellSize, currentGridGap);
+            const h = getGridRowSpan(newBlock, gs, cellSize, currentGridGap, rowUnit);
             const prevEntry = nextSizes[newBlock.id];
             const persisted = getPersistedGridSpans(newBlock, prevEntry);
             nextSizes[newBlock.id] = {
@@ -1572,7 +1574,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                     : `repeat(${currentGridColumns}, minmax(0, 1fr))`,
                   justifyContent: 'center',
                   gap: `${currentGridGap}px`,
-                  gridAutoRows: `${BENTO_ROW_UNIT}px`,
+                  gridAutoRows: `${rowUnit}px`,
                     gridAutoFlow: 'row',
                   paddingBottom: editorCanvasPadBottom,
                     boxSizing: 'border-box',
@@ -1592,6 +1594,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                           gridColumns={currentGridColumns}
                           cellSize={isDragging && dragCellSize !== null ? dragCellSize : cellSize}
                           gridGap={currentGridGap}
+                          rowUnit={rowUnit}
                           gridSize={gridSize}
                           gridAnchor={anchor}
                           onGridSizeChange={(dimensions) => handleBlockDimensionsChange(block.id, dimensions)}

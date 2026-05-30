@@ -5,10 +5,10 @@ import BlockCard from "../components/BlockCard";
 import { useBreakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
 import {
-  BENTO_ROW_UNIT,
   GRID_COLUMNS,
   assignSparseAnchorsForBreakpoint,
   flattenLayoutIds,
+  getDynamicRowUnit,
   getGridRowSpan,
   getResolvedGridSize,
   resolveAnchorOverlaps,
@@ -223,8 +223,9 @@ export default function PublicPage() {
   // at 600-1199 the sidebar is hidden and right column = full container — without a cap,
   // cells balloon to 350+px. 280 keeps cards close to the design baseline (180px).
   const { gridRef, cellSize } = useBentoGridMetrics(gridColumns, gridGap, {
-    maxCellSize: breakpoint === "mobile" ? 100 : 280,
+    maxCellSize: 280,
   });
+  const rowUnit = getDynamicRowUnit(cellSize, gridGap);
 
   const effectiveSizes = React.useMemo(() => {
     const assigned = assignSparseAnchorsForBreakpoint(
@@ -357,18 +358,16 @@ export default function PublicPage() {
                 display: 'grid',
                 // Use measured (cap-applied) cellSize as explicit column width so cards
                 // stop at maxCellSize instead of stretching to fill the container.
-                // Mobile keeps 1fr: the legacy 100px maxCellSize is for height math only,
-                // not actual card width, so cards still stretch to fill the screen.
-                gridTemplateColumns: cellSize && breakpoint !== 'mobile'
+                gridTemplateColumns: cellSize
                   ? `repeat(${gridColumns}, ${cellSize}px)`
                   : `repeat(${gridColumns}, minmax(0, 1fr))`,
                 justifyContent: 'center',
                 ['--grid-columns' as string]: String(gridColumns),
                 ['--grid-gap' as string]: `${gridGap}px`,
                 ['--bento-cell-size' as string]: cellSize ? `${cellSize}px` : undefined,
-                ['--bento-row-unit' as string]: `${BENTO_ROW_UNIT}px`,
+                ['--bento-row-unit' as string]: `${rowUnit}px`,
                 gap: `${gridGap}px`,
-                gridAutoRows: `${BENTO_ROW_UNIT}px`,
+                gridAutoRows: `${rowUnit}px`,
                 gridAutoFlow: 'row',
               }}
             >
@@ -377,7 +376,7 @@ export default function PublicPage() {
                 if (!block) return null;
 
                 const gridSize = getResolvedGridSize(block, effectiveSizes[block.id], gridColumns);
-                const resolvedRowSpan = getGridRowSpan(block, gridSize, cellSize, gridGap);
+                const resolvedRowSpan = getGridRowSpan(block, gridSize, cellSize, gridGap, rowUnit);
                 const anchor = effectiveSizes[block.id]?.anchorsByBreakpoint?.[breakpoint];
 
                 return (

@@ -155,6 +155,22 @@ export function getCellRowMicroSteps(
   return Math.max(1, Math.ceil((cell + gap) / (rowUnit + gap)));
 }
 
+/**
+ * Вычисляет динамическую высоту микро-строки так, чтобы ровно `step` строк
+ * занимали точно `cellSize` пикселей (с учётом gap между строками).
+ * Это гарантирует, что ячейка 1×1 всегда квадратная.
+ */
+export function getDynamicRowUnit(
+  cellSize: number | null,
+  gap: number,
+  baseRowUnit = BENTO_ROW_UNIT,
+): number {
+  if (!cellSize || cellSize <= 0) return baseRowUnit;
+  const step = Math.round((cellSize + gap) / (baseRowUnit + gap));
+  if (step <= 0) return baseRowUnit;
+  return (cellSize + gap) / step - gap;
+}
+
 /** Координаты курсора → якорь сетки (линии 1-based), снапом по cell-row */
 export function clientPointToGridAnchor(
   clientX: number,
@@ -643,9 +659,7 @@ export function getBlockHeightPx(
     return SECTION_BLOCK_HEIGHT;
   }
 
-  const measuredCellSize = cellSize && cellSize > 0 ? cellSize : DEFAULT_BENTO_CELL_SIZE;
-  // Keep baseline card size on wider viewports; only shrink on narrow ones.
-  const safeCellSize = Math.min(measuredCellSize, DEFAULT_BENTO_CELL_SIZE);
+  const safeCellSize = cellSize && cellSize > 0 ? cellSize : DEFAULT_BENTO_CELL_SIZE;
   let h = gridSize.rowSpan * safeCellSize + Math.max(0, gridSize.rowSpan - 1) * gap;
 
   if (block.type === "music" && block.musicEmbed) {
