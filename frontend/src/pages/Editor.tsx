@@ -74,6 +74,7 @@ import {
   DragEndEvent,
 } from "@dnd-kit/core";
 
+import { motion, AnimatePresence } from "framer-motion";
 import "../styles/drag-reorder.css";
 
 const DRAG_BOTTOM_EDGE_PX = 110;
@@ -145,13 +146,19 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   // Состояния для меню и inline-редактирования профиля
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [menuClosing, setMenuClosing] = useState(false);
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<DOMRect | null>(null);
-   const [activeInlineField, setActiveInlineField] = useState<"username" | "email" | null>(null);
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const exitToRef = useRef<DOMRect | null>(null);
+  const showProfileMenuRef = useRef(showProfileMenu);
+  const [inlineEditClosing, setInlineEditClosing] = useState(false);
+  const [activeInlineField, setActiveInlineField] = useState<"username" | "email" | null>(null);
   const [inlineAnchor, setInlineAnchor] = useState<DOMRect | null>(null);
   const [tempName, setTempName] = useState("");
   const [tempBio, setTempBio] = useState("");
 
   const [showPasswordCard, setShowPasswordCard] = useState(false);
+  const [passwordCardClosing, setPasswordCardClosing] = useState(false);
   const [passwordAnchor, setPasswordAnchor] = useState<DOMRect | null>(null);
 
   const [todayViews, setTodayViews] = useState<number | null>(null);
@@ -160,12 +167,17 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [inlineInput, setInlineInput] = useState<{
     type: 'link' | 'video' | 'music';
     buttonRect: DOMRect;
+    exitButtonRect?: DOMRect;
   } | null>(null);
+  const [inlineClosing, setInlineClosing] = useState(false);
+  const pendingInlineActionRef = useRef<(() => void) | null>(null);
   const bottomBarRef = useRef<HTMLDivElement>(null);
   const overflowMenuRef = useRef<HTMLDivElement>(null);
   const overflowToggleRef = useRef<HTMLButtonElement>(null);
   const [toolbarWidth, setToolbarWidth] = useState(() => (typeof window !== "undefined" ? window.innerWidth : 1400));
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
+  const [overflowClosing, setOverflowClosing] = useState(false);
+  const overflowTimeoutRef = useRef<number | null>(null);
 
   const breakpoint: Breakpoint = previewMode === "phone" ? "mobile" : viewportBreakpoint;
 
@@ -335,6 +347,9 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     blocksRef.current = blocks;
   }, [blocks]);
+  useEffect(() => {
+    showProfileMenuRef.current = showProfileMenu;
+  }, [showProfileMenu]);
 
   /**
    * При смене ширины сетки `cellSize` и `getGridRowSpan` меняются, а `gridRowStart` в state остаётся
@@ -398,12 +413,16 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       const target = event.target as Node;
       if (
         overflowToggleRef.current?.contains(target) ||
-        bottomBarRef.current?.contains(target) ||
         overflowMenuRef.current?.contains(target)
       ) {
         return;
       }
-      setShowOverflowMenu(false);
+      setOverflowClosing(true);
+      overflowTimeoutRef.current = window.setTimeout(() => {
+        setShowOverflowMenu(false);
+        setOverflowClosing(false);
+        overflowTimeoutRef.current = null;
+      }, 150);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -417,26 +436,27 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         target.closest('[data-menu-item]') ||
         target.closest('[data-menu-button]')
       ) return;
-      setActiveInlineField(null);
-      setInlineAnchor(null);
-      setShowPasswordCard(false);
-      setShowProfileMenu(false);
+      exitToRef.current = settingsBtnRef.current?.getBoundingClientRect() ?? null;
+      if (activeInlineField) setInlineEditClosing(true);
+      if (showPasswordCard) setPasswordCardClosing(true);
+      if (showProfileMenuRef.current) setMenuClosing(true);
     };
     document.addEventListener("mousedown", handleCloseCards);
     return () => document.removeEventListener("mousedown", handleCloseCards);
-  }, []);
+  }, [activeInlineField, showPasswordCard]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setActiveInlineField(null);
-        setShowPasswordCard(false);
-        setShowProfileMenu(false);
+        exitToRef.current = settingsBtnRef.current?.getBoundingClientRect() ?? null;
+        if (activeInlineField) setInlineEditClosing(true);
+        if (showPasswordCard) setPasswordCardClosing(true);
+        if (showProfileMenuRef.current) setMenuClosing(true);
       }
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, []);
+  }, [activeInlineField, showPasswordCard]);
 
   useEffect(() => {
     getTodayViews()
@@ -1042,8 +1062,25 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   }, [blocks.length]);
 
   const handleAddWithInline = (type: 'link' | 'video' | 'music', buttonElement: HTMLElement) => {
+    if (inlineClosing) return;
+
     const rect = buttonElement.getBoundingClientRect();
-    setInlineInput({ type, buttonRect: rect });
+    let exitButtonRect: DOMRect | undefined;
+    if (buttonElement.closest('[data-testid="editor-overflow-menu"]') && overflowToggleRef.current) {
+      exitButtonRect = overflowToggleRef.current.getBoundingClientRect();
+    }
+
+    if (inlineInput?.type === type) {
+      pendingInlineActionRef.current = () => setInlineInput(null);
+      setInlineClosing(true);
+      return;
+    }
+    if (inlineInput) {
+      pendingInlineActionRef.current = () => setInlineInput({ type, buttonRect: rect, exitButtonRect });
+      setInlineClosing(true);
+      return;
+    }
+    setInlineInput({ type, buttonRect: rect, exitButtonRect });
   };
 
   const handleInlineSubmit = async (value: string) => {
@@ -1092,6 +1129,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       setToast("Не удалось создать карточку");
     }
     setInlineInput(null);
+    setInlineClosing(false);
   };
 
   const handleAddBlockClick = useCallback((type: BlockType, sourceButton?: HTMLElement) => {
@@ -1103,10 +1141,20 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       const btn = sourceButton ?? (document.querySelector(`[data-add-type="${type}"]`) as HTMLElement | null);
       if (btn) handleAddWithInline(type, btn);
     } else {
+      if (inlineInput) {
+        if (inlineClosing) return;
+        pendingInlineActionRef.current = () => {
+          setInlineInput(null);
+          setModalType(type);
+          setModalOpen(true);
+        };
+        setInlineClosing(true);
+        return;
+      }
       setModalType(type);
       setModalOpen(true);
     }
-  }, [createEmptyBlock, handleAddWithInline]);
+  }, [createEmptyBlock, handleAddWithInline, inlineInput, inlineClosing]);
 
   async function handleBlockSubmit(data: Partial<Block>) {
     try {
@@ -1361,12 +1409,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               {/* Панель: настройки + счётчик просмотров */}
               {!showOnboardingPanel && previewMode !== "phone" && (
                 <div
-                  className={window.innerWidth >= 700 ? undefined : "reveal reveal-in"}
+                  className="settings-entrance"
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "8px",
-                    zIndex: 10,
+                    zIndex: 30,
                     ...(window.innerWidth >= 700
                       ? { position: "fixed", bottom: "24px", left: "24px" }
                       : { position: "absolute", top: "0", right: "0" }
@@ -1374,13 +1422,15 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                   }}
                 >
                   <button
+                    ref={settingsBtnRef}
                     data-menu-button="true"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
+                      exitToRef.current = settingsBtnRef.current?.getBoundingClientRect() ?? null;
+                      if (showPasswordCard) setPasswordCardClosing(true);
+                      if (activeInlineField) setInlineEditClosing(true);
                       if (showProfileMenu) {
-                        setShowProfileMenu(false);
-                        setActiveInlineField(null);
-                        setInlineAnchor(null);
+                        setMenuClosing(true);
                       } else {
                         const rect = e.currentTarget.getBoundingClientRect();
                         setProfileMenuAnchor(rect);
@@ -1444,83 +1494,87 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                   )}
                 </div>
               )}
-              <div className="reveal reveal-in">
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", alignItems: "flex-start" }}>
-                  <Avatar
-                    src={profile.avatarUrl}
-                    size={120}
-                    editable={true}
-                    onChange={async (url: string) => {
-                      try {
-                        const updated = await updateProfile({ avatarUrl: url } as any);
-                        setProfile({ ...updated, avatarUrl: updated.avatarUrl ? `${updated.avatarUrl}?t=${Date.now()}` : updated.avatarUrl });
-                      } catch { alert("Не удалось сохранить аватар"); }
-                    }}
-                    onRemove={async () => {
-                      if (confirm("Удалить фото?")) {
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", alignItems: "flex-start" }}>
+                  <div className="entrance-avatar entrance-delay-0">
+                    <Avatar
+                      src={profile.avatarUrl}
+                      size={120}
+                      editable={true}
+                      onChange={async (url: string) => {
                         try {
-                          const updated = await updateProfile({ avatarUrl: null } as any);
-                          setProfile(updated);
-                        } catch { alert("Не удалось удалить фото"); }
-                      }
-                    }}
-                  />
+                          const updated = await updateProfile({ avatarUrl: url } as any);
+                          setProfile({ ...updated, avatarUrl: updated.avatarUrl ? `${updated.avatarUrl}?t=${Date.now()}` : updated.avatarUrl });
+                        } catch { alert("Не удалось сохранить аватар"); }
+                      }}
+                      onRemove={async () => {
+                        if (confirm("Удалить фото?")) {
+                          try {
+                            const updated = await updateProfile({ avatarUrl: null } as any);
+                            setProfile(updated);
+                          } catch { alert("Не удалось удалить фото"); }
+                        }
+                      }}
+                    />
+                  </div>
 
                   {/* Имя – всегда инпут, без рамки */}
-                  <div style={{ width: "100%" }}>
-                    <input
-                      type="text"
-                      value={tempName ?? profile.name ?? ""}
-                      onChange={(e) => setTempName(e.target.value)}
-                      onBlur={handleSaveName}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") handleSaveName(); }}
-                      placeholder="Ваше имя"
-                      className="no-focus-shadow"
+                  <div className="entrance-text entrance-delay-1">
+                    <div style={{ width: "100%" }}>
+                      <input
+                        type="text"
+                        value={tempName ?? profile.name ?? ""}
+                        onChange={(e) => setTempName(e.target.value)}
+                        onBlur={handleSaveName}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") handleSaveName(); }}
+                        placeholder="Ваше имя"
+                        className="no-focus-shadow"
+                        style={{
+                          fontSize: compactProfileText ? 24 : 32,
+                          fontWeight: 800,
+                          letterSpacing: "-0.03em",
+                          width: "100%",
+                          padding: "0",
+                          border: "none",
+                          background: "transparent",
+                          outline: "none",
+                          color: "var(--text)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Био – Enter = перенос строки, сохранение при потере фокуса */}
+                  <div className="entrance-bio entrance-delay-2">
+                    <textarea
+                      ref={bioTextareaRef}
+                      value={tempBio ?? profile.bio ?? ""}
+                      onChange={(e) => setTempBio(e.target.value)}
+                      onBlur={handleSaveBio}
+                      placeholder="Расскажите о себе..."
+                      rows={1}
+                      spellCheck={false}
                       style={{
-                        fontSize: compactProfileText ? 24 : 32,
-                        fontWeight: 800,
-                        letterSpacing: "-0.03em",
+                        fontSize: 14,
+                        lineHeight: 1.6,
                         width: "100%",
                         padding: "0",
                         border: "none",
                         background: "transparent",
                         outline: "none",
-                        color: "var(--text)",
+                        resize: "none",
                         overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        color: "var(--muted)",  // Серый цвет
+                      }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = "auto";
+                        target.style.height = target.scrollHeight + "px";
                       }}
                     />
                   </div>
-
-                  {/* Био – Enter = перенос строки, сохранение при потере фокуса */}
-                  <textarea
-                    ref={bioTextareaRef}
-                    value={tempBio ?? profile.bio ?? ""}
-                    onChange={(e) => setTempBio(e.target.value)}
-                    onBlur={handleSaveBio}
-                    placeholder="Расскажите о себе..."
-                    rows={1}
-                    spellCheck={false}
-                    style={{
-                      fontSize: 14,
-                      lineHeight: 1.6,
-                      width: "100%",
-                      padding: "0",
-                      border: "none",
-                      background: "transparent",
-                      outline: "none",
-                      resize: "none",
-                      overflow: "hidden",
-                      color: "var(--muted)",  // Серый цвет
-                    }}
-                    onInput={(e) => {
-                      const target = e.target as HTMLTextAreaElement;
-                      target.style.height = "auto";
-                      target.style.height = target.scrollHeight + "px";
-                    }}
-                  />
                 </div>
-              </div>
             </div>
             )}
             <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }} />
@@ -1617,11 +1671,11 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         {!showOnboardingPanel && (
           <div
             ref={bottomBarRef}
+            className="toolbar-entrance"
             style={{
               position: "fixed",
               bottom: 20,
               left: "50%",
-              transform: "translateX(-50%)",
               background: "var(--surface)",
               border: "1px solid var(--border)",
               borderRadius: 14,
@@ -1659,7 +1713,16 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 <button
                   key={type}
                   data-add-type={type}
-                  onClick={(e) => handleAddBlockClick(type, e.currentTarget)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddBlockClick(type, e.currentTarget);
+                              setOverflowClosing(true);
+                              overflowTimeoutRef.current = window.setTimeout(() => {
+                                setShowOverflowMenu(false);
+                                setOverflowClosing(false);
+                                overflowTimeoutRef.current = null;
+                              }, 150);
+                            }}
                   title={label}
                   style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 14 }}
                 >
@@ -1672,28 +1735,59 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                     ref={overflowToggleRef}
                     type="button"
                     onMouseDown={(e) => e.stopPropagation()}
-                    onClick={() => setShowOverflowMenu((prev) => !prev)}
+                    onClick={() => {
+                      if (overflowClosing) {
+                        if (overflowTimeoutRef.current) {
+                          clearTimeout(overflowTimeoutRef.current);
+                          overflowTimeoutRef.current = null;
+                        }
+                        setOverflowClosing(false);
+                        setShowOverflowMenu(true);
+                      } else if (showOverflowMenu) {
+                        setOverflowClosing(true);
+                        overflowTimeoutRef.current = window.setTimeout(() => {
+                          setShowOverflowMenu(false);
+                          setOverflowClosing(false);
+                          overflowTimeoutRef.current = null;
+                        }, 150);
+                      } else {
+                        setShowOverflowMenu(true);
+                      }
+                    }}
                     title="Еще"
                     data-testid="editor-overflow-toggle"
                     style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: showOverflowMenu ? "var(--ring)" : "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 16 }}
                   >
                     <span style={{ lineHeight: 1 }}>⋯</span>
                   </button>
-                  {showOverflowMenu && (
-                    <div
+                  {(showOverflowMenu || overflowClosing) && (
+                    <motion.div
+                      key="overflow-menu"
                       ref={overflowMenuRef}
-                      className="card"
                       data-testid="editor-overflow-menu"
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={
+                        overflowClosing
+                          ? { scale: 0, opacity: 0 }
+                          : { scale: 1, opacity: 1 }
+                      }
+                      transition={{ duration: 0.15, ease: overflowClosing ? "easeIn" : "easeOut" }}
                       onMouseDown={(e) => e.stopPropagation()}
-                      style={{ position: "absolute", bottom: "calc(100% + 10px)", right: 0, minWidth: 170, padding: 8, display: "flex", flexDirection: "column", gap: 4, zIndex: 1200, pointerEvents: "auto" }}
+                      style={{ position: "absolute", bottom: "calc(100% + 10px)", right: 0, minWidth: 170, padding: 8, display: "flex", flexDirection: "column", gap: 4, zIndex: 1200, pointerEvents: "auto", transformOrigin: "bottom right", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow)" }}
                     >
                       {overflowActions.map(({ type, label, icon }) => (
                         <button
                           key={type}
                           type="button"
-                          onClick={() => {
-                            handleAddBlockClick(type, overflowToggleRef.current ?? undefined);
-                            setShowOverflowMenu(false);
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddBlockClick(type, e.currentTarget);
+                            setOverflowClosing(true);
+                            overflowTimeoutRef.current = window.setTimeout(() => {
+                              setShowOverflowMenu(false);
+                              setOverflowClosing(false);
+                              overflowTimeoutRef.current = null;
+                            }, 150);
                           }}
                           style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: "none", borderRadius: "var(--radius-sm)", background: "transparent", color: "var(--text)", cursor: "pointer", fontSize: 13, fontWeight: 500, textAlign: "left" }}
                         >
@@ -1701,7 +1795,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                           <span>{label}</span>
                         </button>
                       ))}
-                    </div>
+                    </motion.div>
                   )}
                 </div>
               )}
@@ -1761,8 +1855,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         )}
       </div>
 
-      {modalType && <BlockModal type={modalType} isOpen={modalOpen} onClose={() => { setModalOpen(false); setModalType(null); }} onSubmit={handleBlockSubmit} />}
-      {inlineInput && <InlineInputCard buttonRect={inlineInput.buttonRect} onSubmit={handleInlineSubmit} onCancel={() => setInlineInput(null)} placeholder={inlineInput.type === 'link' ? 'https://example.com' : inlineInput.type === 'video' ? 'https://youtu.be/...' : 'https://music.yandex.ru/...'} buttonText="Добавить" type={inlineInput.type === 'link' ? 'url' : 'text'} validate={(val) => {
+      <BlockModal type={modalType ?? "note"} isOpen={modalOpen} onClose={() => { setModalOpen(false); setModalType(null); }} onSubmit={handleBlockSubmit} />
+      {inlineInput && <InlineInputCard key={inlineInput.type} closing={inlineClosing} buttonRect={inlineInput.buttonRect} exitButtonRect={inlineInput.exitButtonRect} onSubmit={handleInlineSubmit} onCancel={() => { const action = pendingInlineActionRef.current; pendingInlineActionRef.current = null; setInlineClosing(false); setInlineInput(null); action?.(); }} placeholder={inlineInput.type === 'link' ? 'https://example.com' : inlineInput.type === 'video' ? 'https://youtu.be/...' : 'https://music.yandex.ru/...'} buttonText="Добавить" type={inlineInput.type === 'link' ? 'url' : 'text'} validate={(val) => {
         if (inlineInput.type === "link") {
           const result = validateLinkInput(val);
           return result.ok ? true : (result.message || "Неверная ссылка");
@@ -1777,10 +1871,41 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         }
         return true;
       }} />}
-      {toast && <div className="card" style={{ position: "fixed", right: 24, top: 24, padding: "14px 18px", zIndex: 10000, boxShadow: "var(--shadow-xl)", animation: "slideIn 0.3s ease" }}>{toast}</div>}
-      {showQr && profile && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 11000 }} onClick={() => setShowQr(false)}>
-          <div className="card" style={{ padding: 24, maxWidth: 360, width: "90%", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key="toast"
+            className="modal-card"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            style={{ position: "fixed", right: 24, top: 24, padding: "14px 18px", zIndex: 10000, boxShadow: "var(--shadow-xl)" }}
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showQr && profile && (
+        <motion.div
+          key="qr-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 11000 }}
+          onClick={() => setShowQr(false)}
+        >
+          <motion.div
+            className="modal-card"
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            style={{ padding: 24, maxWidth: 360, width: "90%", textAlign: "center" }}
+            onClick={e => e.stopPropagation()}
+          >
             <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>QR-код визитки</h2>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>Отсканируйте код камерой телефона</p>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}><img src={qrUrlForPublic(profile.username)} alt="QR" style={{ width: 220, height: 220 }} /></div>
@@ -1789,18 +1914,21 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               <a href={qrUrlForPublic(profile.username)} download={`vizitka-${profile.username}-qr.png`} className="btn" style={{ width: "100%", textAlign: "center" }}>⬇️ Скачать QR</a>
             </div>
             <button className="btn" style={{ width: "100%" }} onClick={() => setShowQr(false)}>Закрыть</button>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Главное меню редактирования — появляется над кнопкой */}
-      {showProfileMenu && profileMenuAnchor && (
+      {(showProfileMenu || menuClosing) && profileMenuAnchor && (
         <MenuCard
           anchorRect={profileMenuAnchor}
+          closing={menuClosing}
+          exitToRef={exitToRef}
           onClose={() => {
             setShowProfileMenu(false);
-            setActiveInlineField(null);
-            setInlineAnchor(null);
+            setMenuClosing(false);
+            setProfileMenuAnchor(null);
           }}
           position={window.innerWidth >= 700 ? "top" : "bottom"}
           align={window.innerWidth >= 700 ? "left" : "right"}
@@ -1808,18 +1936,28 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         >
           <div style={{ display: "flex", flexDirection: "column"}}>
             <MenuItem onClick={(rect) => {
-              setInlineAnchor(rect);
-              setActiveInlineField("username");
-              setShowPasswordCard(false);
+              if (activeInlineField === "username") {
+                setInlineEditClosing(true);
+              } else {
+                setInlineEditClosing(false);
+                setPasswordCardClosing(true);
+                setInlineAnchor(rect);
+                setActiveInlineField("username");
+              }
             }}>
               <div>Изменить имя пользователя</div>
               <div style={{ fontSize: 11, color: "var(--muted)"}}>{profile?.username || ""}</div>
             </MenuItem>
 
             <MenuItem onClick={(rect) => {
-              setInlineAnchor(rect);
-              setActiveInlineField("email");
-              setShowPasswordCard(false);
+              if (activeInlineField === "email") {
+                setInlineEditClosing(true);
+              } else {
+                setInlineEditClosing(false);
+                setPasswordCardClosing(true);
+                setInlineAnchor(rect);
+                setActiveInlineField("email");
+              }
             }}>
               <div>Изменить email</div>
               <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.email || "не указан"}</div>
@@ -1828,10 +1966,16 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
 
             <MenuItem onClick={(rect) => {
-              setPasswordAnchor(rect);
-              setShowPasswordCard(true);
-              setActiveInlineField(null);
-              setInlineAnchor(null);
+              if (showPasswordCard && !passwordCardClosing) {
+                setPasswordCardClosing(true);
+              } else {
+                setActiveInlineField(null);
+                setInlineAnchor(null);
+                setInlineEditClosing(false);
+                setPasswordAnchor(rect);
+                setShowPasswordCard(true);
+                setPasswordCardClosing(false);
+              }
             }}>
               <div>Изменить пароль</div>
             </MenuItem>
@@ -1848,25 +1992,29 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       )}
 
       {/* Подменю для выбранного поля */}
-      {activeInlineField && inlineAnchor && (
+      {(activeInlineField || inlineEditClosing) && inlineAnchor && (
         <InlineEditCard
           key={activeInlineField}
+          closing={inlineEditClosing}
           anchorRect={inlineAnchor}
+          exitToRef={exitToRef}
            value={(() => {
              if (activeInlineField === "username") return profile?.username || "";
              if (activeInlineField === "email") return (profile as any)?.email || "";
              return "";
            })()}
-           onSave={async (newValue) => {
-             if (activeInlineField === "username") await handleUpdateUsername(newValue);
-             if (activeInlineField === "email") await handleUpdateEmail(newValue);
+            onSave={async (newValue) => {
+              if (activeInlineField === "username") await handleUpdateUsername(newValue);
+              if (activeInlineField === "email") await handleUpdateEmail(newValue);
+              exitToRef.current = null;
+              setInlineEditClosing(true);
+            }}
+           onCancel={() => {
+             exitToRef.current = null;
              setActiveInlineField(null);
+             setInlineEditClosing(false);
              setInlineAnchor(null);
            }}
-          onCancel={() => {
-            setActiveInlineField(null);
-            setInlineAnchor(null);
-          }}
            label={
              activeInlineField === "username"
                ? "Username"
@@ -1909,23 +2057,21 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       )}
 
       {/* Карточка смены пароля */}
-      {showPasswordCard && passwordAnchor && (
+      {(showPasswordCard || passwordCardClosing) && passwordAnchor && (
         <PasswordChangeCard
           anchorRect={passwordAnchor}
+          closing={passwordCardClosing}
+          exitToRef={exitToRef}
           onClose={() => {
+            exitToRef.current = null;
             setShowPasswordCard(false);
+            setPasswordCardClosing(false);
             setPasswordAnchor(null);
           }}
           onSuccess={handlePasswordChangeSuccess}
         />
       )}
 
-      <style>{`
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
     </div>
   );
 }

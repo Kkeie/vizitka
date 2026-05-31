@@ -304,11 +304,13 @@ export default function PublicPage() {
           <div style={{ width: "100%", maxWidth: "100%" }}>
             {/* Profile that scrolls with page */}
             <div className="profile-column" style={{ width: "100%", maxWidth: "100%", position: "relative" }}>
-              <div className="reveal reveal-in">
-                <div className="public-profile-inner" style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start", textAlign: "left", width: "100%", maxWidth: "100%" }}>
-                  {state.avatarUrl && (
+              <div className="public-profile-inner" style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start", textAlign: "left", width: "100%", maxWidth: "100%" }}>
+                {state.avatarUrl && (
+                  <div className="entrance-avatar entrance-delay-0">
                     <Avatar src={state.avatarUrl} size={120} editable={false} />
-                  )}
+                  </div>
+                )}
+                <div className="entrance-text entrance-delay-1">
                   <h1 style={{
                     fontSize: breakpoint === "mobile" ? 26 : 32,
                     fontWeight: 800,
@@ -323,7 +325,9 @@ export default function PublicPage() {
                   }}>
                     {state.name}
                   </h1>
-                  {state.bio && (
+                </div>
+                {state.bio && (
+                  <div className="entrance-bio entrance-delay-2">
                     <p style={{
                       fontSize: 14,
                       lineHeight: 1.6,
@@ -335,15 +339,8 @@ export default function PublicPage() {
                     }}>
                       {state.bio}
                     </p>
-                  )}
-                  {/* {(state.phone || state.email || state.telegram) && (
-                    <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-                      {state.phone && <div style={{ fontSize: 14, color: "var(--text)" }}>📞 {state.phone}</div>}
-                      {state.email && <div style={{ fontSize: 14, color: "var(--text)" }}>✉️ {state.email}</div>}
-                      {state.telegram && <div style={{ fontSize: 14, color: "var(--text)" }}>✈️ {state.telegram}</div>}
-                    </div>
-                  )} */}
-                </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }}></div>

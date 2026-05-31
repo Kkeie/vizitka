@@ -674,6 +674,51 @@ p {
   transform: translateY(0) scale(1);
 }
 
+/* Entrance — avatar */
+@keyframes avatarEntrance {
+  0% { opacity: 0; transform: scale(0.6); }
+  60% { transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Entrance — slide up + fade */
+@keyframes slideUpFade {
+  0% { opacity: 0; transform: translateY(24px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.entrance-avatar {
+  animation: avatarEntrance 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.entrance-text {
+  animation: slideUpFade 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.entrance-bio {
+  animation: slideUpFade 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.entrance-delay-0 { animation-delay: 0s; }
+.entrance-delay-1 { animation-delay: 0.12s; }
+.entrance-delay-2 { animation-delay: 0.24s; }
+
+/* Settings panel entrance */
+.settings-entrance {
+  animation: slideUpFade 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.12s;
+}
+
+/* Toolbar entrance */
+@keyframes toolbarSlideUp {
+  0% { opacity: 0; transform: translateX(-50%) translateY(40px); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.toolbar-entrance {
+  animation: toolbarSlideUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Utility classes */
 .min-h-screen {
   min-height: 100vh;
@@ -793,15 +838,13 @@ p {
   }
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-  }
-  to {
-    opacity: 0.7;
-    transform: scale(1);
-  }
+.modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
 }
 
 @keyframes pulseRing {
@@ -875,6 +918,5 @@ body {
 
 [data-inline-edit="true"]:hover,
 [data-menu-card="true"]:hover {
-  transform: none !important;
   transition: none !important;
 }
