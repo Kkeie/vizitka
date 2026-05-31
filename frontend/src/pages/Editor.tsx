@@ -148,12 +148,17 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<DOMRect | null>(null);
-   const [activeInlineField, setActiveInlineField] = useState<"username" | "email" | null>(null);
+  const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const exitToRef = useRef<DOMRect | null>(null);
+  const showProfileMenuRef = useRef(showProfileMenu);
+  const [inlineEditClosing, setInlineEditClosing] = useState(false);
+  const [activeInlineField, setActiveInlineField] = useState<"username" | "email" | null>(null);
   const [inlineAnchor, setInlineAnchor] = useState<DOMRect | null>(null);
   const [tempName, setTempName] = useState("");
   const [tempBio, setTempBio] = useState("");
 
   const [showPasswordCard, setShowPasswordCard] = useState(false);
+  const [passwordCardClosing, setPasswordCardClosing] = useState(false);
   const [passwordAnchor, setPasswordAnchor] = useState<DOMRect | null>(null);
 
   const [todayViews, setTodayViews] = useState<number | null>(null);
@@ -342,6 +347,9 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     blocksRef.current = blocks;
   }, [blocks]);
+  useEffect(() => {
+    showProfileMenuRef.current = showProfileMenu;
+  }, [showProfileMenu]);
 
   /**
    * При смене ширины сетки `cellSize` и `getGridRowSpan` меняются, а `gridRowStart` в state остаётся
@@ -428,26 +436,27 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         target.closest('[data-menu-item]') ||
         target.closest('[data-menu-button]')
       ) return;
-      setActiveInlineField(null);
-      setInlineAnchor(null);
-      setShowPasswordCard(false);
-      setMenuClosing(true);
+      exitToRef.current = settingsBtnRef.current?.getBoundingClientRect() ?? null;
+      if (activeInlineField) setInlineEditClosing(true);
+      if (showPasswordCard) setPasswordCardClosing(true);
+      if (showProfileMenuRef.current) setMenuClosing(true);
     };
     document.addEventListener("mousedown", handleCloseCards);
     return () => document.removeEventListener("mousedown", handleCloseCards);
-  }, []);
+  }, [activeInlineField, showPasswordCard]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setActiveInlineField(null);
-        setShowPasswordCard(false);
-        setMenuClosing(true);
+        exitToRef.current = settingsBtnRef.current?.getBoundingClientRect() ?? null;
+        if (activeInlineField) setInlineEditClosing(true);
+        if (showPasswordCard) setPasswordCardClosing(true);
+        if (showProfileMenuRef.current) setMenuClosing(true);
       }
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, []);
+  }, [activeInlineField, showPasswordCard]);
 
   useEffect(() => {
     getTodayViews()
@@ -1413,9 +1422,13 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                   }}
                 >
                   <button
+                    ref={settingsBtnRef}
                     data-menu-button="true"
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
+                      exitToRef.current = settingsBtnRef.current?.getBoundingClientRect() ?? null;
+                      if (showPasswordCard) setPasswordCardClosing(true);
+                      if (activeInlineField) setInlineEditClosing(true);
                       if (showProfileMenu) {
                         setMenuClosing(true);
                       } else {
@@ -1875,11 +1888,11 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         <MenuCard
           anchorRect={profileMenuAnchor}
           closing={menuClosing}
+          exitToRef={exitToRef}
           onClose={() => {
             setShowProfileMenu(false);
             setMenuClosing(false);
-            setActiveInlineField(null);
-            setInlineAnchor(null);
+            setProfileMenuAnchor(null);
           }}
           position={window.innerWidth >= 700 ? "top" : "bottom"}
           align={window.innerWidth >= 700 ? "left" : "right"}
@@ -1887,18 +1900,28 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         >
           <div style={{ display: "flex", flexDirection: "column"}}>
             <MenuItem onClick={(rect) => {
-              setInlineAnchor(rect);
-              setActiveInlineField("username");
-              setShowPasswordCard(false);
+              if (activeInlineField === "username") {
+                setInlineEditClosing(true);
+              } else {
+                setInlineEditClosing(false);
+                setPasswordCardClosing(true);
+                setInlineAnchor(rect);
+                setActiveInlineField("username");
+              }
             }}>
               <div>Изменить имя пользователя</div>
               <div style={{ fontSize: 11, color: "var(--muted)"}}>{profile?.username || ""}</div>
             </MenuItem>
 
             <MenuItem onClick={(rect) => {
-              setInlineAnchor(rect);
-              setActiveInlineField("email");
-              setShowPasswordCard(false);
+              if (activeInlineField === "email") {
+                setInlineEditClosing(true);
+              } else {
+                setInlineEditClosing(false);
+                setPasswordCardClosing(true);
+                setInlineAnchor(rect);
+                setActiveInlineField("email");
+              }
             }}>
               <div>Изменить email</div>
               <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.email || "не указан"}</div>
@@ -1907,10 +1930,16 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
 
             <MenuItem onClick={(rect) => {
-              setPasswordAnchor(rect);
-              setShowPasswordCard(true);
-              setActiveInlineField(null);
-              setInlineAnchor(null);
+              if (showPasswordCard && !passwordCardClosing) {
+                setPasswordCardClosing(true);
+              } else {
+                setActiveInlineField(null);
+                setInlineAnchor(null);
+                setInlineEditClosing(false);
+                setPasswordAnchor(rect);
+                setShowPasswordCard(true);
+                setPasswordCardClosing(false);
+              }
             }}>
               <div>Изменить пароль</div>
             </MenuItem>
@@ -1927,25 +1956,29 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       )}
 
       {/* Подменю для выбранного поля */}
-      {activeInlineField && inlineAnchor && (
+      {(activeInlineField || inlineEditClosing) && inlineAnchor && (
         <InlineEditCard
           key={activeInlineField}
+          closing={inlineEditClosing}
           anchorRect={inlineAnchor}
+          exitToRef={exitToRef}
            value={(() => {
              if (activeInlineField === "username") return profile?.username || "";
              if (activeInlineField === "email") return (profile as any)?.email || "";
              return "";
            })()}
-           onSave={async (newValue) => {
-             if (activeInlineField === "username") await handleUpdateUsername(newValue);
-             if (activeInlineField === "email") await handleUpdateEmail(newValue);
+            onSave={async (newValue) => {
+              if (activeInlineField === "username") await handleUpdateUsername(newValue);
+              if (activeInlineField === "email") await handleUpdateEmail(newValue);
+              exitToRef.current = null;
+              setInlineEditClosing(true);
+            }}
+           onCancel={() => {
+             exitToRef.current = null;
              setActiveInlineField(null);
+             setInlineEditClosing(false);
              setInlineAnchor(null);
            }}
-          onCancel={() => {
-            setActiveInlineField(null);
-            setInlineAnchor(null);
-          }}
            label={
              activeInlineField === "username"
                ? "Username"
@@ -1988,11 +2021,15 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       )}
 
       {/* Карточка смены пароля */}
-      {showPasswordCard && passwordAnchor && (
+      {(showPasswordCard || passwordCardClosing) && passwordAnchor && (
         <PasswordChangeCard
           anchorRect={passwordAnchor}
+          closing={passwordCardClosing}
+          exitToRef={exitToRef}
           onClose={() => {
+            exitToRef.current = null;
             setShowPasswordCard(false);
+            setPasswordCardClosing(false);
             setPasswordAnchor(null);
           }}
           onSuccess={handlePasswordChangeSuccess}

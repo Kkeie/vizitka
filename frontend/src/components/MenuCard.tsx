@@ -10,10 +10,12 @@ interface MenuCardProps {
   position?: "top" | "bottom";
   width?: number;
   closing?: boolean;
+  exitToRef?: React.RefObject<DOMRect | null>;
 }
 
-export default function MenuCard({ anchorRect, onClose, children, align = "left", position = "bottom", width = 240, closing = false }: MenuCardProps) {
+export default function MenuCard({ anchorRect, onClose, children, align = "left", position = "bottom", width = 240, closing = false, exitToRef }: MenuCardProps) {
   const [pos, setPos] = useState({ top: 0, left: 0, offsetX: 0, offsetY: 0 });
+  const [exitOffset, setExitOffset] = useState({ x: 0, y: 0 });
   const [ready, setReady] = useState(false);
   const [exiting, setExiting] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -46,19 +48,29 @@ export default function MenuCard({ anchorRect, onClose, children, align = "left"
     const anchorCenterY = anchorRect.top + anchorRect.height / 2;
     const cardCenterX = left + cardRect.width / 2;
     const cardCenterY = top + cardRect.height / 2;
+    const ox = anchorCenterX - cardCenterX;
+    const oy = anchorCenterY - cardCenterY;
 
-    setPos({
-      top,
-      left,
-      offsetX: anchorCenterX - cardCenterX,
-      offsetY: anchorCenterY - cardCenterY,
-    });
+    setPos({ top, left, offsetX: ox, offsetY: oy });
+    setExitOffset({ x: ox, y: oy });
     setReady(true);
   }, [anchorRect, align, position, ready]);
 
   useEffect(() => {
     if (closing && !prevClosingRef.current) {
       prevClosingRef.current = true;
+
+      if (exitToRef?.current && cardRef.current) {
+        const cardRect = cardRef.current.getBoundingClientRect();
+        const sCX = exitToRef.current.left + exitToRef.current.width / 2;
+        const sCY = exitToRef.current.top + exitToRef.current.height / 2;
+        const cCX = pos.left + cardRect.width / 2;
+        const cCY = pos.top + cardRect.height / 2;
+        setExitOffset({ x: sCX - cCX, y: sCY - cCY });
+      } else {
+        setExitOffset({ x: pos.offsetX, y: pos.offsetY });
+      }
+
       setExiting(true);
       setTimeout(() => onCloseRef.current(), 150);
     } else if (!closing) {
@@ -106,7 +118,7 @@ export default function MenuCard({ anchorRect, onClose, children, align = "left"
       }}
       initial={{ x: pos.offsetX, y: pos.offsetY, scale: 0, opacity: 0 }}
       animate={exiting
-        ? { x: pos.offsetX, y: pos.offsetY, scale: 0, opacity: 0 }
+        ? { x: exitOffset.x, y: exitOffset.y, scale: 0, opacity: 0 }
         : { x: 0, y: 0, scale: 1, opacity: 1 }
       }
       transition={exiting ? { duration: 0.15, ease: "easeIn" } : { duration: 0.15, ease: "easeOut" }}
