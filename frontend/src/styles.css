@@ -703,6 +703,12 @@ p {
 .entrance-delay-1 { animation-delay: 0.12s; }
 .entrance-delay-2 { animation-delay: 0.24s; }
 
+/* Settings panel entrance */
+.settings-entrance {
+  animation: slideUpFade 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.12s;
+}
+
 /* Toolbar entrance */
 @keyframes toolbarSlideUp {
   0% { opacity: 0; transform: translateX(-50%) translateY(40px); }

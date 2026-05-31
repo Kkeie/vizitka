@@ -1409,7 +1409,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               {/* Панель: настройки + счётчик просмотров */}
               {!showOnboardingPanel && previewMode !== "phone" && (
                 <div
-                  className={window.innerWidth >= 700 ? undefined : "reveal reveal-in"}
+                  className="settings-entrance"
                   style={{
                     display: "flex",
                     alignItems: "center",
