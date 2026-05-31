@@ -140,7 +140,7 @@ export default function Step2Form({ username, onBack, onSuccess }: Step2FormProp
         } catch {
           /* storage disabled */
         }
-        navigate(`/register/pending?email=${encodeURIComponent(result.email)}`, { replace: true });
+        navigate(`/register/pending?email=${encodeURIComponent(result.email)}&username=${encodeURIComponent(username)}`, { replace: true });
         return;
       }
       onSuccess();

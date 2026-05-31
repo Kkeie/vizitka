@@ -9,6 +9,7 @@ type DecoMode = "floating" | "floating-nopill" | "phone";
 interface DecoCardsProps {
   username: string;
   mode: DecoMode;
+  disableEntrance?: boolean;
 }
 
 interface ScatterConfig {
@@ -28,7 +29,7 @@ const SCATTER: Record<string, ScatterConfig> = {
   pill:      { sx:   0, sy: -22, sr:  4, dur: 6  },
 };
 
-export default function DecoCards({ username, mode }: DecoCardsProps) {
+export default function DecoCards({ username, mode, disableEntrance = false }: DecoCardsProps) {
   const [is3Col, setIs3Col] = useState(true);
 
   useEffect(() => {
@@ -85,7 +86,7 @@ export default function DecoCards({ username, mode }: DecoCardsProps) {
             <motion.div
               key="phone-bg"
               className="deco-cards__phone-bg"
-              initial={{ opacity: 0, scale: 0.95 }}
+              initial={disableEntrance ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.25, delay: 0.15 }}
@@ -98,7 +99,7 @@ export default function DecoCards({ username, mode }: DecoCardsProps) {
             <motion.div
               key="pill"
               className="deco-cards__pill-wrap"
-              initial={{ opacity: 0, y: -8, scale: 0.95 }}
+              initial={disableEntrance ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -8, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.95 }}
               transition={{ duration: 0.3 }}

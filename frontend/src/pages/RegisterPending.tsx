@@ -6,6 +6,7 @@ import {
   resumeRegistrationAfterVerify,
 } from "../api";
 import { useSession } from "../sessionContext";
+import DecoCards from "../components/onboarding/DecoCards";
 import "./LoginPage.css";
 
 const RESUME_POLL_MS = 2000;
@@ -15,6 +16,7 @@ export default function RegisterPending() {
   const navigate = useNavigate();
   const { setUser: onAuthed } = useSession();
   const email = (searchParams.get("email") || "").trim();
+  const username = (searchParams.get("username") || "").trim();
   const [status, setStatus] = React.useState<"idle" | "sending" | "sent" | "error" | "rate_limited">("idle");
   const [resumeError, setResumeError] = React.useState<string | null>(null);
   const [hasResumeToken, setHasResumeToken] = React.useState(() => {
@@ -155,6 +157,9 @@ export default function RegisterPending() {
           <p className="login-bento__foot">
             <Link to="/login">Уже подтвердили? Войти</Link>
           </p>
+        </div>
+        <div className="step1-right">
+          <DecoCards username={username} mode="phone" disableEntrance />
         </div>
       </div>
     </div>
