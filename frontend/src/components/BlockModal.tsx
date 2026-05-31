@@ -1,3 +1,4 @@
+import { motion, AnimatePresence } from "framer-motion";
 import React, { useEffect, useRef, useState } from "react";
 import { type BlockType } from "../api";
 import ImageUploader from "./ImageUploader";
@@ -321,8 +322,6 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
     onClose();
   };
 
-  if (!isOpen) return null;
-
   const isCompactViewport =
     typeof window !== "undefined" ? window.innerWidth <= 640 : false;
   const hasMapCoordinates = formData.mapLat != null && formData.mapLng != null;
@@ -339,7 +338,14 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
   };
 
   return (
-    <div
+    <AnimatePresence>
+      {isOpen && (
+    <motion.div
+      key="modal-overlay"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
       style={{
         position: "fixed",
         top: 0,
@@ -355,12 +361,15 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         zIndex: 1000,
         padding: isCompactViewport ? 12 : 20,
         overflowY: "auto",
-        animation: "fadeIn 0.2s ease",
       }}
       onClick={onClose}
     >
-      <div
-        className="card"
+      <motion.div
+        className="modal-card"
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 20, scale: 0.95 }}
+        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         style={{
           maxWidth: isCompactViewport ? "100%" : 640,
           width: "100%",
@@ -368,7 +377,6 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
           overflowY: "auto",
           padding: isCompactViewport ? 16 : 40,
           marginTop: isCompactViewport ? 4 : 0,
-          animation: "slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -989,24 +997,10 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
             </button>
           </div>
         </form>
-      </div>
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px) scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-      `}</style>
-    </div>
+      </motion.div>
+    </motion.div>
+  )}
+    </AnimatePresence>
   );
 }
 

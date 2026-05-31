@@ -1855,7 +1855,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         )}
       </div>
 
-      {modalType && <BlockModal type={modalType} isOpen={modalOpen} onClose={() => { setModalOpen(false); setModalType(null); }} onSubmit={handleBlockSubmit} />}
+      <BlockModal type={modalType ?? "note"} isOpen={modalOpen} onClose={() => { setModalOpen(false); setModalType(null); }} onSubmit={handleBlockSubmit} />
       {inlineInput && <InlineInputCard key={inlineInput.type} closing={inlineClosing} buttonRect={inlineInput.buttonRect} exitButtonRect={inlineInput.exitButtonRect} onSubmit={handleInlineSubmit} onCancel={() => { const action = pendingInlineActionRef.current; pendingInlineActionRef.current = null; setInlineClosing(false); setInlineInput(null); action?.(); }} placeholder={inlineInput.type === 'link' ? 'https://example.com' : inlineInput.type === 'video' ? 'https://youtu.be/...' : 'https://music.yandex.ru/...'} buttonText="Добавить" type={inlineInput.type === 'link' ? 'url' : 'text'} validate={(val) => {
         if (inlineInput.type === "link") {
           const result = validateLinkInput(val);
