@@ -1,3 +1,4 @@
+import { motion, AnimatePresence } from "framer-motion";
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useDraggable, useDndMonitor } from '@dnd-kit/core';
@@ -294,67 +295,93 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
       >
         <BlockCard b={block} onDelete={onDelete} onUpdate={onUpdate} isDragPreview={isDragging} colSpan={resolvedGridSize.colSpan} />
 
-        {onDelete && isHovered && !isDragging && (
-          <button
-            onClick={onDelete}
-            onPointerDown={(e) => e.stopPropagation()}
-            aria-label="Удалить карточку"
-            style={{
-              position: 'absolute', top: -8, left: -8, zIndex: 4, width: 30, height: 30,
-              fontSize: 10, color: '#000', background: '#fff', border: '1px solid #e2e8f0',
-              borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-              <path d="M4 6h16" />
-              <path d="M6 6v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
-              <path d="M9 3h6" />
-            </svg>
-          </button>
-        )}
+        <AnimatePresence>
+          {onDelete && isHovered && !isDragging && (
+            <motion.button
+              key="delete-btn"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+              onClick={onDelete}
+              onPointerDown={(e) => e.stopPropagation()}
+              aria-label="Удалить карточку"
+              style={{
+                position: 'absolute', top: -8, left: -8, zIndex: 4, width: 30, height: 30,
+                fontSize: 10, color: '#000', background: '#fff', border: '1px solid #e2e8f0',
+                borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M4 6h16" />
+                <path d="M6 6v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6" />
+                <path d="M9 3h6" />
+              </svg>
+            </motion.button>
+          )}
+        </AnimatePresence>
 
-        {onGridSizeChange && !isDragging && !isSection && !isMusic && isHovered && (
-          <>
-            {[
-              { key: 'n', cursor: 'ns-resize', style: { top: -4, left: '50%', transform: 'translateX(-50%)', width: 36, height: 12 } },
-              { key: 's', cursor: 'ns-resize', style: { bottom: -4, left: '50%', transform: 'translateX(-50%)', width: 36, height: 12 } },
-              { key: 'e', cursor: 'ew-resize', style: { right: -4, top: '50%', transform: 'translateY(-50%)', width: 12, height: 36 } },
-              { key: 'w', cursor: 'ew-resize', style: { left: -4, top: '50%', transform: 'translateY(-50%)', width: 12, height: 36 } },
-              { key: 'ne', cursor: 'nesw-resize', style: { top: -4, right: -4, width: 16, height: 16 } },
-              { key: 'se', cursor: 'nwse-resize', style: { bottom: -4, right: -4, width: 16, height: 16 } },
-              { key: 'sw', cursor: 'nesw-resize', style: { bottom: -4, left: -4, width: 16, height: 16 } },
-            ].map((handle) => (
-              <div
-                key={handle.key}
-                className="bento-resize-handle"
-                onPointerDown={startResize(handle.key)}
-                onDoubleClick={() => onGridSizeChange?.(null)}
-                style={{ position: 'absolute', zIndex: 40, cursor: handle.cursor, touchAction: 'none', pointerEvents: 'auto', ...handle.style }}
-              >
-                <div style={{ width: '100%', height: '100%', borderRadius: 999, background: handle.key.length === 2 ? 'var(--border)' : 'rgba(229,229,229,0.85)', opacity: 0.8 }} />
-              </div>
-            ))}
-          </>
-        )}
+        <AnimatePresence>
+          {onGridSizeChange && !isDragging && !isSection && !isMusic && isHovered && (
+            <motion.div
+              key="resize-handles"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {[
+                { key: 'n', cursor: 'ns-resize', style: { top: -4, left: '50%', transform: 'translateX(-50%)', width: 36, height: 12 } },
+                { key: 's', cursor: 'ns-resize', style: { bottom: -4, left: '50%', transform: 'translateX(-50%)', width: 36, height: 12 } },
+                { key: 'e', cursor: 'ew-resize', style: { right: -4, top: '50%', transform: 'translateY(-50%)', width: 12, height: 36 } },
+                { key: 'w', cursor: 'ew-resize', style: { left: -4, top: '50%', transform: 'translateY(-50%)', width: 12, height: 36 } },
+                { key: 'ne', cursor: 'nesw-resize', style: { top: -4, right: -4, width: 16, height: 16 } },
+                { key: 'se', cursor: 'nwse-resize', style: { bottom: -4, right: -4, width: 16, height: 16 } },
+                { key: 'sw', cursor: 'nesw-resize', style: { bottom: -4, left: -4, width: 16, height: 16 } },
+              ].map((handle) => (
+                <div
+                  key={handle.key}
+                  className="bento-resize-handle"
+                  onPointerDown={startResize(handle.key)}
+                  onDoubleClick={() => onGridSizeChange?.(null)}
+                  style={{ position: 'absolute', zIndex: 40, cursor: handle.cursor, touchAction: 'none', pointerEvents: 'auto', ...handle.style }}
+                >
+                  <div style={{ width: '100%', height: '100%', borderRadius: 999, background: handle.key.length === 2 ? 'var(--border)' : 'rgba(229,229,229,0.85)', opacity: 0.8 }} />
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {isMenuVisible && onGridSizeChange && !isSection && menuPosition && createPortal(
-        <div
-          ref={menuRef}
-          style={{ position: 'absolute', top: menuPosition.top, left: menuPosition.left, transform: 'translateX(-50%)', zIndex: 10000, maxWidth: menuPosition.cardWidth, width: 'auto' }}
-          onMouseEnter={() => setIsMenuVisible(true)}
-          onMouseLeave={handleMenuMouseLeave}
-        >
-          <SizeMenu
-            onSelect={handleSizeSelect}
-            currentSize={resolvedGridSize}
-            maxCols={gridColumns}
-            maxPresetCount={isMusic ? 2 : undefined}
-            showStyleButton={isNote}
-            onStyleClick={handleStyleMenuOpen}
-            extraButtons={mapExtraButtons}
-          />
+      {onGridSizeChange && !isSection && menuPosition && createPortal(
+        <div style={{ position: 'absolute', top: menuPosition.top, left: menuPosition.left, transform: 'translateX(-50%)', zIndex: 10000 }}>
+          <AnimatePresence>
+            {isMenuVisible && !isDragging && (
+              <motion.div
+                key="size-menu"
+                ref={menuRef}
+                initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: -4 }}
+                transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                style={{ maxWidth: menuPosition.cardWidth, width: 'auto' }}
+                onMouseEnter={() => setIsMenuVisible(true)}
+                onMouseLeave={handleMenuMouseLeave}
+              >
+                <SizeMenu
+                  onSelect={handleSizeSelect}
+                  currentSize={resolvedGridSize}
+                  maxCols={gridColumns}
+                  maxPresetCount={isMusic ? 2 : undefined}
+                  showStyleButton={isNote}
+                  onStyleClick={handleStyleMenuOpen}
+                  extraButtons={mapExtraButtons}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>,
         document.body
       )}
