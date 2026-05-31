@@ -313,7 +313,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   // Cap cell width so that, when sidebar is hidden and right column suddenly widens,
   // cards don't balloon to absurd sizes. See block-grid.ts DEFAULT_BENTO_CELL_SIZE=180.
   const maxCellSize = breakpoint === "mobile" ? undefined : 280;
-  const { gridRef, cellSize } = useBentoGridMetrics(currentGridColumns, currentGridGap, {
+  const { gridRef, gridEl, cellSize } = useBentoGridMetrics(currentGridColumns, currentGridGap, {
     maxCellSize,
   });
   const rowUnit = getDynamicRowUnit(cellSize, currentGridGap);
@@ -552,8 +552,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
    */
   const projectLayoutFromCursor = useCallback(
     (draggedId: number, cursorX: number, cursorY: number) => {
-      const gridEl = gridRef.current;
-      if (!gridEl) return null;
+            if (!gridEl) return null;
       const block = blocks.find((b) => b.id === draggedId);
       if (!block) return null;
       const r = gridEl.getBoundingClientRect();
@@ -629,8 +628,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     const { x, y } = lastPointerRef.current;
 
     // Расширение нижнего холста для drop в конце страницы
-    const gridEl = gridRef.current;
-    if (gridEl) {
+        if (gridEl) {
       const r = gridEl.getBoundingClientRect();
       const lagBottom = Math.max(0, canvasPadDesiredRef.current - editorCanvasPadBottom);
       const effectiveBottom = r.bottom + lagBottom;
@@ -694,8 +692,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     setActiveId(null);
 
     const virtual = virtualBlockSizes;
-    const gridEl = gridRef.current;
-    let committedSizes: BlockSizes | null = null;
+        let committedSizes: BlockSizes | null = null;
 
     if (virtual && draggedId) {
       // Превью уже совпадает с финальной раскладкой — просто фиксируем её,

@@ -379,6 +379,7 @@ export default function PublicPage() {
                 return (
                   <div
                     key={block.id}
+                    data-block-id={block.id}
                     className="bento-grid-item"
                     style={{
                       gridColumn: anchor

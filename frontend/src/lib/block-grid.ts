@@ -199,9 +199,9 @@ export function clientPointToGridAnchor(
   const w = Math.min(colSpan, gridColumns);
   col0 = Math.max(0, Math.min(gridColumns - w, col0));
 
-  const cellStride = cw + gap;
-  const cellRow = Math.max(0, Math.floor(Math.max(0, relY) / cellStride));
   const cellRowMicroSteps = getCellRowMicroSteps(cellSize, gap, rowUnit);
+  const cellStride = cellRowMicroSteps * (rowUnit + gap);
+  const cellRow = Math.max(0, Math.floor(Math.max(0, relY) / cellStride));
   const rowMicro = cellRow * cellRowMicroSteps;
 
   return clampAnchor(

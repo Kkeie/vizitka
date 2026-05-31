@@ -5,12 +5,15 @@ export function useBentoGridMetrics(
   gap = 16,
   options?: { maxCellSize?: number; minCellSize?: number }
 ) {
-  const gridRef = React.useRef<HTMLDivElement | null>(null);
+  const [node, setNode] = React.useState<HTMLDivElement | null>(null);
+  const gridRef = React.useCallback((el: HTMLDivElement | null) => {
+    setNode(el);
+  }, []);
   const [cellSize, setCellSize] = React.useState<number | null>(null);
 
-  React.useEffect(() => {
-    const node = gridRef.current;
+  React.useLayoutEffect(() => {
     if (!node) {
+      setCellSize(null);
       return;
     }
 
@@ -39,7 +42,7 @@ export function useBentoGridMetrics(
     observer.observe(node);
 
     return () => observer.disconnect();
-  }, [columns, gap, options?.maxCellSize, options?.minCellSize]);
+  }, [node, columns, gap, options?.maxCellSize, options?.minCellSize]);
 
-  return { gridRef, cellSize };
+  return { gridRef, gridEl: node, cellSize };
 }
