@@ -1871,7 +1871,21 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         }
         return true;
       }} />}
-      {toast && <div className="card" style={{ position: "fixed", right: 24, top: 24, padding: "14px 18px", zIndex: 10000, boxShadow: "var(--shadow-xl)", animation: "slideIn 0.3s ease" }}>{toast}</div>}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            key="toast"
+            className="modal-card"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            style={{ position: "fixed", right: 24, top: 24, padding: "14px 18px", zIndex: 10000, boxShadow: "var(--shadow-xl)" }}
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {showQr && profile && (
         <motion.div
@@ -2058,12 +2072,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         />
       )}
 
-      <style>{`
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
     </div>
   );
 }
