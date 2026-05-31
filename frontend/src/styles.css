@@ -703,6 +703,16 @@ p {
 .entrance-delay-1 { animation-delay: 0.12s; }
 .entrance-delay-2 { animation-delay: 0.24s; }
 
+/* Toolbar entrance */
+@keyframes toolbarSlideUp {
+  0% { opacity: 0; transform: translateX(-50%) translateY(40px); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.toolbar-entrance {
+  animation: toolbarSlideUp 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Utility classes */
 .min-h-screen {
   min-height: 100vh;

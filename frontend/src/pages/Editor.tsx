@@ -1671,11 +1671,11 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         {!showOnboardingPanel && (
           <div
             ref={bottomBarRef}
+            className="toolbar-entrance"
             style={{
               position: "fixed",
               bottom: 20,
               left: "50%",
-              transform: "translateX(-50%)",
               background: "var(--surface)",
               border: "1px solid var(--border)",
               borderRadius: 14,
