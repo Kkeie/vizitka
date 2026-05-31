@@ -74,7 +74,7 @@ import {
   DragEndEvent,
 } from "@dnd-kit/core";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import "../styles/drag-reorder.css";
 
 const DRAG_BOTTOM_EDGE_PX = 110;
@@ -1872,9 +1872,26 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         return true;
       }} />}
       {toast && <div className="card" style={{ position: "fixed", right: 24, top: 24, padding: "14px 18px", zIndex: 10000, boxShadow: "var(--shadow-xl)", animation: "slideIn 0.3s ease" }}>{toast}</div>}
-      {showQr && profile && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 11000 }} onClick={() => setShowQr(false)}>
-          <div className="card" style={{ padding: 24, maxWidth: 360, width: "90%", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+      <AnimatePresence>
+        {showQr && profile && (
+        <motion.div
+          key="qr-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 11000 }}
+          onClick={() => setShowQr(false)}
+        >
+          <motion.div
+            className="modal-card"
+            initial={{ opacity: 0, scale: 0.9, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 10 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            style={{ padding: 24, maxWidth: 360, width: "90%", textAlign: "center" }}
+            onClick={e => e.stopPropagation()}
+          >
             <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>QR-код визитки</h2>
             <p style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>Отсканируйте код камерой телефона</p>
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}><img src={qrUrlForPublic(profile.username)} alt="QR" style={{ width: 220, height: 220 }} /></div>
@@ -1883,9 +1900,10 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               <a href={qrUrlForPublic(profile.username)} download={`vizitka-${profile.username}-qr.png`} className="btn" style={{ width: "100%", textAlign: "center" }}>⬇️ Скачать QR</a>
             </div>
             <button className="btn" style={{ width: "100%" }} onClick={() => setShowQr(false)}>Закрыть</button>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Главное меню редактирования — появляется над кнопкой */}
       {(showProfileMenu || menuClosing) && profileMenuAnchor && (
