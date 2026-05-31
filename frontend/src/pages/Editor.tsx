@@ -1425,7 +1425,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             ) : (
             <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%", position: "relative", minHeight: "100%" }}>
               {/* Панель: настройки + счётчик просмотров */}
-              {!showOnboardingPanel && previewMode !== "phone" && (
+              {!showOnboardingPanel && (
                 <div
                   className="settings-entrance"
                   style={{
