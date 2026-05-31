@@ -110,7 +110,25 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
-  const [previewMode, setPreviewMode] = useState<"desktop" | "phone">("desktop");
+  const [previewMode, setPreviewMode] = useState<"desktop" | "phone">(
+    () => typeof window !== "undefined" && window.innerWidth < 600 ? "phone" : "desktop"
+  );
+  const viewportOriginalRef = useRef<string | null>(null);
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) return;
+    if (viewportOriginalRef.current === null) {
+      viewportOriginalRef.current = meta.getAttribute('content');
+    }
+    if (previewMode === "desktop" && window.innerWidth < 600) {
+      meta.setAttribute('content', 'width=1280');
+    } else {
+      meta.setAttribute('content', viewportOriginalRef.current || 'width=device-width, initial-scale=1.0');
+    }
+    return () => {
+      meta.setAttribute('content', viewportOriginalRef.current || 'width=device-width, initial-scale=1.0');
+    };
+  }, [previewMode]);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
@@ -1407,7 +1425,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             ) : (
             <div ref={profileRef} className="profile-column" style={{ maxWidth: "100%", position: "relative", minHeight: "100%" }}>
               {/* Панель: настройки + счётчик просмотров */}
-              {!showOnboardingPanel && previewMode !== "phone" && (
+              {!showOnboardingPanel && (
                 <div
                   className="settings-entrance"
                   style={{
