@@ -1494,83 +1494,87 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                   )}
                 </div>
               )}
-              <div className="reveal reveal-in">
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", alignItems: "flex-start" }}>
-                  <Avatar
-                    src={profile.avatarUrl}
-                    size={120}
-                    editable={true}
-                    onChange={async (url: string) => {
-                      try {
-                        const updated = await updateProfile({ avatarUrl: url } as any);
-                        setProfile({ ...updated, avatarUrl: updated.avatarUrl ? `${updated.avatarUrl}?t=${Date.now()}` : updated.avatarUrl });
-                      } catch { alert("Не удалось сохранить аватар"); }
-                    }}
-                    onRemove={async () => {
-                      if (confirm("Удалить фото?")) {
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%", alignItems: "flex-start" }}>
+                  <div className="entrance-avatar entrance-delay-0">
+                    <Avatar
+                      src={profile.avatarUrl}
+                      size={120}
+                      editable={true}
+                      onChange={async (url: string) => {
                         try {
-                          const updated = await updateProfile({ avatarUrl: null } as any);
-                          setProfile(updated);
-                        } catch { alert("Не удалось удалить фото"); }
-                      }
-                    }}
-                  />
+                          const updated = await updateProfile({ avatarUrl: url } as any);
+                          setProfile({ ...updated, avatarUrl: updated.avatarUrl ? `${updated.avatarUrl}?t=${Date.now()}` : updated.avatarUrl });
+                        } catch { alert("Не удалось сохранить аватар"); }
+                      }}
+                      onRemove={async () => {
+                        if (confirm("Удалить фото?")) {
+                          try {
+                            const updated = await updateProfile({ avatarUrl: null } as any);
+                            setProfile(updated);
+                          } catch { alert("Не удалось удалить фото"); }
+                        }
+                      }}
+                    />
+                  </div>
 
                   {/* Имя – всегда инпут, без рамки */}
-                  <div style={{ width: "100%" }}>
-                    <input
-                      type="text"
-                      value={tempName ?? profile.name ?? ""}
-                      onChange={(e) => setTempName(e.target.value)}
-                      onBlur={handleSaveName}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") handleSaveName(); }}
-                      placeholder="Ваше имя"
-                      className="no-focus-shadow"
+                  <div className="entrance-text entrance-delay-1">
+                    <div style={{ width: "100%" }}>
+                      <input
+                        type="text"
+                        value={tempName ?? profile.name ?? ""}
+                        onChange={(e) => setTempName(e.target.value)}
+                        onBlur={handleSaveName}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") handleSaveName(); }}
+                        placeholder="Ваше имя"
+                        className="no-focus-shadow"
+                        style={{
+                          fontSize: compactProfileText ? 24 : 32,
+                          fontWeight: 800,
+                          letterSpacing: "-0.03em",
+                          width: "100%",
+                          padding: "0",
+                          border: "none",
+                          background: "transparent",
+                          outline: "none",
+                          color: "var(--text)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Био – Enter = перенос строки, сохранение при потере фокуса */}
+                  <div className="entrance-bio entrance-delay-2">
+                    <textarea
+                      ref={bioTextareaRef}
+                      value={tempBio ?? profile.bio ?? ""}
+                      onChange={(e) => setTempBio(e.target.value)}
+                      onBlur={handleSaveBio}
+                      placeholder="Расскажите о себе..."
+                      rows={1}
+                      spellCheck={false}
                       style={{
-                        fontSize: compactProfileText ? 24 : 32,
-                        fontWeight: 800,
-                        letterSpacing: "-0.03em",
+                        fontSize: 14,
+                        lineHeight: 1.6,
                         width: "100%",
                         padding: "0",
                         border: "none",
                         background: "transparent",
                         outline: "none",
-                        color: "var(--text)",
+                        resize: "none",
                         overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        color: "var(--muted)",  // Серый цвет
+                      }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = "auto";
+                        target.style.height = target.scrollHeight + "px";
                       }}
                     />
                   </div>
-
-                  {/* Био – Enter = перенос строки, сохранение при потере фокуса */}
-                  <textarea
-                    ref={bioTextareaRef}
-                    value={tempBio ?? profile.bio ?? ""}
-                    onChange={(e) => setTempBio(e.target.value)}
-                    onBlur={handleSaveBio}
-                    placeholder="Расскажите о себе..."
-                    rows={1}
-                    spellCheck={false}
-                    style={{
-                      fontSize: 14,
-                      lineHeight: 1.6,
-                      width: "100%",
-                      padding: "0",
-                      border: "none",
-                      background: "transparent",
-                      outline: "none",
-                      resize: "none",
-                      overflow: "hidden",
-                      color: "var(--muted)",  // Серый цвет
-                    }}
-                    onInput={(e) => {
-                      const target = e.target as HTMLTextAreaElement;
-                      target.style.height = "auto";
-                      target.style.height = target.scrollHeight + "px";
-                    }}
-                  />
                 </div>
-              </div>
             </div>
             )}
             <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }} />

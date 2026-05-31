@@ -306,11 +306,11 @@ export default function PublicPage() {
             <div className="profile-column" style={{ width: "100%", maxWidth: "100%", position: "relative" }}>
               <div className="public-profile-inner" style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-start", textAlign: "left", width: "100%", maxWidth: "100%" }}>
                 {state.avatarUrl && (
-                  <div className="entrance-avatar" style={{ animationDelay: '0s' }}>
+                  <div className="entrance-avatar entrance-delay-0">
                     <Avatar src={state.avatarUrl} size={120} editable={false} />
                   </div>
                 )}
-                <div className="entrance-text" style={{ animationDelay: '0.12s' }}>
+                <div className="entrance-text entrance-delay-1">
                   <h1 style={{
                     fontSize: breakpoint === "mobile" ? 26 : 32,
                     fontWeight: 800,
@@ -327,7 +327,7 @@ export default function PublicPage() {
                   </h1>
                 </div>
                 {state.bio && (
-                  <div className="entrance-bio" style={{ animationDelay: '0.24s' }}>
+                  <div className="entrance-bio entrance-delay-2">
                     <p style={{
                       fontSize: 14,
                       lineHeight: 1.6,

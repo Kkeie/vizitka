@@ -699,6 +699,10 @@ p {
   animation: slideUpFade 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+.entrance-delay-0 { animation-delay: 0s; }
+.entrance-delay-1 { animation-delay: 0.12s; }
+.entrance-delay-2 { animation-delay: 0.24s; }
+
 /* Utility classes */
 .min-h-screen {
   min-height: 100vh;
