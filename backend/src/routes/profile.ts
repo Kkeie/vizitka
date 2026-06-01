@@ -3,9 +3,16 @@ import { db } from "../utils/db";
 import { requireAuth, type AuthedRequest } from "../utils/auth";
 import { findAvailableUsernames, isValidUsernameFormat } from "../utils/usernameGenerator"
 import { RESERVED_USERNAMES, USERNAME_MAX_LENGTH, EMAIL_MAX_LENGTH } from "../constants";
+import {
+  isEmailTakenByAnotherUser,
+  queueEmailVerification,
+  sendQueuedVerificationEmail,
+} from "../utils/emailVerification";
 
 const router = Router();
 router.use(requireAuth);
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function parseProfileJsonFields(profile: any) {
   if (!profile) return profile;
@@ -33,6 +40,18 @@ function parseProfileJsonFields(profile: any) {
   }
 
   return normalized;
+}
+
+function enrichProfileResponse(profile: any, userId: number) {
+  const userRow = db
+    .prepare("SELECT pendingEmail FROM User WHERE id = ?")
+    .get(userId) as { pendingEmail: string | null } | undefined;
+  const pendingEmail = userRow?.pendingEmail?.trim() || null;
+  return {
+    ...parseProfileJsonFields(profile),
+    pendingEmail,
+    emailChangePending: Boolean(pendingEmail),
+  };
 }
 
 // GET /api/profile
@@ -72,7 +91,7 @@ router.get("/", async (req: AuthedRequest, res) => {
     return res.status(500).json({ error: "profile_creation_failed", message: "Failed to create profile" });
   }
 
-  res.json(parseProfileJsonFields(profile));
+  res.json(enrichProfileResponse(profile, userId));
 });
 
 // PATCH /api/profile
@@ -81,7 +100,9 @@ router.patch("/", async (req: AuthedRequest, res) => {
   const { username, name, bio, avatarUrl, backgroundUrl, phone, email, telegram, layout, blockSizes } = req.body || {};
    
   // Проверяем, что пользователь существует
-  const user = db.prepare("SELECT id FROM User WHERE id = ?").get(userId) as any;
+  const user = db.prepare("SELECT id, email FROM User WHERE id = ?").get(userId) as
+    | { id: number; email: string }
+    | undefined;
   if (!user) {
     console.error(`[PROFILE] User ${userId} not found in database`);
     return res.status(401).json({ error: "user_not_found", message: "User does not exist in database" });
@@ -142,18 +163,26 @@ router.patch("/", async (req: AuthedRequest, res) => {
     profileValues.push(phone);
   }
   if (email !== undefined) {
-    // Валидация email
-    const emailStr = String(email).trim();
+    const emailStr = String(email).trim().toLowerCase();
     if (emailStr.length > EMAIL_MAX_LENGTH) {
       return res.status(400).json({ error: "email_too_long" });
     }
-    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!EMAIL_RE.test(emailStr)) {
       return res.status(400).json({ error: "invalid_email_format" });
     }
-    
-    profileUpdates.push("email = ?");
-    profileValues.push(emailStr);
+
+    const currentAuthEmail = user.email.trim().toLowerCase();
+    if (emailStr === currentAuthEmail) {
+      profileUpdates.push("email = ?");
+      profileValues.push(emailStr);
+    } else {
+      if (isEmailTakenByAnotherUser(emailStr, userId)) {
+        return res.status(409).json({ error: "email_taken" });
+      }
+
+      const { rawToken, targetEmail } = queueEmailVerification(userId, emailStr, true);
+      sendQueuedVerificationEmail(rawToken, targetEmail);
+    }
   }
   if (telegram !== undefined) {
     profileUpdates.push("telegram = ?");
@@ -175,17 +204,8 @@ router.patch("/", async (req: AuthedRequest, res) => {
     profileUpdate.run(...profileValues);
   }
    
-  // Если email изменился, также обновляем User таблицу для синхронизации
-  if (email !== undefined) {
-    const EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
-    if (EMAIL_RE.test(email)) {
-      const userUpdate = db.prepare("UPDATE User SET email = ? WHERE id = ?");
-      userUpdate.run(email, userId);
-    }
-  }
-   
   const updated = db.prepare("SELECT * FROM Profile WHERE userId = ?").get(userId) as any;
-  res.json(parseProfileJsonFields(updated));
+  res.json(enrichProfileResponse(updated, userId));
 });
 
 export default router;

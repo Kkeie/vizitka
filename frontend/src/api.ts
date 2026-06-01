@@ -39,6 +39,8 @@ export type Profile = {
   userId: number;
   layout: Layout | null;
   blockSizes: BlockSizes | null;
+  pendingEmail?: string | null;
+  emailChangePending?: boolean;
 };
 export type User = {
   id: number;
@@ -47,6 +49,8 @@ export type User = {
   /** Email входа (приходит с GET /api/user/me) */
   email?: string;
   emailVerified?: boolean;
+  pendingEmail?: string | null;
+  emailChangePending?: boolean;
   profile: Profile | null;
 };
 
@@ -620,7 +624,9 @@ export async function changePassword(currentPassword: string, newPassword: strin
   return { token: data.token };
 }
 
-export async function verifyEmailWithToken(verificationToken: string): Promise<{ token: string; user: User }> {
+export async function verifyEmailWithToken(
+  verificationToken: string,
+): Promise<{ token: string; user: User; purpose?: "registration" | "email_change" }> {
   setToken(null);
   const r = await fetch(`${API}/auth/verify-email`, {
     method: "POST",
@@ -634,7 +640,11 @@ export async function verifyEmailWithToken(verificationToken: string): Promise<{
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     throw new Error(errorData.error || errorData.message || "verify_failed");
   }
-  const data = await safeJsonParse<{ token: string; user: Record<string, unknown> }>(r);
+  const data = await safeJsonParse<{
+    token: string;
+    user: Record<string, unknown>;
+    purpose?: "registration" | "email_change";
+  }>(r);
   if (!data.token || !data.user) {
     setToken(null);
     throw new Error("invalid_auth_response");
@@ -647,7 +657,7 @@ export async function verifyEmailWithToken(verificationToken: string): Promise<{
   } catch {
     /* ignore */
   }
-  return { token: data.token, user: mapUserFromApi(data.user) };
+  return { token: data.token, user: mapUserFromApi(data.user), purpose: data.purpose };
 }
 
 export type ResumeRegistrationResult =

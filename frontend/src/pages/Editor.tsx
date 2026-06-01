@@ -1225,6 +1225,10 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     if (!/^\S+@\S+\.\S+$/.test(trimmed)) throw new Error("Некорректный email");
     const updated = await updateProfile({ email: trimmed });
     setProfile(updated);
+    if (updated.emailChangePending && updated.pendingEmail) {
+      setToast(`Письмо отправлено на ${updated.pendingEmail}. Подтвердите email по ссылке из письма.`);
+      window.setTimeout(() => setToast(null), 5000);
+    }
   };
 
 
@@ -1955,7 +1959,12 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               }
             }}>
               <div>Изменить email</div>
-              <div style={{ fontSize: 11, color: "var(--muted)"}}>{(profile as any)?.email || "не указан"}</div>
+              <div style={{ fontSize: 11, color: "var(--muted)"}}>{profile?.email || "не указан"}</div>
+              {profile?.emailChangePending && profile.pendingEmail && (
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+                  Ожидает подтверждения: {profile.pendingEmail}
+                </div>
+              )}
             </MenuItem>
 
 

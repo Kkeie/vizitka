@@ -7,13 +7,14 @@ const usernameGenerator_1 = require("../utils/usernameGenerator");
 const constants_1 = require("../constants");
 const verificationToken_1 = require("../utils/verificationToken");
 const mailer_1 = require("../utils/mailer");
+const emailVerification_1 = require("../utils/emailVerification");
 const router = (0, express_1.Router)();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESEND_VERIFICATION_COOLDOWN_MS = 60000;
 const resendVerificationLastAt = new Map();
-const VERIFY_TOKEN_TTL_MS = 48 * 60 * 60 * 1000;
+const VERIFY_TOKEN_TTL_MS_LOCAL = emailVerification_1.VERIFY_TOKEN_TTL_MS;
 /** Тот же срок: пока пользователь может подтвердить почту, вкладка «ожидание» может подхватить сессию. */
-const DEVICE_RESUME_TOKEN_TTL_MS = VERIFY_TOKEN_TTL_MS;
+const DEVICE_RESUME_TOKEN_TTL_MS = VERIFY_TOKEN_TTL_MS_LOCAL;
 function issueAuthForUser(userId) {
     const row = db_1.db.prepare(`
     SELECT u.id, u.email, u.createdAt, u.passwordHash, u.emailVerified, p.id AS profileId,
@@ -109,7 +110,7 @@ router.post("/register", async (req, res) => {
         const passwordHash = await (0, auth_1.hashPassword)(password);
         const rawVerify = (0, verificationToken_1.generateVerificationToken)();
         const verifyHash = (0, verificationToken_1.hashVerificationToken)(rawVerify);
-        const verifyExpires = new Date(Date.now() + VERIFY_TOKEN_TTL_MS).toISOString();
+        const verifyExpires = new Date(Date.now() + emailVerification_1.VERIFY_TOKEN_TTL_MS).toISOString();
         const verifySentAt = new Date().toISOString();
         const rawDeviceResume = (0, verificationToken_1.generateVerificationToken)();
         const deviceResumeHash = (0, verificationToken_1.hashVerificationToken)(rawDeviceResume);
@@ -288,28 +289,39 @@ router.post("/verify-email", async (req, res) => {
             return res.status(400).json({ error: "token_required" });
         const tokenHash = (0, verificationToken_1.hashVerificationToken)(raw);
         const row = db_1.db.prepare(`
-      SELECT id, emailVerified, emailVerifyExpiresAt
+      SELECT id, emailVerified, emailVerifyExpiresAt, pendingEmail
       FROM User WHERE emailVerifyTokenHash = ?
     `).get(tokenHash);
         if (!row)
             return res.status(400).json({ error: "invalid_or_expired_token" });
-        if (row.emailVerified !== 1) {
-            const expires = row.emailVerifyExpiresAt ? new Date(row.emailVerifyExpiresAt).getTime() : 0;
-            if (!expires || expires < Date.now()) {
-                return res.status(400).json({ error: "invalid_or_expired_token" });
+        const expires = row.emailVerifyExpiresAt ? new Date(row.emailVerifyExpiresAt).getTime() : 0;
+        if (!expires || expires < Date.now()) {
+            return res.status(400).json({ error: "invalid_or_expired_token" });
+        }
+        let purpose = null;
+        if (row.pendingEmail) {
+            const pending = row.pendingEmail.trim().toLowerCase();
+            if ((0, emailVerification_1.isEmailTakenByAnotherUser)(pending, row.id)) {
+                return res.status(409).json({ error: "email_taken" });
             }
+            purpose = (0, emailVerification_1.completeEmailVerification)(row.id, row.pendingEmail);
+        }
+        else if (row.emailVerified !== 1) {
+            purpose = (0, emailVerification_1.completeEmailVerification)(row.id, null);
+        }
+        else {
             db_1.db.prepare(`
-        UPDATE User SET
-          emailVerified = 1,
-          emailVerifyTokenHash = NULL,
-          emailVerifyExpiresAt = NULL
+        UPDATE User SET emailVerifyTokenHash = NULL, emailVerifyExpiresAt = NULL
         WHERE id = ?
       `).run(row.id);
         }
         const issued = issueAuthForUser(row.id);
         if (!issued)
             return res.status(500).json({ error: "internal_error" });
-        return res.json(issued);
+        return res.json({
+            ...issued,
+            purpose: purpose !== null && purpose !== void 0 ? purpose : "registration",
+        });
     }
     catch (e) {
         console.error(e);
@@ -356,7 +368,7 @@ router.post("/resume-registration", (req, res) => {
 });
 /**
  * POST /api/auth/resend-verification
- * { email } — повторная отправка письма (только для неподтверждённых аккаунтов)
+ * { email } — повторная отправка письма (регистрация или смена email)
  */
 router.post("/resend-verification", async (req, res) => {
     var _a, _b, _c;
@@ -368,27 +380,39 @@ router.post("/resend-verification", async (req, res) => {
             return res.status(400).json({ error: "invalid_email_format" });
         if (email.length > constants_1.EMAIL_MAX_LENGTH)
             return res.status(400).json({ error: "email_too_long" });
-        const userRow = db_1.db.prepare(`
-      SELECT id, email, emailVerified FROM User WHERE email = ? COLLATE NOCASE
+        let userRow = db_1.db.prepare(`
+      SELECT id, email, pendingEmail, emailVerified FROM User WHERE email = ? COLLATE NOCASE
     `).get(email);
-        if (!userRow || userRow.emailVerified === 1) {
+        if (!userRow) {
+            userRow = db_1.db.prepare(`
+        SELECT id, email, pendingEmail, emailVerified FROM User WHERE pendingEmail = ? COLLATE NOCASE
+      `).get(email);
+        }
+        if (!userRow) {
             return res.json({ ok: true });
         }
-        const last = (_c = resendVerificationLastAt.get(email)) !== null && _c !== void 0 ? _c : 0;
+        let sendTo = null;
+        if (userRow.pendingEmail) {
+            const pending = userRow.pendingEmail.trim().toLowerCase();
+            const current = userRow.email.trim().toLowerCase();
+            if (email === pending || email === current) {
+                sendTo = pending;
+            }
+        }
+        else if (userRow.emailVerified !== 1) {
+            sendTo = userRow.email.trim().toLowerCase();
+        }
+        if (!sendTo) {
+            return res.json({ ok: true });
+        }
+        const last = (_c = resendVerificationLastAt.get(sendTo)) !== null && _c !== void 0 ? _c : 0;
         if (Date.now() - last < RESEND_VERIFICATION_COOLDOWN_MS) {
             return res.status(429).json({ error: "rate_limited" });
         }
-        resendVerificationLastAt.set(email, Date.now());
-        const rawVerify = (0, verificationToken_1.generateVerificationToken)();
-        const verifyHash = (0, verificationToken_1.hashVerificationToken)(rawVerify);
-        const verifyExpires = new Date(Date.now() + VERIFY_TOKEN_TTL_MS).toISOString();
-        const verifySentAt = new Date().toISOString();
-        db_1.db.prepare(`
-      UPDATE User SET emailVerifyTokenHash = ?, emailVerifyExpiresAt = ?, emailVerifySentAt = ?
-      WHERE id = ?
-    `).run(verifyHash, verifyExpires, verifySentAt, userRow.id);
+        resendVerificationLastAt.set(sendTo, Date.now());
+        const { rawToken, targetEmail } = (0, emailVerification_1.queueEmailVerification)(userRow.id, sendTo, Boolean(userRow.pendingEmail));
         try {
-            await (0, mailer_1.sendVerificationEmail)(userRow.email, (0, mailer_1.buildEmailVerificationUrl)(rawVerify));
+            await (0, mailer_1.sendVerificationEmail)(targetEmail, (0, mailer_1.buildEmailVerificationUrl)(rawToken));
         }
         catch (e) {
             console.error("[resend-verification] send failed:", e);
