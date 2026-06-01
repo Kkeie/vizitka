@@ -5,6 +5,7 @@ const db_1 = require("../utils/db");
 const auth_1 = require("../utils/auth");
 const router = (0, express_1.Router)();
 router.get("/me", auth_1.requireAuth, async (req, res) => {
+    var _a, _b;
     try {
         const user = db_1.db.prepare(`
        SELECT u.*, p.id as profileId, p.username, p.name, p.bio, p.email, p.userId as profileUserId
@@ -20,6 +21,8 @@ router.get("/me", auth_1.requireAuth, async (req, res) => {
             username: user.username || req.user.username,
             createdAt: user.createdAt,
             emailVerified: user.emailVerified === 1,
+            pendingEmail: ((_a = user.pendingEmail) === null || _a === void 0 ? void 0 : _a.trim()) || null,
+            emailChangePending: Boolean((_b = user.pendingEmail) === null || _b === void 0 ? void 0 : _b.trim()),
             profile: user.profileId ? {
                 id: user.profileId,
                 username: user.username,

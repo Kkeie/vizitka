@@ -26,12 +26,15 @@ export default function VerifyEmail() {
         return;
       }
       try {
-        const { user } = await verifyEmailWithToken(token);
+        const { user, purpose } = await verifyEmailWithToken(token);
         if (cancelled) return;
         if (guardKey) sessionStorage.setItem(guardKey, "done");
         onAuthed(user);
         setState("ok");
-        navigate("/editor?onboarding=true", { replace: true });
+        navigate(
+          purpose === "email_change" ? "/editor" : "/editor?onboarding=true",
+          { replace: true },
+        );
       } catch (e) {
         if (cancelled) return;
         setState("bad");

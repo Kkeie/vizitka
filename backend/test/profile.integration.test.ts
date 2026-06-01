@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import request from "supertest";
 import app from "../src/app";
+import { db } from "../src/utils/db";
 import { register, auth } from "./helpers";
 
 let aliceToken: string;
@@ -67,15 +68,29 @@ describe("PATCH /api/profile/ — сохранить изменения анке
     expect(get.body.bio).toBe("Дизайнер и разработчик");
   });
 
-  it("TC-PROF-04: телефон, почта, телеграм сохраняются и читаются обратно", async () => {
+  it("TC-PROF-04: телефон и телеграм сохраняются сразу; смена email требует подтверждения", async () => {
     await request(app)
       .patch("/api/profile/")
       .set(auth(aliceToken))
-      .send({ phone: "+79001234567", email: "alice@example.com", telegram: "alice_tg" });
-    const get = await request(app).get("/api/profile/").set(auth(aliceToken));
-    expect(get.body.phone).toBe("+79001234567");
-    expect(get.body.email).toBe("alice@example.com");
-    expect(get.body.telegram).toBe("alice_tg");
+      .send({ phone: "+79001234567", telegram: "alice_tg" });
+    const getContacts = await request(app).get("/api/profile/").set(auth(aliceToken));
+    expect(getContacts.body.phone).toBe("+79001234567");
+    expect(getContacts.body.telegram).toBe("alice_tg");
+
+    const beforeEmail = getContacts.body.email as string | null;
+    const patchEmail = await request(app)
+      .patch("/api/profile/")
+      .set(auth(aliceToken))
+      .send({ email: "alice_new_mail@example.com" });
+    expect(patchEmail.status).toBe(200);
+    expect(patchEmail.body.emailChangePending).toBe(true);
+    expect(patchEmail.body.pendingEmail).toBe("alice_new_mail@example.com");
+    expect(patchEmail.body.email).toBe(beforeEmail);
+
+    const userRow = db
+      .prepare("SELECT email, pendingEmail FROM User WHERE id = (SELECT userId FROM Profile WHERE username = ?)")
+      .get(getContacts.body.username) as { email: string; pendingEmail: string | null };
+    expect(userRow.pendingEmail).toBe("alice_new_mail@example.com");
   });
 
   it("TC-PROF-05: можно сменить ник на свободный — в профиле сразу новый логин", async () => {

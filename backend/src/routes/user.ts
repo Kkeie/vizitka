@@ -21,6 +21,8 @@ router.get("/me", requireAuth, async (req: AuthedRequest, res) => {
        username: user.username || req.user!.username,
        createdAt: user.createdAt,
        emailVerified: user.emailVerified === 1,
+       pendingEmail: user.pendingEmail?.trim() || null,
+       emailChangePending: Boolean(user.pendingEmail?.trim()),
        profile: user.profileId ? {
          id: user.profileId,
          username: user.username,

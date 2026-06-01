@@ -5,8 +5,10 @@ const db_1 = require("../utils/db");
 const auth_1 = require("../utils/auth");
 const usernameGenerator_1 = require("../utils/usernameGenerator");
 const constants_1 = require("../constants");
+const emailVerification_1 = require("../utils/emailVerification");
 const router = (0, express_1.Router)();
 router.use(auth_1.requireAuth);
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function parseProfileJsonFields(profile) {
     if (!profile)
         return profile;
@@ -34,6 +36,18 @@ function parseProfileJsonFields(profile) {
         normalized.blockSizes = null;
     }
     return normalized;
+}
+function enrichProfileResponse(profile, userId) {
+    var _a;
+    const userRow = db_1.db
+        .prepare("SELECT pendingEmail FROM User WHERE id = ?")
+        .get(userId);
+    const pendingEmail = ((_a = userRow === null || userRow === void 0 ? void 0 : userRow.pendingEmail) === null || _a === void 0 ? void 0 : _a.trim()) || null;
+    return {
+        ...parseProfileJsonFields(profile),
+        pendingEmail,
+        emailChangePending: Boolean(pendingEmail),
+    };
 }
 // GET /api/profile
 router.get("/", async (req, res) => {
@@ -68,14 +82,14 @@ router.get("/", async (req, res) => {
         console.error(`[PROFILE] Failed to get or create profile for user ${userId}`);
         return res.status(500).json({ error: "profile_creation_failed", message: "Failed to create profile" });
     }
-    res.json(parseProfileJsonFields(profile));
+    res.json(enrichProfileResponse(profile, userId));
 });
 // PATCH /api/profile
 router.patch("/", async (req, res) => {
     const userId = req.user.id;
     const { username, name, bio, avatarUrl, backgroundUrl, phone, email, telegram, layout, blockSizes } = req.body || {};
     // Проверяем, что пользователь существует
-    const user = db_1.db.prepare("SELECT id FROM User WHERE id = ?").get(userId);
+    const user = db_1.db.prepare("SELECT id, email FROM User WHERE id = ?").get(userId);
     if (!user) {
         console.error(`[PROFILE] User ${userId} not found in database`);
         return res.status(401).json({ error: "user_not_found", message: "User does not exist in database" });
@@ -128,17 +142,25 @@ router.patch("/", async (req, res) => {
         profileValues.push(phone);
     }
     if (email !== undefined) {
-        // Валидация email
-        const emailStr = String(email).trim();
+        const emailStr = String(email).trim().toLowerCase();
         if (emailStr.length > constants_1.EMAIL_MAX_LENGTH) {
             return res.status(400).json({ error: "email_too_long" });
         }
-        const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!EMAIL_RE.test(emailStr)) {
             return res.status(400).json({ error: "invalid_email_format" });
         }
-        profileUpdates.push("email = ?");
-        profileValues.push(emailStr);
+        const currentAuthEmail = user.email.trim().toLowerCase();
+        if (emailStr === currentAuthEmail) {
+            profileUpdates.push("email = ?");
+            profileValues.push(emailStr);
+        }
+        else {
+            if ((0, emailVerification_1.isEmailTakenByAnotherUser)(emailStr, userId)) {
+                return res.status(409).json({ error: "email_taken" });
+            }
+            const { rawToken, targetEmail } = (0, emailVerification_1.queueEmailVerification)(userId, emailStr, true);
+            (0, emailVerification_1.sendQueuedVerificationEmail)(rawToken, targetEmail);
+        }
     }
     if (telegram !== undefined) {
         profileUpdates.push("telegram = ?");
@@ -158,15 +180,7 @@ router.patch("/", async (req, res) => {
         const profileUpdate = db_1.db.prepare(`UPDATE Profile SET ${profileUpdates.join(", ")} WHERE userId = ?`);
         profileUpdate.run(...profileValues);
     }
-    // Если email изменился, также обновляем User таблицу для синхронизации
-    if (email !== undefined) {
-        const EMAIL_RE = /^[^\s@]+@[^\s@]+$/;
-        if (EMAIL_RE.test(email)) {
-            const userUpdate = db_1.db.prepare("UPDATE User SET email = ? WHERE id = ?");
-            userUpdate.run(email, userId);
-        }
-    }
     const updated = db_1.db.prepare("SELECT * FROM Profile WHERE userId = ?").get(userId);
-    res.json(parseProfileJsonFields(updated));
+    res.json(enrichProfileResponse(updated, userId));
 });
 exports.default = router;
