@@ -108,7 +108,6 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
   const [formData, setFormData] = useState<any>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [searchAddress, setSearchAddress] = useState("");
-  const [searching, setSearching] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
@@ -125,7 +124,6 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         setFormData({});
       }
       setSearchAddress("");
-      setSearching(false);
       setLoadingSuggestions(false);
       setAddressSuggestions([]);
       setActiveSuggestionIndex(0);
@@ -171,7 +169,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         if (controller.signal.aborted) return;
         console.error("Ошибка загрузки подсказок адреса:", error);
         setAddressSuggestions([]);
-        setSearchAddressError("Не удалось загрузить подсказки. Можно выполнить поиск вручную.");
+        setSearchAddressError("Не удалось загрузить подсказки. Попробуйте уточнить адрес.");
       } finally {
         if (!controller.signal.aborted) {
           setLoadingSuggestions(false);
@@ -198,32 +196,6 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
     setSearchAddressError(null);
   };
 
-
-  const handleGeocodeAddress = async () => {
-    if (!searchAddress.trim()) return;
-
-    const selectedSuggestion = addressSuggestions[activeSuggestionIndex] ?? addressSuggestions[0];
-    if (selectedSuggestion) {
-      applyAddressSuggestion(selectedSuggestion);
-      return;
-    }
-
-    setSearching(true);
-    try {
-      const suggestions = await searchAddressSuggestions(searchAddress.trim(), 1);
-
-      if (suggestions.length > 0) {
-        applyAddressSuggestion(suggestions[0]);
-      } else {
-        setSearchAddressError("Адрес не найден. Уточните запрос или используйте режим координат.");
-      }
-    } catch (error) {
-      console.error("Ошибка геокодинга:", error);
-      setSearchAddressError("Не удалось найти адрес. Попробуйте ввести координаты вручную.");
-    } finally {
-      setSearching(false);
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -674,7 +646,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                   <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 0, marginBottom: 8 }}>
                     Начните вводить адрес и выберите подсказку из списка.
                   </p>
-                  <div style={{ display: "flex", flexDirection: isCompactViewport ? "column" : "row", gap: 8, marginBottom: 12 }}>
+                  <div style={{ marginBottom: 12 }}>
                     <input
                       className="input"
                       type="text"
@@ -706,20 +678,15 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                         }
                         if (e.key === "Enter") {
                           e.preventDefault();
-                          handleGeocodeAddress();
+                          const selectedSuggestion =
+                            addressSuggestions[activeSuggestionIndex] ?? addressSuggestions[0];
+                          if (selectedSuggestion) {
+                            applyAddressSuggestion(selectedSuggestion);
+                          }
                         }
                       }}
-                      style={{ fontSize: 15, flex: 1 }}
+                      style={{ fontSize: 15, width: "100%" }}
                     />
-                    <button
-                      type="button"
-                      onClick={handleGeocodeAddress}
-                      disabled={searching || !searchAddress.trim()}
-                      className="btn btn-primary"
-                      style={{ fontSize: 14, whiteSpace: "nowrap", width: isCompactViewport ? "100%" : undefined }}
-                    >
-                      {searching ? "Поиск..." : "Найти"}
-                    </button>
                   </div>
 
                   {(loadingSuggestions || addressSuggestions.length > 0 || searchAddressError) && (
