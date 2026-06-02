@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 
 interface InlineInputCardProps {
   buttonRect: DOMRect;
+  positionRect?: DOMRect;
   exitButtonRect?: DOMRect;
   onSubmit: (value: string) => void;
   onCancel: () => void;
@@ -15,6 +16,7 @@ interface InlineInputCardProps {
 
 export default function InlineInputCard({
   buttonRect,
+  positionRect,
   exitButtonRect,
   onSubmit,
   onCancel,
@@ -39,11 +41,12 @@ export default function InlineInputCard({
     if (!cardRef.current || ready) return;
     const cardRect = cardRef.current.getBoundingClientRect();
     const padding = 8;
-    let top = buttonRect.top - cardRect.height - 8;
+    const anchorRect = positionRect ?? buttonRect;
+    let top = anchorRect.top - cardRect.height - 8;
     if (top < padding) {
-      top = buttonRect.bottom + 8;
+      top = anchorRect.bottom + 8;
     }
-    let left = buttonRect.left + buttonRect.width / 2 - cardRect.width / 2;
+    let left = anchorRect.left + anchorRect.width / 2 - cardRect.width / 2;
     if (left < padding) left = padding;
     if (left + cardRect.width > window.innerWidth - padding) {
       left = window.innerWidth - cardRect.width - padding;
@@ -72,7 +75,7 @@ export default function InlineInputCard({
       exitOffsetY,
     });
     setReady(true);
-  }, [buttonRect, exitButtonRect, ready]);
+  }, [buttonRect, positionRect, exitButtonRect, ready]);
 
   useEffect(() => {
     if (ready) inputRef.current?.focus();

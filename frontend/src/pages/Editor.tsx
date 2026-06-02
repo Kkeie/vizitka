@@ -185,6 +185,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [inlineInput, setInlineInput] = useState<{
     type: 'link' | 'video' | 'music';
     buttonRect: DOMRect;
+    positionRect?: DOMRect;
     exitButtonRect?: DOMRect;
   } | null>(null);
   const [inlineClosing, setInlineClosing] = useState(false);
@@ -1080,9 +1081,11 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     if (inlineClosing) return;
 
     const rect = buttonElement.getBoundingClientRect();
+    let positionRect: DOMRect | undefined;
     let exitButtonRect: DOMRect | undefined;
     if (buttonElement.closest('[data-testid="editor-overflow-menu"]') && overflowToggleRef.current) {
-      exitButtonRect = overflowToggleRef.current.getBoundingClientRect();
+      positionRect = overflowToggleRef.current.getBoundingClientRect();
+      exitButtonRect = positionRect;
     }
 
     if (inlineInput?.type === type) {
@@ -1091,11 +1094,11 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       return;
     }
     if (inlineInput) {
-      pendingInlineActionRef.current = () => setInlineInput({ type, buttonRect: rect, exitButtonRect });
+      pendingInlineActionRef.current = () => setInlineInput({ type, buttonRect: rect, positionRect, exitButtonRect });
       setInlineClosing(true);
       return;
     }
-    setInlineInput({ type, buttonRect: rect, exitButtonRect });
+    setInlineInput({ type, buttonRect: rect, positionRect, exitButtonRect });
   };
 
   const handleInlineSubmit = async (value: string) => {
@@ -1855,7 +1858,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       </div>
 
       <BlockModal type={modalType ?? "note"} isOpen={modalOpen} onClose={() => { setModalOpen(false); setModalType(null); }} onSubmit={handleBlockSubmit} />
-      {inlineInput && <InlineInputCard key={inlineInput.type} closing={inlineClosing} buttonRect={inlineInput.buttonRect} exitButtonRect={inlineInput.exitButtonRect} onSubmit={handleInlineSubmit} onCancel={() => { const action = pendingInlineActionRef.current; pendingInlineActionRef.current = null; setInlineClosing(false); setInlineInput(null); action?.(); }} placeholder={inlineInput.type === 'link' ? 'https://example.com' : inlineInput.type === 'video' ? 'https://youtu.be/...' : 'https://music.yandex.ru/...'} buttonText="Добавить" type={inlineInput.type === 'link' ? 'url' : 'text'} validate={(val) => {
+      {inlineInput && <InlineInputCard key={inlineInput.type} closing={inlineClosing} buttonRect={inlineInput.buttonRect} positionRect={inlineInput.positionRect} exitButtonRect={inlineInput.exitButtonRect} onSubmit={handleInlineSubmit} onCancel={() => { const action = pendingInlineActionRef.current; pendingInlineActionRef.current = null; setInlineClosing(false); setInlineInput(null); action?.(); }} placeholder={inlineInput.type === 'link' ? 'https://example.com' : inlineInput.type === 'video' ? 'https://youtu.be/...' : 'https://music.yandex.ru/...'} buttonText="Добавить" type={inlineInput.type === 'link' ? 'url' : 'text'} validate={(val) => {
         if (inlineInput.type === "link") {
           const result = validateLinkInput(val);
           return result.ok ? true : (result.message || "Неверная ссылка");
