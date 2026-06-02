@@ -29,10 +29,39 @@ import {
   SpotifyIcon,
 } from './SocialIconsWithBg';
 import { getLinkMetadata, getImageUrl, Block } from "../api";
+import { getMetadataCache, setMetadataCache } from "../lib/metadataCache";
 import { noteStyleToTextCss } from "../lib/noteStyle";
 import { sanitizeNoteHtml, looksLikeHtml } from "../lib/sanitizeNoteHtml";
 import NoteFloatingToolbar from "./NoteFloatingToolbar";
 import { CardContentScaleToFit } from "./CardContentScaleToFit";
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Превращает OG-заголовок соцпрофиля в человекочитаемое имя или null, если это
+ * generic-«chrome» платформы (например «Pinterest (pinterest) - Profile | Pinterest»),
+ * — тогда карточка покажет реальный username из ссылки.
+ */
+function cleanSocialTitle(raw: string | undefined, platform: string): string | null {
+  if (!raw) return null;
+  let t = raw.replace(new RegExp(`\\s*[|\\-–—·]\\s*${escapeRe(platform)}\\s*$`, "i"), "").trim();
+  if (!t) return null;
+  if (t.toLowerCase() === platform.toLowerCase()) return null;
+  if (new RegExp(`^${escapeRe(platform)}\\b`, "i").test(t) && /\bprofile\b|профил/i.test(t)) return null;
+  return t;
+}
+
+/** Отсекает generic-слоганы платформы из OG-описания («Pinterest | Find your reason…»). */
+function cleanSocialBio(raw: string | undefined | null, platform: string): string | null {
+  if (!raw) return null;
+  const t = raw.trim();
+  if (!t) return null;
+  if (new RegExp(`^${escapeRe(platform)}\\s*[|\\-–—·]`, "i").test(t)) return null;
+  if (t.toLowerCase() === platform.toLowerCase()) return null;
+  return t;
+}
 
 /** Полоски по краю iframe в редакторе: dnd ловит край, центр (плеер/карта) остаётся интерактивным */
 const EDITOR_IFRAME_DRAG_EDGE_PX = 14;
@@ -134,6 +163,7 @@ export default function BlockCard({
   const [isVideoPlaying, setIsVideoPlaying] = React.useState(false);
   const [linkMetadata, setLinkMetadata] = React.useState<{ title?: string; description?: string; image?: string } | null>(null);
   const [loadingMetadata, setLoadingMetadata] = React.useState(false);
+  const [socialAvatarError, setSocialAvatarError] = React.useState(false);
   const showEditorHeader = Boolean(onDelete);
   /** В редакторе без entrance: scale(0.97) ломает восприятие размера; оверлей dnd без .reveal — «как норма» */
   const revealRef = useReveal<HTMLDivElement>({
@@ -236,17 +266,41 @@ export default function BlockCard({
   }, [b.type, b.id, colSpan]);
 
   React.useEffect(() => {
-    if (b.type === "link" && b.linkUrl) {
-      setLoadingMetadata(true);
-      setLinkMetadata(null);
-      getLinkMetadata(b.linkUrl)
-        .then((data) => setLinkMetadata(data))
-        .catch((err) => console.log("Failed to fetch metadata:", err))
-        .finally(() => setLoadingMetadata(false));
-    } else {
-      setLinkMetadata(null);
+    const url = b.type === "link" ? b.linkUrl : b.type === "social" ? b.socialUrl : undefined;
+    if (!url) { setLinkMetadata(null); return; }
+
+    setSocialAvatarError(false);
+
+    // Instant: serve from localStorage cache
+    const cached = getMetadataCache(url);
+    if (cached) {
+      setLinkMetadata(cached);
+      setLoadingMetadata(false);
+      return;
     }
-  }, [b.type, b.linkUrl]);
+
+    setLoadingMetadata(true);
+    setLinkMetadata(null);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8_000);
+
+    getLinkMetadata(url, controller.signal)
+      .then((data) => {
+        setLinkMetadata(data);
+        setMetadataCache(url, data);
+      })
+      .catch(() => { /* silent — show fallback content */ })
+      .finally(() => {
+        clearTimeout(timeout);
+        setLoadingMetadata(false);
+      });
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [b.type, b.linkUrl, b.socialUrl]);
 
   // const typeLabels: Record<string, string> = {
   //   section: "Раздел",
@@ -1018,7 +1072,7 @@ export default function BlockCard({
           let IconComponent = null;
           let name = '';
           const platform = b.socialType;
-          
+
           switch (platform) {
             case 'telegram': IconComponent = TelegramIcon; name = 'Telegram'; break;
             case 'instagram': IconComponent = InstagramIcon; name = 'Instagram'; break;
@@ -1037,7 +1091,7 @@ export default function BlockCard({
             case 'spotify': IconComponent = SpotifyIcon; name = 'Spotify'; break;
             default: return null;
           }
-          
+
           const username = b.socialUrl.replace(/^https?:\/\//, '')
               .replace(/^www\./, '')
               .replace(/^t\.me\//, '')
@@ -1054,22 +1108,106 @@ export default function BlockCard({
               .replace(/^figma\.com\/@/, '')
               .replace(/^pinterest\.com\//, '')
               .replace(/^tiktok\.com\/@/, '')
-              .replace(/^spotify\.com\//, '');     
+              .replace(/^spotify\.com\//, '');
 
           const isVertical = colSpan === 1;
-          
+          const hasAvatar = Boolean(linkMetadata?.image) && !socialAvatarError;
+          const ogTitle = cleanSocialTitle(linkMetadata?.title, name);
+          const ogBio = cleanSocialBio(linkMetadata?.description, name);
+
           return (
             <a href={b.socialUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block', ...scrollableContentStyle }} data-draggable-tile-link="">
-              <div style={{ 
-                display: 'flex', 
+              {/*
+                Key layout constraint: this content lives inside CardContentScaleToFit whose
+                inner div is fixed at 280px. The scaler measures scrollWidth to compute the
+                scale factor, so nothing here must overflow 280px.
+                - Outer flex uses default alignItems:stretch so text block fills full width.
+                - Icon uses alignSelf:center so it stays centered rather than stretching.
+                - Text block is therefore always bounded at 280px → scrollWidth stays correct.
+              */}
+              <div style={{
+                display: 'flex',
                 flexDirection: isVertical ? 'column' : 'row',
-                alignItems: isVertical ? 'flex-start' : 'center',
-                gap: 12
+                gap: 12,
+                width: '100%',
+                overflow: 'hidden',
+                boxSizing: 'border-box',
               }}>
-                <IconComponent width={socialIconSize} height={socialIconSize} fill="white" />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)', marginBottom: 4 }}>{name}</div>
-                  <div style={{ fontSize: 14, color: 'var(--muted)' }}>{username || 'Профиль'}</div>
+                {/* Avatar (OG image) or fallback platform icon */}
+                <div style={{ position: 'relative', flexShrink: 0, display: 'flex', alignSelf: 'center' }}>
+                  {hasAvatar ? (
+                    <>
+                      <img
+                        src={linkMetadata!.image}
+                        alt=""
+                        draggable={false}
+                        onError={() => setSocialAvatarError(true)}
+                        style={{
+                          width: socialIconSize,
+                          height: socialIconSize,
+                          borderRadius: '50%',
+                          objectFit: 'cover',
+                          display: 'block',
+                        }}
+                      />
+                      <IconComponent
+                        width={24}
+                        height={24}
+                        fill="white"
+                        style={{
+                          position: 'absolute',
+                          bottom: -2,
+                          right: -2,
+                          display: 'block',
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <IconComponent width={socialIconSize} height={socialIconSize} fill="white" />
+                  )}
+                </div>
+
+                {/* Text: platform name, display name/username, bio.
+                    flex:1 + minWidth:0 bounds width in row mode.
+                    In column mode, alignItems:stretch (default) makes this fill full width. */}
+                <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                  <div style={{
+                    fontWeight: 700,
+                    fontSize: 16,
+                    color: 'var(--text)',
+                    marginBottom: 2,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {name}
+                  </div>
+                  {(ogTitle || username) ? (
+                    <div style={{
+                      fontSize: 14,
+                      color: 'var(--muted)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {ogTitle || username}
+                    </div>
+                  ) : null}
+                  {ogBio ? (
+                    <div style={{
+                      fontSize: 13,
+                      color: 'var(--muted)',
+                      marginTop: 3,
+                      lineHeight: 1.4,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      wordBreak: 'break-word',
+                    }}>
+                      {ogBio}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </a>

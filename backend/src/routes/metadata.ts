@@ -2,16 +2,43 @@ import { Router } from "express";
 import https from "https";
 import http from "http";
 import { spawn } from "child_process";
+import ogs from "open-graph-scraper";
 
 const router = Router();
 const MAX_REDIRECTS = 5;
+// Some platforms (notably YouTube) inline huge JSON blobs in <head> before the
+// OG meta tags — YouTube's og:image sits ~630KB into the document. A small cap
+// silently drops those tags, so we read up to ~1.2MB before giving up.
+const MAX_HTML_BYTES = 1_200_000;
 
 type OGResult = { title?: string; description?: string; image?: string; url: string };
+
+// ─── In-memory cache (1 hour TTL) ────────────────────────────────────────────
+
+interface CacheEntry { data: OGResult; expiresAt: number; }
+const metaCache = new Map<string, CacheEntry>();
+const CACHE_TTL = 3_600_000;
+
+function getCached(url: string): OGResult | null {
+  const entry = metaCache.get(url);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) { metaCache.delete(url); return null; }
+  return entry.data;
+}
+
+function setCached(url: string, data: OGResult): void {
+  metaCache.set(url, { data, expiresAt: Date.now() + CACHE_TTL });
+  // Evict oldest entries when cache grows too large
+  if (metaCache.size > 500) {
+    const firstKey = metaCache.keys().next().value;
+    if (firstKey) metaCache.delete(firstKey);
+  }
+}
 
 /**
  * GET /api/metadata?url=...
  * Возвращает Open Graph / oEmbed / API данные для ссылки.
- * Стратегия: platform API/oEmbed → Node HTTP → curl fallback.
+ * Стратегия: cache → platform API/oEmbed → ogs parser → curl fallback.
  */
 router.get("/", async (req, res) => {
   try {
@@ -25,7 +52,11 @@ router.get("/", async (req, res) => {
       return res.status(400).json({ error: "invalid_url" });
     }
 
-    const metadata = await resolveMetadata(urlObj);
+    const cached = getCached(url);
+    if (cached) return res.json(cached);
+
+    const metadata = normalizeResult(await resolveMetadata(urlObj));
+    setCached(url, metadata);
     res.json(metadata);
   } catch (error: any) {
     console.error("[METADATA] Error:", error);
@@ -33,23 +64,51 @@ router.get("/", async (req, res) => {
   }
 });
 
+// ─── Result normalization ─────────────────────────────────────────────────────
+
+// Generic share placeholders served by sites that don't expose a real avatar/preview.
+// These would otherwise render as a misleading "avatar" on social cards.
+const JUNK_IMAGE_RE =
+  /default_open_graph|og[-_]?default|default[-_]?(og|share|image|preview)|share[-_]?default|placeholder|\/user\/default|default_\d+\.(png|jpe?g)/i;
+
+// Generic page titles that carry no useful identity (the real username from the
+// URL is more informative, so drop these and let the client fall back to it).
+const JUNK_TITLE_RE = /^(tiktok - make your day|pinterest|instagram|вконтакте|vk)$/i;
+
+function normalizeResult(r: OGResult): OGResult {
+  if (r.image && JUNK_IMAGE_RE.test(r.image)) delete r.image;
+  if (r.title && JUNK_TITLE_RE.test(r.title.trim())) delete r.title;
+  return r;
+}
+
 // ─── Platform dispatching ─────────────────────────────────────────────────────
+
+// Platforms that actively block unauthenticated scraping — skip immediately.
+const NO_SCRAPE_HOSTS = new Set([
+  "instagram.com", "vk.com", "twitter.com", "x.com",
+  "facebook.com", "fb.com",
+]);
 
 async function resolveMetadata(url: URL): Promise<OGResult> {
   const h = url.hostname.replace(/^www\./, "").toLowerCase();
+
+  // Fast-fail for platforms that always block or redirect to login
+  if (NO_SCRAPE_HOSTS.has(h)) return { url: url.href };
 
   try {
     if (h === "github.com") return await handleGitHub(url);
     if (h === "youtube.com" || h === "youtu.be") return await handleYouTubeOEmbed(url);
     if (h === "tiktok.com") return await handleTikTokOEmbed(url);
     if (h === "open.spotify.com") return await handleSpotifyOEmbed(url);
+    if (h === "pinterest.com" || h.endsWith(".pinterest.com")) return await handlePinterest(url);
   } catch {
     // Fall through to HTML scraping
   }
 
-  // HTML scraping: Node.js HTTP first, curl fallback for bot-protected sites
   const html = await fetchHtmlWithFallback(url);
-  return parseOpenGraph(html, url.href);
+
+  // Use open-graph-scraper as primary HTML parser, regex as fallback
+  return await parseWithOgs(html, url.href);
 }
 
 // ─── Platform-specific handlers ───────────────────────────────────────────────
@@ -58,7 +117,6 @@ async function handleGitHub(url: URL): Promise<OGResult> {
   const segs = url.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
 
   if (segs.length === 1) {
-    // User / org profile page
     const data = await fetchJson("https://api.github.com/users/" + segs[0], {
       "User-Agent": "Vizitka/1.0",
       Accept: "application/vnd.github.v3+json",
@@ -74,7 +132,6 @@ async function handleGitHub(url: URL): Promise<OGResult> {
     };
   }
 
-  // Repo or subpage: GitHub has great OG tags, use HTML scraping
   throw new Error("github repo: use HTML");
 }
 
@@ -114,6 +171,88 @@ async function handleSpotifyOEmbed(url: URL): Promise<OGResult> {
     image: data.thumbnail_url,
     url: url.href,
   };
+}
+
+/**
+ * Pinterest profiles serve a generic placeholder as og:image, but the real
+ * avatar + display name live in the inline __PWS_DATA__ JSON. We pull those out
+ * directly; the placeholder/default avatar is dropped later by normalizeResult.
+ */
+async function handlePinterest(url: URL): Promise<OGResult> {
+  const html = await fetchHtmlWithFallback(url);
+  const result: OGResult = { url: url.href };
+
+  const handle = url.pathname.replace(/^\/+|\/+$/g, "").split("/")[0]?.toLowerCase();
+  const owner = handle ? findPinterestOwner(html, handle) : null;
+  if (owner?.full_name) result.title = owner.full_name.trim();
+  if (owner?.image) result.image = owner.image;
+
+  const ogDesc = extractMetaContent(html, "property", "og:description");
+  if (ogDesc) {
+    let bio = decodeHtmlEntities(ogDesc).trim();
+    // og:description is formatted "<name> | <bio>" — strip the redundant prefix
+    if (result.title) {
+      const re = new RegExp(`^${result.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\|\\s*`, "i");
+      bio = bio.replace(re, "").trim();
+    }
+    if (bio) result.description = bio;
+  }
+
+  // Extraction failed (markup changed?) — fall back to generic OG parsing.
+  if (!result.title && !result.image && !result.description) {
+    return parseWithOgs(html, url.href);
+  }
+  return result;
+}
+
+/**
+ * Pulls the profile owner's name + avatar out of Pinterest's inline JSON.
+ * Anchors on the owner's own `"username":"<handle>"` so we don't accidentally
+ * grab an avatar from the "related profiles" blocks elsewhere on the page.
+ */
+function findPinterestOwner(html: string, handle: string): { full_name?: string; image?: string } | null {
+  const esc = handle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const anchor = html.match(new RegExp(`"username":"${esc}"`, "i"));
+  if (!anchor || anchor.index === undefined) return null;
+
+  // Pinterest's inline JSON ships in non-deterministic fragment order: the
+  // owner's name/avatar fields can sit just before OR just after the username
+  // within the same object. Take a symmetric window and pick the field whose
+  // position is closest to the username anchor so we grab the owner's own data
+  // and not a neighbouring pin's.
+  const anchorIdx = anchor.index;
+  const winStart = Math.max(0, anchorIdx - 2500);
+  const win = html.slice(winStart, anchorIdx + 2500);
+  const rel = anchorIdx - winStart;
+
+  const closest = (re: RegExp): string | undefined => {
+    let best: { value: string; dist: number } | null = null;
+    for (const m of win.matchAll(re)) {
+      const dist = Math.abs((m.index ?? 0) - rel);
+      if (!best || dist < best.dist) best = { value: m[1], dist };
+    }
+    return best ? decodeJsonStringLiteral(best.value) : undefined;
+  };
+
+  const out: { full_name?: string; image?: string } = {};
+  const fullName = closest(/"full_name":"((?:[^"\\]|\\.)*)"/g);
+  if (fullName) out.full_name = fullName;
+
+  const image = closest(/"image_(?:xlarge|large|medium)_url":"((?:[^"\\]|\\.)*)"/g);
+  if (image) {
+    // Upscale the small responsive avatar to a crisper 280px variant.
+    out.image = image.replace(/\/\d+x\d*(_RS)?\//, "/280x280_RS/");
+  }
+  return out;
+}
+
+/** Decodes a raw JSON string body (handles \\uXXXX and escaped chars). */
+function decodeJsonStringLiteral(raw: string): string {
+  try {
+    return JSON.parse(`"${raw}"`);
+  } catch {
+    return raw;
+  }
 }
 
 // ─── HTML fetching with curl fallback ─────────────────────────────────────────
@@ -172,10 +311,9 @@ function fetchHtmlWithCurl(url: string): Promise<string> {
     ]);
 
     let output = "";
-    const MAX = 150_000;
     proc.stdout.on("data", (chunk: Buffer) => {
       output += chunk.toString("utf8");
-      if (output.length > MAX) proc.kill();
+      if (output.length > MAX_HTML_BYTES) proc.kill();
     });
     proc.on("error", reject);
     proc.on("close", () => {
@@ -187,36 +325,7 @@ function fetchHtmlWithCurl(url: string): Promise<string> {
 
 // ─── Node.js HTTP fetcher ─────────────────────────────────────────────────────
 
-function buildHeaders(url: URL): Record<string, string> {
-  const h = url.hostname.toLowerCase();
-
-  if (h.includes("instagram.com")) {
-    return {
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
-      "Accept-Encoding": "identity",
-      Connection: "keep-alive",
-      "Upgrade-Insecure-Requests": "1",
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "none",
-      "Cache-Control": "max-age=0",
-    };
-  }
-
-  // Twitter/X: Twitterbot UA requests server-rendered OG
-  if (h.includes("twitter.com") || h.includes("x.com")) {
-    return {
-      "User-Agent": "Twitterbot/1.0",
-      Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Accept-Encoding": "identity",
-    };
-  }
-
+function buildHeaders(): Record<string, string> {
   return {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -231,8 +340,7 @@ function fetchHtml(url: URL, redirectCount: number): Promise<string> {
 
   return new Promise((resolve, reject) => {
     const client = url.protocol === "https:" ? https : http;
-    const isInstagram = url.hostname.includes("instagram.com");
-    const headers = buildHeaders(url);
+    const headers = buildHeaders();
     const requestPath = encodeURI(url.pathname) + url.search;
 
     const options = {
@@ -241,11 +349,10 @@ function fetchHtml(url: URL, redirectCount: number): Promise<string> {
       path: requestPath,
       method: "GET",
       headers,
-      timeout: isInstagram ? 15_000 : 10_000,
+      timeout: 10_000,
     };
 
     const req = client.get(options, (res) => {
-      // Follow all common redirect codes
       if (
         res.statusCode === 301 ||
         res.statusCode === 302 ||
@@ -276,8 +383,7 @@ function fetchHtml(url: URL, redirectCount: number): Promise<string> {
       res.setEncoding("utf8");
       res.on("data", (chunk) => {
         data += chunk;
-        const max = isInstagram ? 200_000 : 100_000;
-        if (data.length > max) { res.destroy(); resolve(data); }
+        if (data.length > MAX_HTML_BYTES) { res.destroy(); resolve(data); }
       });
       res.on("end", () => resolve(data));
     });
@@ -328,8 +434,61 @@ function fetchJson(apiUrl: string, extraHeaders?: Record<string, string>): Promi
 // ─── OG parsing ──────────────────────────────────────────────────────────────
 
 /**
- * Extract content="" from a <meta> tag regardless of attribute order.
- * Handles any attributes between the target attribute and content=.
+ * Parse OG/Twitter Card metadata using open-graph-scraper (cheerio-based).
+ * Falls back to regex parsing if ogs fails or returns no data.
+ */
+async function parseWithOgs(html: string, baseUrl: string): Promise<OGResult> {
+  if (!html) return { url: baseUrl };
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { result, error } = await ogs({ html } as any);
+    if (!error && result) {
+      const r: OGResult = { url: baseUrl };
+
+      r.title = result.ogTitle || result.twitterTitle || undefined;
+      r.description = result.ogDescription || result.twitterDescription || undefined;
+
+      // ogImage can be string, single object, or array
+      const imgs = result.ogImage;
+      let imgUrl: string | undefined;
+      if (typeof imgs === "string") {
+        imgUrl = imgs;
+      } else if (Array.isArray(imgs) && imgs.length > 0) {
+        imgUrl = imgs[0].url;
+      } else if (imgs && typeof imgs === "object" && "url" in imgs) {
+        imgUrl = (imgs as { url: string }).url;
+      }
+
+      // Fallback to twitterImage
+      if (!imgUrl) {
+        const tw = result.twitterImage;
+        if (typeof tw === "string") imgUrl = tw;
+        else if (Array.isArray(tw) && tw.length > 0) imgUrl = (tw[0] as any).url;
+        else if (tw && typeof tw === "object" && "url" in tw) imgUrl = (tw as any).url;
+      }
+
+      if (imgUrl) {
+        try { r.image = new URL(imgUrl, baseUrl).href; } catch { r.image = imgUrl; }
+      }
+
+      // Decode entities and strip leftover HTML tags
+      if (r.title) r.title = decodeHtmlEntities(r.title.replace(/<[^>]+>/g, "").trim());
+      if (r.description) r.description = decodeHtmlEntities(r.description.replace(/<[^>]+>/g, "").trim());
+
+      // Only fall back to regex if ogs found nothing at all
+      if (r.title || r.description || r.image) return r;
+    }
+  } catch {
+    // ogs threw — fall through to regex
+  }
+
+  return parseOpenGraph(html, baseUrl);
+}
+
+/**
+ * Regex-based OG parser — used as fallback when ogs fails.
+ * Handles attribute-order variations and Twitter Card tags.
  */
 function extractMetaContent(
   html: string,
@@ -338,19 +497,56 @@ function extractMetaContent(
 ): string | null {
   const escaped = attrValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  // attr then content
   let m = html.match(
     new RegExp(`<meta\\s[^>]*?${attrName}=["']${escaped}["'][^>]*?content=["']([^"']+)["'][^>]*?>`, "i")
   );
   if (m) return m[1].trim();
 
-  // content then attr
   m = html.match(
     new RegExp(`<meta\\s[^>]*?content=["']([^"']+)["'][^>]*?${attrName}=["']${escaped}["'][^>]*?>`, "i")
   );
   if (m) return m[1].trim();
 
   return null;
+}
+
+function parseOpenGraph(html: string, url: string): OGResult {
+  const result: OGResult = { url };
+  if (!html) return result;
+
+  result.title = extractMetaContent(html, "property", "og:title") ?? undefined;
+  result.description = extractMetaContent(html, "property", "og:description") ?? undefined;
+
+  const img =
+    extractMetaContent(html, "property", "og:image:secure_url") ??
+    extractMetaContent(html, "property", "og:image");
+  if (img) {
+    try { result.image = new URL(img, url).href; } catch { result.image = img; }
+  }
+
+  if (!result.title) result.title = extractMetaContent(html, "name", "twitter:title") ?? undefined;
+  if (!result.description) result.description = extractMetaContent(html, "name", "twitter:description") ?? undefined;
+  if (!result.image) {
+    const twImg =
+      extractMetaContent(html, "name", "twitter:image:src") ??
+      extractMetaContent(html, "name", "twitter:image");
+    if (twImg) {
+      try { result.image = new URL(twImg, url).href; } catch { result.image = twImg; }
+    }
+  }
+
+  if (!result.title) {
+    const m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    if (m) result.title = m[1].trim();
+  }
+  if (!result.description) {
+    result.description = extractMetaContent(html, "name", "description") ?? undefined;
+  }
+
+  if (result.title) result.title = decodeHtmlEntities(result.title);
+  if (result.description) result.description = decodeHtmlEntities(result.description);
+
+  return result;
 }
 
 function decodeHtmlEntities(str: string): string {
@@ -369,90 +565,6 @@ function decodeHtmlEntities(str: string): string {
     .replace(/&raquo;/g, "»")
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
     .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
-}
-
-function parseOpenGraph(html: string, url: string): OGResult {
-  const result: OGResult = { url };
-  if (!html) return result;
-
-  const isInstagram = url.includes("instagram.com");
-
-  // Instagram: try JSON-LD first (contains richer structured data)
-  if (isInstagram) {
-    try {
-      const jsonLdMatch = html.match(
-        /<script\s+type=["']application\/ld\+json["']>([\s\S]*?)<\/script>/i
-      );
-      if (jsonLdMatch) {
-        const d = JSON.parse(jsonLdMatch[1]);
-        if (d.name || d.headline) result.title = (d.name || d.headline).trim();
-        if (d.description) result.description = d.description.trim();
-
-        // Extract follower count from interactionStatistic
-        const entity = d.mainEntity || d;
-        const stats = entity.interactionStatistic;
-        if (stats) {
-          const arr = Array.isArray(stats) ? stats : [stats];
-          const follow = arr.find(
-            (s: any) =>
-              s.interactionType === "http://schema.org/FollowAction" ||
-              s.interactionType?.["@id"] === "http://schema.org/FollowAction"
-          );
-          if (follow && follow.userInteractionCount) {
-            const count = parseInt(String(follow.userInteractionCount), 10);
-            if (!isNaN(count)) result.description = `${formatCount(count)} followers`;
-          }
-        }
-
-        if (d.image) {
-          const imgUrl =
-            typeof d.image === "string" ? d.image : d.image.url || d.image[0]?.url;
-          if (imgUrl) {
-            try { result.image = new URL(imgUrl, url).href; } catch { result.image = imgUrl; }
-          }
-        }
-      }
-    } catch {}
-  }
-
-  // Open Graph tags
-  if (!result.title) result.title = extractMetaContent(html, "property", "og:title") ?? undefined;
-  if (!result.description) result.description = extractMetaContent(html, "property", "og:description") ?? undefined;
-  if (!result.image) {
-    const img =
-      extractMetaContent(html, "property", "og:image:secure_url") ??
-      extractMetaContent(html, "property", "og:image");
-    if (img) {
-      try { result.image = new URL(img, url).href; } catch { result.image = img; }
-    }
-  }
-
-  // Twitter Card fallback
-  if (!result.title) result.title = extractMetaContent(html, "name", "twitter:title") ?? undefined;
-  if (!result.description) result.description = extractMetaContent(html, "name", "twitter:description") ?? undefined;
-  if (!result.image) {
-    const img =
-      extractMetaContent(html, "name", "twitter:image:src") ??
-      extractMetaContent(html, "name", "twitter:image");
-    if (img) {
-      try { result.image = new URL(img, url).href; } catch { result.image = img; }
-    }
-  }
-
-  // Standard HTML title / description fallback
-  if (!result.title) {
-    const m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    if (m) result.title = m[1].trim();
-  }
-  if (!result.description) {
-    result.description = extractMetaContent(html, "name", "description") ?? undefined;
-  }
-
-  // Decode HTML entities universally
-  if (result.title) result.title = decodeHtmlEntities(result.title);
-  if (result.description) result.description = decodeHtmlEntities(result.description);
-
-  return result;
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────

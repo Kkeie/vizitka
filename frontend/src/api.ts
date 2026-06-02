@@ -531,8 +531,8 @@ export async function reorderBlocks(items: { id: number; sort: number }[]): Prom
 }
 
 // Metadata
-export async function getLinkMetadata(url: string): Promise<{ title?: string; description?: string; image?: string; url: string }> {
-  const r = await fetch(`${API}/metadata?url=${encodeURIComponent(url)}`);
+export async function getLinkMetadata(url: string, signal?: AbortSignal): Promise<{ title?: string; description?: string; image?: string; url: string }> {
+  const r = await fetch(`${API}/metadata?url=${encodeURIComponent(url)}`, { signal });
   if (!r.ok) {
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     throw new Error(errorData.error || errorData.message || "metadata_fetch_failed");

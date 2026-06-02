@@ -149,6 +149,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   // Реф для хранения исходного состояния якорей на момент начала drag
   const originalBlockSizesRef = useRef<BlockSizes>({});
+  // ID блока, завершившего drag — защищает его от компактации в useEffect (80ms после drop)
+  const lastDraggedBlockIdRef = useRef<number | null>(null);
 
   // Реф для FLIP-анимации
   const flipAnimationRef = useRef<{ cancel: () => void } | null>(null);
@@ -380,6 +382,9 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     const schedule = () => {
       if (isResizingRef.current) return;
       if (isDraggingRef.current) return;
+      // Consume the priority once — protects the just-dropped block from being compacted upward.
+      const dragPriorityId = lastDraggedBlockIdRef.current ?? undefined;
+      lastDraggedBlockIdRef.current = null;
       setBlockSizes((prev) => {
         const order = currentOrderRef.current;
         const bl = blocksRef.current;
@@ -393,7 +398,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           cellSize,
           currentGridGap,
           rowUnit,
-          { onlyMissing: true },
+          { onlyMissing: true, priorityBlockId: dragPriorityId },
         );
         const resolved = resolveAnchorOverlaps(
           assigned,
@@ -404,6 +409,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           cellSize,
           currentGridGap,
           rowUnit,
+          dragPriorityId,
         );
         if (JSON.stringify(resolved) === JSON.stringify(prev)) return prev;
         saveBlockSizesDebounced(resolved);
@@ -713,6 +719,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     lastProjectedAnchorRef.current = null;
 
     if (committedSizes) {
+      lastDraggedBlockIdRef.current = draggedId;
       setBlockSizes(committedSizes);
       syncLayoutFromBlockSizes(committedSizes);
       await saveBlockSizesDebounced(committedSizes);
