@@ -293,7 +293,7 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
         {...attributes}
         {...listeners}
       >
-        <BlockCard b={block} onDelete={onDelete} onUpdate={onUpdate} isDragPreview={isDragging} colSpan={resolvedGridSize.colSpan} />
+        <BlockCard b={block} onDelete={onDelete} onUpdate={onUpdate} isDragPreview={isDragging} colSpan={resolvedGridSize.colSpan} rowSpan={resolvedGridSize.rowSpan} />
 
         <AnimatePresence>
           {onDelete && isHovered && !isDragging && (

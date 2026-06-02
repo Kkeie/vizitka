@@ -150,7 +150,8 @@ export default function BlockCard({
   onUpdate,
   isDragPreview,
   sortableProps,
-  colSpan,   
+  colSpan,
+  rowSpan,
 }: {
   b: Block;
   onDelete?: () => void;
@@ -158,13 +159,46 @@ export default function BlockCard({
   isDragPreview?: boolean;
   /** Слушатели dnd-kit только на карточке, не на родителе с ручками ресайза */
   sortableProps?: React.HTMLAttributes<HTMLDivElement>;
-  colSpan?: number;  
+  colSpan?: number;
+  rowSpan?: number;
 }) {
   const [isVideoPlaying, setIsVideoPlaying] = React.useState(false);
   const [linkMetadata, setLinkMetadata] = React.useState<{ title?: string; description?: string; image?: string } | null>(null);
   const [loadingMetadata, setLoadingMetadata] = React.useState(false);
   const [socialAvatarError, setSocialAvatarError] = React.useState(false);
+  const [bioMaxLines, setBioMaxLines] = React.useState(3);
+  const bioRef = React.useRef<HTMLDivElement | null>(null);
   const showEditorHeader = Boolean(onDelete);
+  // Fit as many bio lines as physically fit in the card's available height.
+  // Non-circular: available height uses the width-bound scale (content-independent),
+  // and bio's top offset is measured for the last text element (also content-independent).
+  React.useLayoutEffect(() => {
+    const bio = bioRef.current;
+    if (!bio) return;
+    const cellEl = bio.closest('.card-content-scale, .card-content-scale--passthrough') as HTMLElement | null;
+    if (!cellEl) return;
+    const innerEl = bio.closest('.card-content-scale__inner') as HTMLElement | null;
+    const measure = () => {
+      const lhRef = parseFloat(getComputedStyle(bio).lineHeight) || 18;
+      let availRef: number;
+      if (innerEl) {
+        const refWidth = innerEl.offsetWidth || 280;
+        const sApplied = innerEl.getBoundingClientRect().width / refWidth || 1;
+        const sWidth = Math.min(1, cellEl.clientWidth / refWidth) || 1;
+        const bioTopRef = (bio.getBoundingClientRect().top - innerEl.getBoundingClientRect().top) / sApplied;
+        availRef = cellEl.clientHeight / sWidth - bioTopRef - 4;
+      } else {
+        const bioTopRef = bio.getBoundingClientRect().top - cellEl.getBoundingClientRect().top;
+        availRef = cellEl.clientHeight - bioTopRef - 4;
+      }
+      const lines = Math.max(1, Math.min(20, Math.floor(availRef / lhRef)));
+      setBioMaxLines((prev) => (prev === lines ? prev : lines));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(cellEl);
+    return () => ro.disconnect();
+  }, [linkMetadata, b.type, colSpan, rowSpan]);
   /** В редакторе без entrance: scale(0.97) ломает восприятие размера; оверлей dnd без .reveal — «как норма» */
   const revealRef = useReveal<HTMLDivElement>({
     disabled: Boolean(isDragPreview) || showEditorHeader,
@@ -1194,13 +1228,13 @@ export default function BlockCard({
                     </div>
                   ) : null}
                   {ogBio ? (
-                    <div style={{
+                    <div ref={bioRef} style={{
                       fontSize: 13,
                       color: 'var(--muted)',
                       marginTop: 3,
                       lineHeight: 1.4,
                       display: '-webkit-box',
-                      WebkitLineClamp: 2,
+                      WebkitLineClamp: bioMaxLines,
                       WebkitBoxOrient: 'vertical',
                       overflow: 'hidden',
                       wordBreak: 'break-word',
