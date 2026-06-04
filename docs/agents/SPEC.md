@@ -223,6 +223,15 @@ JWT stored in `localStorage`. Payload: `{ id, username, userCreatedAt, passwordH
 Token is invalidated if the user changes their password (hash mismatch on verify).  
 Private API responses include `Cache-Control: private, no-store` when `Authorization` header is present.
 
+### Test account
+
+Shared throwaway account for manual/agent verification (test data only — no real user info):
+
+| Field | Value |
+|---|---|
+| Email | `maxsk.09@gmail.com` |
+| Password | `12345trewq` |
+
 ---
 
 ## Reserved usernames

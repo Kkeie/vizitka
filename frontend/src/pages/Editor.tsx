@@ -149,8 +149,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   // Реф для хранения исходного состояния якорей на момент начала drag
   const originalBlockSizesRef = useRef<BlockSizes>({});
-  // ID блока, завершившего drag — защищает его от компактации в useEffect (80ms после drop)
-  const lastDraggedBlockIdRef = useRef<number | null>(null);
 
   // Реф для FLIP-анимации
   const flipAnimationRef = useRef<{ cancel: () => void } | null>(null);
@@ -382,9 +380,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     const schedule = () => {
       if (isResizingRef.current) return;
       if (isDraggingRef.current) return;
-      // Consume the priority once — protects the just-dropped block from being compacted upward.
-      const dragPriorityId = lastDraggedBlockIdRef.current ?? undefined;
-      lastDraggedBlockIdRef.current = null;
+      // Полная компактация без priority — как на Public/reload: только что брошенный блок
+      // подтягивается вверх к своей зоне (секция остаётся барьером через floor), без зазора.
       setBlockSizes((prev) => {
         const order = currentOrderRef.current;
         const bl = blocksRef.current;
@@ -398,7 +395,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           cellSize,
           currentGridGap,
           rowUnit,
-          { onlyMissing: true, priorityBlockId: dragPriorityId },
+          { onlyMissing: true },
         );
         const resolved = resolveAnchorOverlaps(
           assigned,
@@ -409,7 +406,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           cellSize,
           currentGridGap,
           rowUnit,
-          dragPriorityId,
         );
         if (JSON.stringify(resolved) === JSON.stringify(prev)) return prev;
         saveBlockSizesDebounced(resolved);
@@ -719,7 +715,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     lastProjectedAnchorRef.current = null;
 
     if (committedSizes) {
-      lastDraggedBlockIdRef.current = draggedId;
       setBlockSizes(committedSizes);
       syncLayoutFromBlockSizes(committedSizes);
       await saveBlockSizesDebounced(committedSizes);
@@ -963,6 +958,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       setBlockSizes((prevSizes) => {
         const existingBlocks = blocksRef.current;
         const nextSizes = { ...prevSizes };
+        type MiniRect = { c0: number; r0: number; w: number; h: number };
 
         for (const bp of ['mobile', 'tablet', 'desktop'] as const) {
           const cols = GRID_COLUMNS[bp];
@@ -978,11 +974,38 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             if (blockBottom > bottomRow) bottomRow = blockBottom;
           }
 
-          // Stack new blocks one after another below all existing content
-          let row = bottomRow;
+          // Build existing placements for greedy column search
+          const placed: MiniRect[] = [];
+          for (const block of existingBlocks) {
+            const a = prevSizes[block.id]?.anchorsByBreakpoint?.[bp];
+            if (!a) continue;
+            const bGs = getResolvedGridSize(block, prevSizes[block.id], cols);
+            const bw = Math.min(bGs.colSpan, cols);
+            const bh = getGridRowSpan(block, bGs, cellSize, currentGridGap, rowUnit);
+            placed.push({ c0: a.gridColumnStart - 1, r0: a.gridRowStart - 1, w: bw, h: bh });
+          }
+
+          // Place new blocks at the first free (col, row) starting from bottomRow.
+          // Mutual conflicts between new blocks are handled by placed[] accumulation —
+          // no need to advance the start row between blocks.
           for (const newBlock of createdBlocks) {
             const gs = getResolvedGridSize(newBlock, null, cols);
             const h = getGridRowSpan(newBlock, gs, cellSize, currentGridGap, rowUnit);
+            const w = Math.min(gs.colSpan, cols);
+
+            let foundCol = 0;
+            let foundRow = bottomRow;
+            search: for (let r = bottomRow; ; r++) {
+              for (let c = 0; c <= cols - w; c++) {
+                const conflict = placed.some(
+                  (p) =>
+                    !(c + w <= p.c0 || p.c0 + p.w <= c) &&
+                    !(r + h <= p.r0 || p.r0 + p.h <= r),
+                );
+                if (!conflict) { foundCol = c; foundRow = r; break search; }
+              }
+            }
+
             const prevEntry = nextSizes[newBlock.id];
             const persisted = getPersistedGridSpans(newBlock, prevEntry);
             nextSizes[newBlock.id] = {
@@ -991,10 +1014,10 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               rowSpan: persisted.rowSpan,
               anchorsByBreakpoint: {
                 ...(prevEntry?.anchorsByBreakpoint ?? {}),
-                [bp]: { gridColumnStart: 1, gridRowStart: row + 1 },
+                [bp]: { gridColumnStart: foundCol + 1, gridRowStart: foundRow + 1 },
               },
             };
-            row += h;
+            placed.push({ c0: foundCol, r0: foundRow, w, h });
           }
         }
 
