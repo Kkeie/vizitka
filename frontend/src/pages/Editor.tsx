@@ -584,13 +584,30 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
           },
         },
       };
+      // Упорядочиваем id по позиции курсора (строка, затем колонка) — перетаскиваемый блок
+      // встаёт в порядок чтения там, где курсор. Это зеркалит syncLayoutFromBlockSizes +
+      // пост-drop перепаковку, поэтому превью показывает реальное место приземления
+      // (компактация без priority, без зазора), а не «приклеенную» к курсору позицию.
+      const withAnchor = currentOrder
+        .filter((id) => newSizes[id]?.anchorsByBreakpoint?.[breakpoint])
+        .sort((a, b) => {
+          const aa = newSizes[a].anchorsByBreakpoint![breakpoint]!;
+          const ba = newSizes[b].anchorsByBreakpoint![breakpoint]!;
+          if (aa.gridRowStart !== ba.gridRowStart) return aa.gridRowStart - ba.gridRowStart;
+          return aa.gridColumnStart - ba.gridColumnStart;
+        });
+      const withoutAnchor = currentOrder.filter(
+        (id) => !newSizes[id]?.anchorsByBreakpoint?.[breakpoint],
+      );
+      const ordered = [...withAnchor, ...withoutAnchor];
+
       const assigned = assignSparseAnchorsForBreakpoint(
-        currentOrder, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, rowUnit,
-        { onlyMissing: true, priorityBlockId: draggedId },
+        ordered, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, rowUnit,
+        { onlyMissing: true },
       );
       const resolved = resolveAnchorOverlaps(
-        assigned, currentOrder, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap,
-        rowUnit, draggedId,
+        assigned, ordered, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap,
+        rowUnit,
       );
       return { anchor, resolved };
     },
