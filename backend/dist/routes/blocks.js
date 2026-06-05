@@ -97,9 +97,6 @@ function mapUnifiedToDb(type, patch) {
             if (patch.noteStyle !== undefined) {
                 data.noteStyle = patch.noteStyle === null ? null : sanitizeNoteStyleForDb(patch.noteStyle);
             }
-            else {
-                data.noteStyle = null;
-            }
             data.linkUrl = null;
             data.photoUrl = null;
             data.videoUrl = null;
