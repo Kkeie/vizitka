@@ -9,6 +9,13 @@ function sanitizeNode(node: Node): string {
   const el = node as HTMLElement;
   const tag = el.tagName.toLowerCase();
   if (!ALLOWED.has(tag)) {
+    if (tag === "font") {
+      const c = el.getAttribute("color");
+      if (c && (/^#[0-9a-fA-F]{3,8}$/.test(c.trim()) || /^rgb\(/.test(c.trim()))) {
+        const inner = Array.from(node.childNodes).map(sanitizeNode).join("");
+        return `<span style="color:${c.trim()}">${inner}</span>`;
+      }
+    }
     return Array.from(node.childNodes).map(sanitizeNode).join("");
   }
   let attrs = "";

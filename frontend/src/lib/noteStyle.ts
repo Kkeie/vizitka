@@ -20,7 +20,6 @@ export function noteStyleToTextCss(ns: NoteTextStyle | null | undefined): CSSPro
   const ff = ns.fontFamily && ns.fontFamily !== "default" ? FONT_MAP[ns.fontFamily] : undefined;
   return {
     textAlign: ns.align || "left",
-    backgroundColor: ns.backgroundColor || undefined,
     color: ns.textColor || "var(--text)",
     fontFamily: ff,
     fontWeight: ns.bold ? 700 : 400,

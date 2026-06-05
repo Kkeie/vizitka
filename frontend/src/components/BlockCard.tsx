@@ -433,6 +433,8 @@ export default function BlockCard({
     ...((b.type === "note") && {
       overflowX: "hidden",
       overflowY: useContentScale ? "hidden" : "auto",
+      ...(b.noteStyle?.backgroundColor && { backgroundColor: b.noteStyle.backgroundColor }),
+      ...(b.noteStyle?.textColor && { color: b.noteStyle.textColor }),
     }),
     ...(b.type !== "note" && { overflow: "hidden" }),
     ...(yandexTrackCard
@@ -908,7 +910,6 @@ export default function BlockCard({
         {b.type === "note" && (() => {
           const ns = b.noteStyle;
           const textCss = noteStyleToTextCss(ns);
-          const hasBg = Boolean(ns?.backgroundColor);
           const editable = isNoteEditable;
 
           const saveNoteContent = () => {
@@ -937,10 +938,6 @@ export default function BlockCard({
               className="card__content"
               style={{
                 ...scrollableContentStyle,
-                margin: hasBg ? -16 : 0,
-                padding: hasBg ? 16 : 0,
-                borderRadius: hasBg ? "var(--radius-sm)" : undefined,
-                backgroundColor: hasBg ? ns?.backgroundColor : undefined,
                 boxSizing: "border-box",
                 userSelect: editable ? "text" : undefined,
               }}

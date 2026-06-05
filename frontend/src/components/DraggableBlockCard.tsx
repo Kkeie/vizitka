@@ -161,7 +161,27 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
 
   const handleTextStyleChange = (style: Partial<NoteTextStyle>) => {
     if (!onUpdate) return;
-    onUpdate({ noteStyle: { ...(block.noteStyle || {}), ...style } });
+
+    if ('textColor' in style) {
+      const editable = cardRef.current?.querySelector<HTMLElement>('[contenteditable]');
+      if (editable && document.activeElement !== editable) {
+        editable.innerHTML = editable.innerHTML
+          .replace(/<\/?font[^>]*>/gi, '')
+          .replace(/<span[^>]*>/gi, '')
+          .replace(/<\/span>/gi, '');
+      }
+    }
+
+    const update: Partial<Block> = {
+      noteStyle: { ...(block.noteStyle || {}), ...style },
+    };
+    if ('textColor' in style && block.note) {
+      update.note = block.note
+        .replace(/<\/?font[^>]*>/gi, '')
+        .replace(/<span[^>]*>/gi, '')
+        .replace(/<\/span>/gi, '');
+    }
+    onUpdate(update);
   };
 
   const handleStyleMenuOpen = () => {
