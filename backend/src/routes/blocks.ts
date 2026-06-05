@@ -84,8 +84,6 @@ function mapUnifiedToDb(type: string, patch: { url?: string | null; content?: st
       if (patch.note !== undefined) data.note = patch.note ?? null;
       if (patch.noteStyle !== undefined) {
         data.noteStyle = patch.noteStyle === null ? null : sanitizeNoteStyleForDb(patch.noteStyle);
-      } else {
-        data.noteStyle = null;
       }
       data.linkUrl = null; data.photoUrl = null; data.videoUrl = null; data.musicEmbed = null; data.mapLat = null; data.mapLng = null; data.socialType = null; data.socialUrl = null;
       break;
