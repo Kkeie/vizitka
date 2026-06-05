@@ -216,6 +216,15 @@ export default function BlockCard({
   const [isSectionFocused, setIsSectionFocused] = React.useState(false);
   const isPublic = !onUpdate && !onDelete;
 
+  const sectionTextCss = React.useMemo(() => {
+    const base = noteStyleToTextCss(b.noteStyle);
+    return {
+      ...base,
+      fontWeight: b.noteStyle?.bold === undefined ? 700 : (b.noteStyle.bold ? 700 : 400),
+      color: b.noteStyle?.textColor || '#000000',
+    };
+  }, [b.noteStyle]);
+
   const handleSelectionChange = React.useCallback(() => {
     if (!isNoteEditable) return;
     const sel = window.getSelection();
@@ -531,6 +540,7 @@ export default function BlockCard({
                 value={sectionValue}
                 placeholder="Новый раздел"
                 maxLength={80}
+                style={sectionTextCss}
                 data-testid="section-title-input"
                 onPointerDown={(e) => e.stopPropagation()}
                 onKeyDown={(e) => {
@@ -574,6 +584,7 @@ export default function BlockCard({
             <div
               className="section-card__label"
               title={b.note ?? ""}
+              style={sectionTextCss}
             >
               {b.note ?? "Раздел"}
             </div>

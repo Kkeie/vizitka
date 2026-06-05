@@ -7,6 +7,7 @@ import BlockCard from './BlockCard';
 import { BENTO_ROW_UNIT, clampGridSize, getGridRowSpan, getResolvedGridSize } from '../lib/block-grid';
 import SizeMenu from './SizeMenu';
 import TextStyleMenu from './TextStyleMenu';
+import SectionStyleMenu from './SectionStyleMenu';
 import SearchInputCard from './SearchInputCard';
 
 interface DraggableBlockCardProps {
@@ -182,6 +183,11 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
         .replace(/<\/span>/gi, '');
     }
     onUpdate(update);
+  };
+
+  const handleSectionStyleChange = (style: Partial<NoteTextStyle>) => {
+    if (!onUpdate) return;
+    onUpdate({ noteStyle: { ...(block.noteStyle || {}), ...style } });
   };
 
   const handleStyleMenuOpen = () => {
@@ -399,6 +405,29 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
                   onStyleClick={handleStyleMenuOpen}
                   extraButtons={mapExtraButtons}
                 />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>,
+        document.body
+      )}
+
+      {isSection && onUpdate && menuPosition && createPortal(
+        <div style={{ position: 'absolute', top: menuPosition.top, left: menuPosition.left, transform: 'translateX(-50%)', zIndex: 10000 }}>
+          <AnimatePresence>
+            {isMenuVisible && !isDragging && (
+              <motion.div
+                key="section-style-menu"
+                ref={menuRef}
+                initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: -4 }}
+                transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                style={{ maxWidth: menuPosition.cardWidth, width: 'auto' }}
+                onMouseEnter={() => setIsMenuVisible(true)}
+                onMouseLeave={handleMenuMouseLeave}
+              >
+                <SectionStyleMenu currentStyle={block.noteStyle || {}} onStyleChange={handleSectionStyleChange} />
               </motion.div>
             )}
           </AnimatePresence>
