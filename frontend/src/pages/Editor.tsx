@@ -1199,7 +1199,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   const handleAddBlockClick = useCallback((type: BlockType, sourceButton?: HTMLElement) => {
     if (type === 'section') {
-      createEmptyBlock('section', { note: '' });
+      createEmptyBlock('section', { note: '', noteStyle: { bold: true, textColor: "#000000" } });
     } else if (type === 'note') {
       createEmptyBlock('note', { note: '' });
     } else if (type === 'link' || type === 'video' || type === 'music') {
