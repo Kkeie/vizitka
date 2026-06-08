@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "../utils/db";
 import { requireAuth, type AuthedRequest } from "../utils/auth";
 import { findAvailableUsernames, isValidUsernameFormat } from "../utils/usernameGenerator"
-import { RESERVED_USERNAMES, USERNAME_MAX_LENGTH, EMAIL_MAX_LENGTH } from "../constants";
+import { RESERVED_USERNAMES, USERNAME_MAX_LENGTH, EMAIL_MAX_LENGTH, BIO_MAX_LENGTH } from "../constants";
 import {
   isEmailTakenByAnotherUser,
   queueEmailVerification,
@@ -147,8 +147,12 @@ router.patch("/", async (req: AuthedRequest, res) => {
     profileValues.push(name);
   }
   if (bio !== undefined) {
+    const bioStr = bio === null ? null : String(bio).trim() || null;
+    if (bioStr !== null && bioStr.length > BIO_MAX_LENGTH) {
+      return res.status(400).json({ error: "bio_too_long", message: `Bio must be at most ${BIO_MAX_LENGTH} characters` });
+    }
     profileUpdates.push("bio = ?");
-    profileValues.push(bio);
+    profileValues.push(bioStr);
   }
   if (avatarUrl !== undefined) {
     profileUpdates.push("avatarUrl = ?");

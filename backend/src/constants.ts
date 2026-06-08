@@ -9,6 +9,9 @@ export const EMAIL_MAX_LENGTH = 254;
 export const PASSWORD_MIN_LENGTH = 4;
 export const PASSWORD_MAX_LENGTH = 72;
 
+/** Описание «о себе» в профиле (~10 строк по 17 символов на публичной странице). */
+export const BIO_MAX_LENGTH = 170;
+
 export const RESERVED_USERNAMES = [
   "login",
   "register",
