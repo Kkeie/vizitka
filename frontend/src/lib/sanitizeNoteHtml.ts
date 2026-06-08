@@ -13,7 +13,7 @@ function sanitizeNode(node: Node): string {
       const c = el.getAttribute("color");
       if (c && (/^#[0-9a-fA-F]{3,8}$/.test(c.trim()) || /^rgb\(/.test(c.trim()))) {
         const inner = Array.from(node.childNodes).map(sanitizeNode).join("");
-        return `<span style="color:${c.trim()}">${inner}</span>`;
+        return `<span style="color:${c.trim()};-webkit-text-fill-color:${c.trim()}">${inner}</span>`;
       }
     }
     return Array.from(node.childNodes).map(sanitizeNode).join("");
@@ -22,7 +22,7 @@ function sanitizeNode(node: Node): string {
   if (tag === "span" && el.style?.color) {
     const c = el.style.color;
     if (/^#[0-9a-fA-F]{3,8}$/.test(c) || /^rgb\(/.test(c)) {
-      attrs = ` style="color:${c}"`;
+      attrs = ` style="color:${c};-webkit-text-fill-color:${c}"`;
     }
   }
   const inner = Array.from(node.childNodes).map(sanitizeNode).join("");

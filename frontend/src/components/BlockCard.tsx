@@ -940,7 +940,42 @@ export default function BlockCard({
             el.focus();
             if (type === "bold") document.execCommand("bold", false);
             else if (type === "italic") document.execCommand("italic", false);
-            else if (type === "foreColor" && value) document.execCommand("foreColor", false, value);
+            else if (type === "foreColor" && value) {
+              const sel = window.getSelection();
+              if (sel && sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                if (el.contains(range.commonAncestorContainer)) {
+                  const fragment = range.extractContents();
+                  const div = document.createElement('div');
+                  div.appendChild(fragment);
+
+                  const walk = (node: Node): Node[] => {
+                    if (node.nodeType === Node.TEXT_NODE) return [node];
+                    const e = node as HTMLElement;
+                    const tag = e.tagName.toLowerCase();
+                    const isColorTag = tag === 'font' ||
+                      (tag === 'span' && e.style?.color && e.style.color !== '');
+                    if (isColorTag) {
+                      return Array.from(e.childNodes).flatMap(walk);
+                    }
+                    const c = e.cloneNode(false) as HTMLElement;
+                    Array.from(e.childNodes).flatMap(walk).forEach(n => c.appendChild(n));
+                    return [c];
+                  };
+
+                  const span = document.createElement('span');
+                  span.style.color = value;
+                  span.style.setProperty('-webkit-text-fill-color', value);
+                  Array.from(div.childNodes).flatMap(walk).forEach(n => span.appendChild(n));
+                  range.insertNode(span);
+
+                  sel.removeAllRanges();
+                  const r = document.createRange();
+                  r.selectNodeContents(span);
+                  sel.addRange(r);
+                }
+              }
+            }
             saveNoteContent();
           };
 
