@@ -675,6 +675,13 @@ iframe.yandex-music-embed {
   color: var(--muted);
 }
 
+/* Фикс: не менять цвет текста при выделении */
+[contenteditable]::selection,
+[contenteditable] *::selection {
+  color: inherit;
+  background: Highlight;
+}
+
 .topbar{ 
   position:sticky; 
   top:0; 
