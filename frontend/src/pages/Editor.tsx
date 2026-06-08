@@ -58,6 +58,7 @@ import {
   USERNAME_MIN_LENGTH,
   USERNAME_MAX_LENGTH,
   EMAIL_MAX_LENGTH,
+  BIO_MAX_LENGTH,
 } from "../lib/authFieldLimits";
 
 import {
@@ -1247,6 +1248,11 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const handleSaveBio = async () => {
     if (!profile) return;
     const newBio = tempBio.trim() || null;
+    if (newBio !== null && newBio.length > BIO_MAX_LENGTH) {
+      alert(`Максимум ${BIO_MAX_LENGTH} символов`);
+      setTempBio(profile.bio ?? "");
+      return;
+    }
     if (newBio === profile.bio) return;
     try {
       const updated = await updateProfile({ bio: newBio });
@@ -1619,10 +1625,11 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                     <textarea
                       ref={bioTextareaRef}
                       value={tempBio ?? profile.bio ?? ""}
-                      onChange={(e) => setTempBio(e.target.value)}
+                      onChange={(e) => setTempBio(e.target.value.slice(0, BIO_MAX_LENGTH))}
                       onBlur={handleSaveBio}
                       placeholder="Расскажите о себе..."
                       rows={1}
+                      maxLength={BIO_MAX_LENGTH}
                       spellCheck={false}
                       style={{
                         fontSize: 14,

@@ -7,6 +7,7 @@ import request from "supertest";
 import app from "../src/app";
 import { db } from "../src/utils/db";
 import { register, auth } from "./helpers";
+import { BIO_MAX_LENGTH } from "../src/constants";
 
 let aliceToken: string;
 let aliceUsername: string;
@@ -110,6 +111,13 @@ describe("PATCH /api/profile/ — сохранить изменения анке
     expect(res.body.error).toBe("username_taken");
     const after = await request(app).get("/api/profile/").set(auth(aliceToken));
     expect(after.body.username).toBe(unameBefore);
+  });
+
+  it("TC-PROF-07a: слишком длинное описание «о себе» не сохраняется", async () => {
+    const longBio = "а".repeat(BIO_MAX_LENGTH + 1);
+    const res = await request(app).patch("/api/profile/").set(auth(aliceToken)).send({ bio: longBio });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("bio_too_long");
   });
 
   it("TC-PROF-07: поменяли только имя — описание «о себе» не стёрлось", async () => {

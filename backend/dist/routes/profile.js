@@ -126,8 +126,12 @@ router.patch("/", async (req, res) => {
         profileValues.push(name);
     }
     if (bio !== undefined) {
+        const bioStr = bio === null ? null : String(bio).trim() || null;
+        if (bioStr !== null && bioStr.length > constants_1.BIO_MAX_LENGTH) {
+            return res.status(400).json({ error: "bio_too_long", message: `Bio must be at most ${constants_1.BIO_MAX_LENGTH} characters` });
+        }
         profileUpdates.push("bio = ?");
-        profileValues.push(bio);
+        profileValues.push(bioStr);
     }
     if (avatarUrl !== undefined) {
         profileUpdates.push("avatarUrl = ?");
