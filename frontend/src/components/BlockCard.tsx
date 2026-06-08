@@ -380,6 +380,7 @@ export default function BlockCard({
     !isSection &&
     b.type !== "photo" &&
     b.type !== "link" &&
+    b.type !== "map" &&
     !(b.type === "music" && yandexTrackCard);
 
   const scaleDeps = React.useMemo(
@@ -912,6 +913,32 @@ export default function BlockCard({
         </div>
       )}
 
+      {b.type === "map" && b.mapLat != null && b.mapLng != null && (
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, flex: 1 }}>
+          <div style={{ position: "relative", flex: 1, minHeight: 0, borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+            <iframe
+              className="embed"
+              src={`https://yandex.ru/map-widget/v1/?ll=${b.mapLng}%2C${b.mapLat}&pt=${b.mapLng}%2C${b.mapLat}&z=14`}
+              loading="lazy"
+              title="Карта"
+              style={{
+                borderRadius: "var(--radius-sm)",
+                width: "100%",
+                height: "100%",
+                pointerEvents: showEditorHeader ? "none" : "auto",
+              }}
+            />
+            <EditorIframeEdgeDragHandles show={showEditorHeader && !isDragPreview} />
+          </div>
+          {!showEditorHeader && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, gap: 8, position: "relative", zIndex: 3, flexShrink: 0 }}>
+              <a href={`https://yandex.ru/maps/?pt=${b.mapLng},${b.mapLat}&z=14`} target="_blank" rel="noreferrer" style={{ color: "var(--primary)", textDecoration: "none", fontSize: 13, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 4 }}>Яндекс.Карты <span>→</span></a>
+              <a href={`https://2gis.ru/search/${b.mapLat},${b.mapLng}`} target="_blank" rel="noreferrer" style={{ color: "var(--primary)", textDecoration: "none", fontSize: 13, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 4 }}>2ГИС <span>→</span></a>
+            </div>
+          )}
+        </div>
+      )}
+
       {!isSection && useContentScale && (
         <CardContentScaleToFit
           deps={[...scaleDeps]}
@@ -1096,19 +1123,6 @@ export default function BlockCard({
           }
           return <div style={{ borderRadius: "var(--radius-sm)", overflow: "hidden", position: "relative", width: "100%", height: "100%" }} dangerouslySetInnerHTML={{ __html: kind.html }} />;
         })()}
-
-        {b.type === "map" && b.mapLat != null && b.mapLng != null && (
-          <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
-            <div style={{ position: "relative", flex: 1, minHeight: 0, borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
-              <iframe className="embed" src={`https://yandex.ru/map-widget/v1/?ll=${b.mapLng}%2C${b.mapLat}&pt=${b.mapLng}%2C${b.mapLat}&z=14`} loading="lazy" title="Карта" style={{ borderRadius: "var(--radius-sm)", width: "100%", height: "100%" }} />
-              <EditorIframeEdgeDragHandles show={showEditorHeader && !isDragPreview} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12, gap: 8, position: "relative", zIndex: 3 }}>
-              <a href={`https://yandex.ru/maps/?pt=${b.mapLng},${b.mapLat}&z=14`} target="_blank" rel="noreferrer" style={{ color: "var(--primary)", textDecoration: "none", fontSize: 13, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 4 }}>Яндекс.Карты <span>→</span></a>
-              <a href={`https://2gis.ru/search/${b.mapLat},${b.mapLng}`} target="_blank" rel="noreferrer" style={{ color: "var(--primary)", textDecoration: "none", fontSize: 13, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 4 }}>2ГИС <span>→</span></a>
-            </div>
-          </div>
-        )}
 
         {b.type === "social" && b.socialType && b.socialUrl && (() => {
           let IconComponent = null;

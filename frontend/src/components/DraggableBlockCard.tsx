@@ -70,6 +70,28 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
   const [isSearchActive, setIsSearchActive] = React.useState(false);
   const [searchPosition, setSearchPosition] = React.useState<{ top: number; left: number } | null>(null);
   const [isResizing, setIsResizing] = React.useState(false);
+  const menuCloseTimerRef = React.useRef<number | null>(null);
+  const skipMapClickRef = React.useRef(false);
+  const searchCardRef = React.useRef<HTMLDivElement>(null);
+
+  const cancelMenuClose = React.useCallback(() => {
+    if (menuCloseTimerRef.current != null) {
+      window.clearTimeout(menuCloseTimerRef.current);
+      menuCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleMenuClose = React.useCallback(() => {
+    cancelMenuClose();
+    menuCloseTimerRef.current = window.setTimeout(() => {
+      setIsHovered(false);
+      setIsMenuVisible(false);
+      setIsTextMenuVisible(false);
+      menuCloseTimerRef.current = null;
+    }, 220);
+  }, [cancelMenuClose]);
+
+  React.useEffect(() => () => cancelMenuClose(), [cancelMenuClose]);
 
   React.useEffect(() => {
     const root = document.getElementById('root');
@@ -118,6 +140,7 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
 
   const handleMouseEnter = () => {
     if (isAnyDragging) return;
+    cancelMenuClose();
     setIsHovered(true);
     setIsMenuVisible(true);
   };
@@ -132,28 +155,26 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
 
   const handleCardMouseLeave = (e: React.MouseEvent) => {
     if (isSearchActive) return;
-    const relatedTarget = e.relatedTarget as Node;
-    if (menuRef.current?.contains(relatedTarget)) return;
-    if (textMenuRef.current?.contains(relatedTarget)) return;
-    setIsHovered(false);
-    setIsMenuVisible(false);
-    setIsTextMenuVisible(false);
+    const relatedTarget = e.relatedTarget as Node | null;
+    if (relatedTarget && menuRef.current?.contains(relatedTarget)) return;
+    if (relatedTarget && textMenuRef.current?.contains(relatedTarget)) return;
+    if (relatedTarget && searchCardRef.current?.contains(relatedTarget)) return;
+    scheduleMenuClose();
   };
 
   const handleMenuMouseLeave = (e: React.MouseEvent) => {
     if (isSearchActive) return;
-    const relatedTarget = e.relatedTarget as Node;
-    if (cardRef.current?.contains(relatedTarget)) return;
-    setIsMenuVisible(false);
-    setIsHovered(false);
+    const relatedTarget = e.relatedTarget as Node | null;
+    if (relatedTarget && cardRef.current?.contains(relatedTarget)) return;
+    if (relatedTarget && searchCardRef.current?.contains(relatedTarget)) return;
+    scheduleMenuClose();
   };
 
   const handleTextMenuMouseLeave = (e: React.MouseEvent) => {
     if (isSearchActive) return;
-    const relatedTarget = e.relatedTarget as Node;
-    if (cardRef.current?.contains(relatedTarget)) return;
-    setIsTextMenuVisible(false);
-    setIsHovered(false);
+    const relatedTarget = e.relatedTarget as Node | null;
+    if (relatedTarget && cardRef.current?.contains(relatedTarget)) return;
+    scheduleMenuClose();
   };
 
   const handleSizeSelect = (newSize: BlockGridSize) => {
@@ -203,6 +224,26 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
   const handleMapSelect = (lat: number, lng: number) => {
     onUpdate?.({ mapLat: lat, mapLng: lng });
     setIsSearchActive(false);
+  };
+
+  const keepMapMenuOpen = (e: React.PointerEvent) => {
+    e.stopPropagation();
+    cancelMenuClose();
+    setIsMenuVisible(true);
+    setIsHovered(true);
+  };
+
+  const runMapActionOnce = (action: () => void) => {
+    if (skipMapClickRef.current) return;
+    skipMapClickRef.current = true;
+    action();
+    window.setTimeout(() => {
+      skipMapClickRef.current = false;
+    }, 0);
+  };
+
+  const toggleMapSearch = () => {
+    setIsSearchActive((prev) => !prev);
   };
 
   const startResize = (direction: string) => (event: React.PointerEvent) => {
@@ -267,10 +308,44 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
 
   const mapExtraButtons = isMap ? (
     <>
-      <button onClick={handleOpenMap} style={{ width: 28, height: 28, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, color: '#fff' }} title="Открыть карту">
+      <button
+        type="button"
+        onPointerDown={keepMapMenuOpen}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          runMapActionOnce(handleOpenMap);
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (skipMapClickRef.current) {
+            skipMapClickRef.current = false;
+            return;
+          }
+          handleOpenMap();
+        }}
+        style={{ width: 28, height: 28, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, color: '#fff' }}
+        title="Открыть карту"
+      >
         <ExpandIcon />
       </button>
-      <button onClick={() => setIsSearchActive(prev => !prev)} style={{ width: 28, height: 28, background: isSearchActive ? '#fff' : '#000', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, color: isSearchActive ? '#000' : '#fff' }} title="Поиск по карте">
+      <button
+        type="button"
+        onPointerDown={keepMapMenuOpen}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          runMapActionOnce(toggleMapSearch);
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (skipMapClickRef.current) {
+            skipMapClickRef.current = false;
+            return;
+          }
+          toggleMapSearch();
+        }}
+        style={{ width: 28, height: 28, background: isSearchActive ? '#fff' : '#000', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, color: isSearchActive ? '#000' : '#fff' }}
+        title="Поиск по карте"
+      >
         <SearchIcon />
       </button>
     </>
@@ -393,7 +468,11 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
                 exit={{ opacity: 0, scale: 0.9, y: -4 }}
                 transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
                 style={{ maxWidth: menuPosition.cardWidth, width: 'auto' }}
-                onMouseEnter={() => setIsMenuVisible(true)}
+                onMouseEnter={() => {
+                  cancelMenuClose();
+                  setIsMenuVisible(true);
+                  setIsHovered(true);
+                }}
                 onMouseLeave={handleMenuMouseLeave}
               >
                 <SizeMenu
@@ -424,7 +503,11 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
                 exit={{ opacity: 0, scale: 0.9, y: -4 }}
                 transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
                 style={{ maxWidth: menuPosition.cardWidth, width: 'auto' }}
-                onMouseEnter={() => setIsMenuVisible(true)}
+                onMouseEnter={() => {
+                  cancelMenuClose();
+                  setIsMenuVisible(true);
+                  setIsHovered(true);
+                }}
                 onMouseLeave={handleMenuMouseLeave}
               >
                 <SectionStyleMenu currentStyle={block.noteStyle || {}} onStyleChange={handleSectionStyleChange} />
@@ -439,7 +522,10 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
         <div
           ref={textMenuRef}
           style={{ position: 'absolute', top: textMenuPosition.top, left: textMenuPosition.left, transform: 'translateX(-50%)', zIndex: 10001, maxWidth: textMenuPosition.cardWidth, width: 'auto' }}
-          onMouseEnter={() => setIsTextMenuVisible(true)}
+          onMouseEnter={() => {
+            cancelMenuClose();
+            setIsTextMenuVisible(true);
+          }}
           onMouseLeave={handleTextMenuMouseLeave}
         >
           <TextStyleMenu currentStyle={block.noteStyle || {}} onStyleChange={handleTextStyleChange} />
@@ -448,7 +534,17 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
       )}
 
       {isSearchActive && searchPosition && block.mapLat != null && block.mapLng != null && createPortal(
-        <SearchInputCard initialLat={block.mapLat} initialLng={block.mapLng} onSelect={handleMapSelect} style={{ position: 'absolute', top: searchPosition.top, left: searchPosition.left, transform: 'translateX(-50%)', zIndex: 10002 }} />,
+        <div
+          ref={searchCardRef}
+          onMouseEnter={cancelMenuClose}
+          onMouseLeave={(e) => {
+            const relatedTarget = e.relatedTarget as Node | null;
+            if (relatedTarget && cardRef.current?.contains(relatedTarget)) return;
+            if (relatedTarget && menuRef.current?.contains(relatedTarget)) return;
+          }}
+        >
+          <SearchInputCard initialLat={block.mapLat} initialLng={block.mapLng} onSelect={handleMapSelect} style={{ position: 'absolute', top: searchPosition.top, left: searchPosition.left, transform: 'translateX(-50%)', zIndex: 10002 }} />
+        </div>,
         document.body
       )}
     </>
