@@ -1078,15 +1078,13 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         for (const bp of ['mobile', 'tablet', 'desktop'] as const) {
           const cols = GRID_COLUMNS[bp];
 
-          // Find the lowest occupied micro-row across all existing blocks
-          let bottomRow = 0;
+          // Find the first micro-row of the last occupied row
+          let lastRowStart = 0;
           for (const block of existingBlocks) {
             const anchor = prevSizes[block.id]?.anchorsByBreakpoint?.[bp];
             if (!anchor) continue;
-            const gs = getResolvedGridSize(block, prevSizes[block.id], cols);
-            const h = getGridRowSpan(block, gs, cellSize, currentGridGap, rowUnit);
-            const blockBottom = anchor.gridRowStart - 1 + h;
-            if (blockBottom > bottomRow) bottomRow = blockBottom;
+            const r0 = anchor.gridRowStart - 1;
+            if (r0 > lastRowStart) lastRowStart = r0;
           }
 
           // Build existing placements for greedy column search
@@ -1100,7 +1098,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             placed.push({ c0: a.gridColumnStart - 1, r0: a.gridRowStart - 1, w: bw, h: bh });
           }
 
-          // Place new blocks at the first free (col, row) starting from bottomRow.
+          // Place new blocks at the first free (col, row) starting from lastRowStart.
           // Mutual conflicts between new blocks are handled by placed[] accumulation —
           // no need to advance the start row between blocks.
           for (const newBlock of createdBlocks) {
@@ -1109,8 +1107,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             const w = Math.min(gs.colSpan, cols);
 
             let foundCol = 0;
-            let foundRow = bottomRow;
-            search: for (let r = bottomRow; ; r++) {
+            let foundRow = lastRowStart;
+            search: for (let r = lastRowStart; ; r++) {
               for (let c = 0; c <= cols - w; c++) {
                 const conflict = placed.some(
                   (p) =>
