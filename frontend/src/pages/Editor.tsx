@@ -93,6 +93,30 @@ function debounce<T extends (...args: any[]) => void>(fn: T, wait: number): T & 
   return debounced;
 }
 
+function dndLog(fmt: string, ...args: unknown[]) {
+  if (typeof window !== "undefined" && (window as unknown as Record<string, unknown>).__DND_DEBUG) {
+    console.log("[DND] " + fmt, ...args);
+  }
+}
+function dndGroup(fmt: string, ...args: unknown[]) {
+  if (typeof window !== "undefined" && (window as unknown as Record<string, unknown>).__DND_DEBUG) {
+    console.group("[DND] " + fmt, ...args);
+  }
+}
+function dndGroupEnd() {
+  if (typeof window !== "undefined" && (window as unknown as Record<string, unknown>).__DND_DEBUG) {
+    console.groupEnd();
+  }
+}
+
+function blockName(blocks: Block[], id: number): string {
+  const b = blocks.find((bb) => bb.id === id);
+  const text = b?.note || "";
+  if (!text) return `#${id}`;
+  const s = text.length > 25 ? text.slice(0, 25) + "…" : text;
+  return `«${s}»`;
+}
+
 export default function Editor({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -567,8 +591,27 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       }
       const baseSizes = originalBlockSizesRef.current;
       const gs = getResolvedGridSize(block, baseSizes[draggedId], currentGridColumns);
+
+      // Вычисляем breakpoints за секциями (первые микро-ряды после их нижнего края)
+      // — чтобы снаппинг Y перезапускал 8-шаг от конца каждой секции.
+      const sectionBreakpoints: number[] = [];
+      for (const [id_, sz] of Object.entries(baseSizes)) {
+        const bid = Number(id_);
+        const b = blocks.find((bb) => bb.id === bid);
+        if (b?.type === "section") {
+          const anchor_ = sz.anchorsByBreakpoint?.[breakpoint];
+          if (anchor_) {
+            const gs_ = getResolvedGridSize(b, sz, currentGridColumns);
+            const h = getGridRowSpan(b, gs_, cellSize, currentGridGap, rowUnit);
+            sectionBreakpoints.push((anchor_.gridRowStart - 1) + h);
+          }
+        }
+      }
+      sectionBreakpoints.sort((a, b) => a - b);
+
       const anchor = clientPointToGridAnchor(
         cursorX, cursorY, gridEl, currentGridColumns, cellSize, currentGridGap, rowUnit, gs.colSpan,
+        sectionBreakpoints,
       );
       const maxStartCol = currentGridColumns - gs.colSpan + 1;
       if (anchor.gridColumnStart > maxStartCol) anchor.gridColumnStart = Math.max(1, maxStartCol);
@@ -610,6 +653,16 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         assigned, ordered, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap,
         rowUnit,
       );
+      const resolvedSummary = Object.entries(resolved).map(([id, sz]) => {
+        const b = blocks.find(bb => bb.id === Number(id));
+        const a = sz.anchorsByBreakpoint?.[breakpoint];
+        return `${blockName(blocks, Number(id))}@(${a?.gridColumnStart ?? "-"},${a?.gridRowStart ?? "-"})[${sz.colSpan}×${sz.rowSpan}]`;
+      });
+      dndGroup("projectLayoutFromCursor result");
+      dndLog("%s cursor=(%s,%s) → anchor=(col:%s,row:%s)", blockName(blocks, draggedId), cursorX.toFixed(1), cursorY.toFixed(1), anchor.gridColumnStart, anchor.gridRowStart);
+      dndLog("ordered (for assignSparse): [%s]", ordered.join(", "));
+      dndLog("resolved: %s", resolvedSummary.join(", "));
+      dndGroupEnd();
       return { anchor, resolved };
     },
     [blocks, currentOrder, breakpoint, currentGridColumns, currentGridGap, cellSize, editorCanvasPadBottom, gridRef],
@@ -632,6 +685,27 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     if (e?.clientX != null) {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
     }
+
+    const draggedBlock = blocks.find((b) => b.id === draggedId);
+    dndGroup("=== DRAG START ===");
+    dndLog("dragged: %s, type: %s", blockName(blocks, draggedId), draggedBlock?.type ?? "?");
+    dndLog("breakpoint: %s, gridColumns: %s", breakpoint, currentGridColumns);
+    dndLog("cellSize: %s, gap: %s, rowUnit: %s", cellSize, currentGridGap, rowUnit);
+    dndLog("canvasPadBottom: %s", editorCanvasPadBottom);
+    if (gridEl) {
+      const r = gridEl.getBoundingClientRect();
+      dndLog("gridEl rect: { left=%s top=%s right=%s bottom=%s w=%s h=%s }", r.left.toFixed(1), r.top.toFixed(1), r.right.toFixed(1), r.bottom.toFixed(1), r.width.toFixed(1), r.height.toFixed(1));
+    }
+    dndLog("cursor: (%s, %s)", lastPointerRef.current.x, lastPointerRef.current.y);
+    const originalBlockSizesSummary = Object.entries(originalBlockSizesRef.current).map(([id, sz]) => {
+      const b = blocks.find(bb => bb.id === Number(id));
+      const a = sz.anchorsByBreakpoint?.[breakpoint];
+      return `${blockName(blocks, Number(id))}@(${a?.gridColumnStart ?? "-"},${a?.gridRowStart ?? "-"})[${sz.colSpan}×${sz.rowSpan}]`;
+    });
+    dndLog("blockSizes snapshot: %s", originalBlockSizesSummary.join(", "));
+    dndLog("currentOrder: [%s]", currentOrder.join(", "));
+    dndGroupEnd();
+
     const projection = projectLayoutFromCursor(
       draggedId,
       lastPointerRef.current.x,
@@ -647,6 +721,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   const handleDragMove = (_event: DragMoveEvent) => {
     const { x, y } = lastPointerRef.current;
+    dndLog("handleDragMove: cursor=(%s, %s), canvasPadBottom=%s", x.toFixed(1), y.toFixed(1), editorCanvasPadBottom);
 
     // Расширение нижнего холста для drop в конце страницы
         if (gridEl) {
@@ -656,6 +731,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       const margin = 56;
       if (y > effectiveBottom - margin) {
         const extra = Math.min(72, Math.ceil((y - (effectiveBottom - margin)) * 0.45 + 10));
+        dndLog("  canvas expand: y=%s > effectiveBottom=%s, extra=%s", y.toFixed(1), (effectiveBottom - margin).toFixed(1), extra);
         addCanvasPadDelta(extra);
       }
     }
@@ -664,12 +740,14 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     if (y > zoneStart) {
       const depth = Math.min(1, (y - zoneStart) / DRAG_BOTTOM_EDGE_PX);
       const delta = Math.max(6, Math.round(DRAG_BOTTOM_EXPAND_STEP * (0.4 + depth * 0.6)));
+      dndLog("  autoscroll: y=%s > zoneStart=%s, depth=%s, delta=%s", y.toFixed(1), zoneStart, depth.toFixed(2), delta);
       addCanvasPadDelta(delta);
       window.scrollBy({ top: Math.min(delta, 28), left: 0, behavior: "auto" });
     }
 
     if (activeId !== null) {
       const projection = projectLayoutFromCursor(activeId, x, y);
+      dndLog("  projectLayoutFromCursor: %s → %s", blockName(blocks, activeId), projection ? `anchor=(col:${projection.anchor.gridColumnStart},row:${projection.anchor.gridRowStart})` : "null (outside grid)");
       const scheduleFlip = () => {
         const beforeRects = measureBlockRects(currentOrder);
         requestAnimationFrame(() => {
@@ -685,6 +763,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
       if (!projection) {
         // Курсор вышел из сетки — плавно возвращаем карточки на исходные места
+        dndLog("  cursor outside grid — reverting to original");
         if (virtualBlockSizes) {
           scheduleFlip();
           lastProjectedAnchorRef.current = null;
@@ -698,7 +777,11 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       if (last &&
         last.gridColumnStart === projection.anchor.gridColumnStart &&
         last.gridRowStart === projection.anchor.gridRowStart) {
+        dndLog("  dedup: same cell (col:%s,row:%s) — skip", last.gridColumnStart, last.gridRowStart);
         return;
+      }
+      if (last) {
+        dndLog("  cell boundary crossed: (col:%s,row:%s) → (col:%s,row:%s)", last.gridColumnStart, last.gridRowStart, projection.anchor.gridColumnStart, projection.anchor.gridRowStart);
       }
       lastProjectedAnchorRef.current = projection.anchor;
       scheduleFlip();
@@ -728,6 +811,20 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       );
       if (projection) committedSizes = projection.resolved;
     }
+
+    dndGroup("=== DRAG END ===");
+    dndLog("dragged: %s", blockName(blocks, draggedId));
+    if (committedSizes) {
+      const summary = Object.entries(committedSizes).map(([id, sz]) => {
+        const b = blocks.find(bb => bb.id === Number(id));
+        const a = sz.anchorsByBreakpoint?.[breakpoint];
+        return `${blockName(blocks, Number(id))}@(${a?.gridColumnStart ?? "-"},${a?.gridRowStart ?? "-"})[${sz.colSpan}×${sz.rowSpan}]`;
+      });
+      dndLog("committedSizes: %s", summary.join(", "));
+    } else {
+      dndLog("committedSizes: null (no change)");
+    }
+    dndGroupEnd();
 
     setVirtualBlockSizes(null);
     lastProjectedAnchorRef.current = null;
@@ -1666,6 +1763,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               onDragMove={handleDragMove}
               onDragEnd={handleDragEnd}
               onDragCancel={() => {
+                dndLog("=== DRAG CANCELLED ===");
                 setIsDragging(false);
                 setDragCellSize(null);
                 setVirtualBlockSizes(null);
