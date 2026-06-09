@@ -597,6 +597,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       const sectionBreakpoints: number[] = [];
       for (const [id_, sz] of Object.entries(baseSizes)) {
         const bid = Number(id_);
+        if (bid === draggedId) continue;
         const b = blocks.find((bb) => bb.id === bid);
         if (b?.type === "section") {
           const anchor_ = sz.anchorsByBreakpoint?.[breakpoint];
