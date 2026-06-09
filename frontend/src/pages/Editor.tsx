@@ -647,11 +647,11 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
       const assigned = assignSparseAnchorsForBreakpoint(
         ordered, blocks, newSizes, breakpoint, currentGridColumns, cellSize, currentGridGap, rowUnit,
-        { onlyMissing: true },
+        { onlyMissing: true, priorityBlockId: draggedId },
       );
       const resolved = resolveAnchorOverlaps(
         assigned, ordered, blocks, breakpoint, currentGridColumns, cellSize, currentGridGap,
-        rowUnit,
+        rowUnit, draggedId,
       );
       const resolvedSummary = Object.entries(resolved).map(([id, sz]) => {
         const b = blocks.find(bb => bb.id === Number(id));
