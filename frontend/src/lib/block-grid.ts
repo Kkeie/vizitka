@@ -2,6 +2,31 @@ import type { Block, BlockGridAnchor, BlockGridSize, BlockSizes, BlockType } fro
 import type { Breakpoint } from "../hooks/useBreakpoint";
 import { classifyMusic, YANDEX_MUSIC_IFRAME_HEIGHT_PX } from "./embed";
 
+/* dnd debug helper — включается через window.__DND_DEBUG = true в консоли */
+function dndLog(fmt: string, ...args: unknown[]) {
+  if (typeof window !== "undefined" && (window as unknown as Record<string, unknown>).__DND_DEBUG) {
+    console.log("[DND] " + fmt, ...args);
+  }
+}
+function dndGroup(fmt: string, ...args: unknown[]) {
+  if (typeof window !== "undefined" && (window as unknown as Record<string, unknown>).__DND_DEBUG) {
+    console.group("[DND] " + fmt, ...args);
+  }
+}
+function dndGroupEnd() {
+  if (typeof window !== "undefined" && (window as unknown as Record<string, unknown>).__DND_DEBUG) {
+    console.groupEnd();
+  }
+}
+
+function blockName(blocks: Block[], id: number): string {
+  const b = blocks.find((bb) => bb.id === id);
+  const text = b?.note || "";
+  if (!text) return `#${id}`;
+  const s = text.length > 25 ? text.slice(0, 25) + "…" : text;
+  return `«${s}»`;
+}
+
 export const GRID_COLUMNS: Record<Breakpoint, number> = {
   mobile: 2,
   tablet: 3,
@@ -171,7 +196,9 @@ export function getDynamicRowUnit(
   return (cellSize + gap) / step - gap;
 }
 
-/** Координаты курсора → якорь сетки (линии 1-based), снапом по cell-row */
+/** Координаты курсора → якорь сетки (линии 1-based), снапом по cell-row.
+ *  sectionBreakpoints — микро-ряды (0-indexed), после которых перезапускается
+ *  отсчёт cell-строк (каждый 8-й микро-ряд). */
 export function clientPointToGridAnchor(
   clientX: number,
   clientY: number,
@@ -181,6 +208,7 @@ export function clientPointToGridAnchor(
   gap: number,
   rowUnit: number,
   colSpan: number,
+  sectionBreakpoints?: number[],
 ): BlockGridAnchor {
   const rect = gridEl.getBoundingClientRect();
   const cw =
@@ -199,16 +227,32 @@ export function clientPointToGridAnchor(
   const w = Math.min(colSpan, gridColumns);
   col0 = Math.max(0, Math.min(gridColumns - w, col0));
 
-  const cellRowMicroSteps = getCellRowMicroSteps(cellSize, gap, rowUnit);
-  const cellStride = cellRowMicroSteps * (rowUnit + gap);
-  const cellRow = Math.max(0, Math.floor(Math.max(0, relY) / cellStride));
-  const rowMicro = cellRow * cellRowMicroSteps;
+  // Снаппинг Y: зоны между секциями, каждая — кратно cellRowMicroSteps (8).
+  const cellSteps = getCellRowMicroSteps(cellSize, gap, rowUnit);
+  const rawRowMicro = Math.max(0, Math.floor(Math.max(0, relY) / (rowUnit + gap)));
+  let zoneStart = 0;
+  if (sectionBreakpoints?.length) {
+    for (const bp of sectionBreakpoints) {
+      if (rawRowMicro >= bp) zoneStart = bp;
+    }
+  }
+  const rowMicro = zoneStart + Math.floor((rawRowMicro - zoneStart) / cellSteps) * cellSteps;
 
-  return clampAnchor(
+  const result = clampAnchor(
     { gridColumnStart: col0 + 1, gridRowStart: rowMicro + 1 },
     gridColumns,
     w,
   );
+
+  dndGroup("clientPointToGridAnchor");
+  dndLog("cursor=({%s},{%s}), rect={%s,%s,%s,%s} w=%s h=%s", clientX.toFixed(1), clientY.toFixed(1), rect.left.toFixed(1), rect.top.toFixed(1), rect.right.toFixed(1), rect.bottom.toFixed(1), rect.width.toFixed(1), rect.height.toFixed(1));
+  dndLog("offsetX=%s, relX=%s, relY=%s", offsetX.toFixed(1), relX.toFixed(1), relY.toFixed(1));
+  dndLog("cw=%s, strideX=%s, col0=%s", cw.toFixed(1), strideX.toFixed(1), col0);
+  dndLog("cellSteps=%s, rawRowMicro=%s, sectionBreakpoints=%s, zoneStart=%s", cellSteps, rawRowMicro, sectionBreakpoints ? `[${sectionBreakpoints.join(",")}]` : "[]", zoneStart);
+  dndLog("→ anchor=(col:%s, row:%s)", result.gridColumnStart, result.gridRowStart);
+  dndGroupEnd();
+
+  return result;
 }
 
 function clampAnchor(
@@ -217,10 +261,14 @@ function clampAnchor(
   colSpan: number,
 ): BlockGridAnchor {
   const maxColStart = Math.max(1, gridColumns - colSpan + 1);
-  return {
+  const result = {
     gridColumnStart: Math.max(1, Math.min(maxColStart, anchor.gridColumnStart)),
     gridRowStart: Math.max(1, anchor.gridRowStart),
   };
+  if (result.gridColumnStart !== anchor.gridColumnStart || result.gridRowStart !== anchor.gridRowStart) {
+    dndLog("  clampAnchor: (%s,%s) → (%s,%s) (maxColStart=%s, gridColumns=%s, colSpan=%s)", anchor.gridColumnStart, anchor.gridRowStart, result.gridColumnStart, result.gridRowStart, maxColStart, gridColumns, colSpan);
+  }
+  return result;
 }
 
 export function sanitizeBlockSizes(
@@ -445,12 +493,15 @@ export function assignSparseAnchorsForBreakpoint(
       const existingRow = tryPlaceAtExistingAnchor(priorityBlockId, w, h);
       priorityRow =
         existingRow !== null ? existingRow : greedyPlace(priorityBlockId, block, w, h, 0);
+      dndLog("  [priority] %s type=%s → priorityRow=%s", blockName(blocks, priorityBlockId!), block.type, priorityRow);
     }
   }
 
   // Section-блок = разделитель «зон». Все блоки после секции в orderedIds, у которых
   // нет своего якоря (или onlyMissing=false), не должны утягиваться выше неё, иначе
   // новые карточки «улетают» в предыдущий ряд (см. issue #134).
+  dndGroup("assignSparseAnchors: onlyMissing=%s, priorityBlockId=%s", onlyMissing, priorityBlockId);
+  dndLog("  orderedIds: [%s]", orderedIds.join(", "));
   let floor = 0;
   for (const id of orderedIds) {
     const block = blocks.find((b) => b.id === id);
@@ -462,19 +513,27 @@ export function assignSparseAnchorsForBreakpoint(
     if (id === priorityBlockId) {
       if (block.type === "section" && priorityRow !== null && priorityRow >= 0) {
         floor = Math.max(floor, priorityRow + h);
+        dndLog("  [%s type=%s] priority section, floor=%s", blockName(blocks, id), block.type, floor);
+      } else {
+        dndLog("  [%s type=%s] priorityBlockId, skip", blockName(blocks, id), block.type);
       }
       continue;
     }
 
     let placedRow = tryPlaceAtExistingAnchor(id, w, h);
+    let placedMethod = "existingAnchor";
     if (placedRow === null) {
       placedRow = greedyPlace(id, block, w, h, floor);
+      placedMethod = "greedyPlace";
     }
+    dndLog("  [%s type=%s] %s → placedRow=%s (w=%s h=%s floor=%s)", blockName(blocks, id), block.type, placedMethod, placedRow, w, h, floor);
 
     if (block.type === "section" && placedRow !== null && placedRow >= 0) {
       floor = Math.max(floor, placedRow + h);
+      dndLog("    section barrier: floor raised to %s", floor);
     }
   }
+  dndGroupEnd();
 
   return next;
 }
@@ -537,6 +596,7 @@ function compactAnchorsUpward(
   // не должны утягиваться вверх в свободное пространство ДО секции — иначе ломается
   // логика разделов и при добавлении новой карточки она «улетает» в предыдущий ряд.
   // Поэтому держим `floor`: минимальную строку, в которой может оказаться следующий блок.
+  dndGroup("compactAnchorsUpward: priorityBlockId=%s", priorityBlockId);
   let floor = 0;
   for (const id of orderedIds) {
     const block = blocks.find((b) => b.id === id);
@@ -552,6 +612,7 @@ function compactAnchorsUpward(
         const placedRect = placed.find((p) => p.id === id);
         if (placedRect) floor = Math.max(floor, placedRect.r0 + placedRect.h);
       }
+      dndLog("  [%s type=%s] priorityBlockId, placed, floor=%s", blockName(blocks, id), block.type, floor);
       continue;
     }
 
@@ -559,20 +620,26 @@ function compactAnchorsUpward(
     const c0 = Math.max(0, Math.min(gridColumns - w, (anchor?.gridColumnStart ?? 1) - 1));
 
     let r0 = floor;
+    let collisionCount = 0;
     while (true) {
       const probe: Rect = { id, c0, r0, w, h };
       const hasCollision = placed.some((p) => colsOverlap(probe, p) && rowsOverlap(probe, p));
       if (!hasCollision) break;
       r0 += 1;
+      collisionCount++;
     }
+
+    dndLog("  [%s type=%s] c0=%s r0=%s (from floor=%s) w=%s h=%s collisions=%s", blockName(blocks, id), block.type, c0, r0, floor, w, h, collisionCount);
 
     writeEntry(id, block, c0, r0, w);
     placed.push({ id, c0, r0, w, h });
 
     if (block.type === "section") {
       floor = Math.max(floor, r0 + h);
+      dndLog("    section: floor raised to %s", floor);
     }
   }
+  dndGroupEnd();
 
   return next;
 }
@@ -602,17 +669,23 @@ export function resolveAnchorOverlaps(
     priorityBlockId,
   );
 
+  dndGroup("resolveAnchorOverlaps: %s blocks, priority=%s", validIds.length, priorityBlockId);
   for (let iter = 0; iter < 80; iter++) {
     const rects = buildRects(validIds, blocks, next, bp, gridColumns, cellSize, gap, rowUnit);
     let moved = false;
+    let overlapsFound = 0;
 
     for (let i = 0; i < validIds.length; i++) {
       for (let j = i + 1; j < validIds.length; j++) {
         const A = rects[i];
         const B = rects[j];
         if (!A || !B || !colsOverlap(A, B) || !rowsOverlap(A, B)) continue;
+        overlapsFound++;
         // Не двигаем приоритетный блок: его позиция задана пользователем
-        if (B.id === priorityBlockId) continue;
+        if (B.id === priorityBlockId) {
+          dndLog("  overlap(%s@(r:%s), %s@(r:%s)) — B is priority, skip", blockName(blocks, A.id), A.r0, blockName(blocks, B.id), B.r0);
+          continue;
+        }
 
         const bottomLine = A.r0 + A.h;
         const newRowStart = bottomLine + 1;
@@ -622,6 +695,7 @@ export function resolveAnchorOverlaps(
         const anchorB = next[idB]?.anchorsByBreakpoint?.[bp];
         const currentStart = anchorB?.gridRowStart ?? B.r0 + 1;
         if (currentStart < newRowStart) {
+          dndLog("  overlap: %s@(c:%s,r:%s) vs %s@(c:%s,r:%s) — shift %s from r:%s to r:%s", blockName(blocks, A.id), A.c0, A.r0, blockName(blocks, B.id), B.c0, B.r0, blockName(blocks, idB), currentStart, newRowStart);
           const prevEntry = next[idB];
           const persisted = getPersistedGridSpans(blockB, prevEntry);
           const w = gsB.colSpan;
@@ -643,8 +717,13 @@ export function resolveAnchorOverlaps(
         }
       }
     }
-    if (!moved) break;
+    dndLog("  iter #%s: overlaps=%s moved=%s", iter, overlapsFound, moved);
+    if (!moved) {
+      dndLog("  converged after %s iters", iter + 1);
+      break;
+    }
   }
+  dndGroupEnd();
 
   return next;
 }
