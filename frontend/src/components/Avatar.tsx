@@ -14,7 +14,6 @@ export type AvatarProps = {
 export default function Avatar({ src, size = 96, editable, onChange, onRemove, className }: AvatarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const openDialog = useCallback(() => {
@@ -89,8 +88,6 @@ export default function Avatar({ src, size = 96, editable, onChange, onRemove, c
     <div
       className={className}
       style={{ position: "relative", width: px, height: px, cursor: editable ? "pointer" : "default" }}
-      onMouseEnter={() => editable && setIsHovered(true)}
-      onMouseLeave={() => editable && setIsHovered(false)}
       onClick={openDialog}
     >
       {hasImage ? (
@@ -111,7 +108,7 @@ export default function Avatar({ src, size = 96, editable, onChange, onRemove, c
         placeholderContent
       )}
 
-      {editable && hasImage && isHovered && (
+      {editable && hasImage && (
         <>
           <button
             type="button"

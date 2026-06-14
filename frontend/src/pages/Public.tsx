@@ -1,5 +1,5 @@
 import React from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, Link } from "react-router-dom";
 import { getPublic, getImageUrl, type Block, type BlockSizes, type Layout } from "../api";
 import BlockCard from "../components/BlockCard";
 import PageBackgroundLayer from "../components/PageBackgroundLayer";
@@ -331,6 +331,15 @@ export default function PublicPage() {
                   </div>
                 )}
               </div>
+              {breakpoint === "desktop" && (
+                <Link
+                  to="/register"
+                  className="public-cta-desktop"
+                  aria-label="Создай свою Визитку!"
+                >
+                  Создай свою Визитку!
+                </Link>
+              )}
             </div>
             <div className="profile-placeholder" style={{ width: "100%", minHeight: "0px" }}></div>
           </div>
@@ -393,6 +402,15 @@ export default function PublicPage() {
           </div>
         </div>
       </div>
+      {breakpoint !== "desktop" && (
+        <Link
+          to="/register"
+          className="public-cta-mobile"
+          aria-label="Создай свою Визитку!"
+        >
+          Создай свою Визитку!
+        </Link>
+      )}
       <style>{`
         @keyframes slideIn {
           from {
