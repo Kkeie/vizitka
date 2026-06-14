@@ -680,7 +680,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
         rowUnit, draggedId,
       );
       const resolvedSummary = Object.entries(resolved).map(([id, sz]) => {
-        const b = blocks.find(bb => bb.id === Number(id));
         const a = sz.anchorsByBreakpoint?.[breakpoint];
         return `${blockName(blocks, Number(id))}@(${a?.gridColumnStart ?? "-"},${a?.gridRowStart ?? "-"})[${sz.colSpan}×${sz.rowSpan}]`;
       });
@@ -724,7 +723,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     }
     dndLog("cursor: (%s, %s)", lastPointerRef.current.x, lastPointerRef.current.y);
     const originalBlockSizesSummary = Object.entries(originalBlockSizesRef.current).map(([id, sz]) => {
-      const b = blocks.find(bb => bb.id === Number(id));
       const a = sz.anchorsByBreakpoint?.[breakpoint];
       return `${blockName(blocks, Number(id))}@(${a?.gridColumnStart ?? "-"},${a?.gridRowStart ?? "-"})[${sz.colSpan}×${sz.rowSpan}]`;
     });
@@ -842,7 +840,6 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     dndLog("dragged: %s", blockName(blocks, draggedId));
     if (committedSizes) {
       const summary = Object.entries(committedSizes).map(([id, sz]) => {
-        const b = blocks.find(bb => bb.id === Number(id));
         const a = sz.anchorsByBreakpoint?.[breakpoint];
         return `${blockName(blocks, Number(id))}@(${a?.gridColumnStart ?? "-"},${a?.gridRowStart ?? "-"})[${sz.colSpan}×${sz.rowSpan}]`;
       });
@@ -1502,9 +1499,11 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     strokeWidth: 1.75,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
-    width: 20,
-    height: 20,
+    width: 26,
+    height: 26,
   };
+  const isMobileViewport = viewportBreakpoint === "mobile" || viewportBreakpoint === "tablet";
+  const dockButtonSize = 44;
   const addActions: Array<{ type: BlockType; label: string; icon: React.ReactNode }> = [
     {
       type: "section",
@@ -1938,23 +1937,34 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               <button
                 type="button"
                 onClick={() => setShowQr(true)}
+                title={isMobileViewport ? "Поделиться визиткой" : undefined}
+                aria-label="Поделиться визиткой"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  height: 32,
-                  padding: "0 14px",
+                  height: isMobileViewport ? dockButtonSize : 44,
+                  width: isMobileViewport ? dockButtonSize : undefined,
+                  padding: isMobileViewport ? 0 : "0 14px",
                   background: "#7EDC8A",
                   color: "#fff",
                   border: "none",
                   cursor: "pointer",
-                  borderRadius: 8,
+                  borderRadius: isMobileViewport ? 8 : 8,
                   fontSize: 12,
                   fontWeight: 700,
                   lineHeight: 1,
                 }}
               >
-                Поделиться Визиткой
+                {isMobileViewport ? (
+                  <svg {...dockIconProps}>
+                    <path d="M12 3v13" />
+                    <path d="M8 7l4-4 4 4" />
+                    <path d="M6 12H5a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2h-1" />
+                  </svg>
+                ) : (
+                  "Поделиться Визиткой"
+                )}
               </button>
               <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 26, background: "var(--border)", margin: "0 2px" }} />
               {primaryActions.map(({ type, label, icon }) => (
@@ -1972,7 +1982,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                               }, 150);
                             }}
                   title={label}
-                  style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 14 }}
+                  style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: dockButtonSize, height: dockButtonSize, padding: 0, background: "var(--accent)", border: "none", cursor: "pointer", borderRadius: 8, color: "var(--text)", fontSize: 14 }}
                 >
                   {icon}
                 </button>
@@ -2004,7 +2014,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                     }}
                     title="Еще"
                     data-testid="editor-overflow-toggle"
-                    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, padding: 0, background: showOverflowMenu ? "var(--ring)" : "var(--accent)", border: "none", cursor: "pointer", borderRadius: 7, color: "var(--text)", fontSize: 16 }}
+                    style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: dockButtonSize, height: dockButtonSize, padding: 0, background: showOverflowMenu ? "var(--ring)" : "var(--accent)", border: "none", cursor: "pointer", borderRadius: 8, color: "var(--text)", fontSize: 18 }}
                   >
                     <span style={{ lineHeight: 1 }}>⋯</span>
                   </button>
@@ -2049,7 +2059,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
               )}
               <div role="separator" style={{ width: 1, alignSelf: "stretch", minHeight: 26, background: "var(--border)", margin: "0 2px" }} />
               <div
-                className="editor-preview-toggle"
+                className={`editor-preview-toggle${isMobileViewport ? " editor-preview-toggle--mobile" : ""}`}
                 data-mode={previewMode}
                 role="group"
                 aria-label="Режим превью"

@@ -368,6 +368,12 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
   };
 
   const handlePointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
+    /**
+     * На сенсорных устройствах не глушим dnd над интерактивным контентом: активация
+     * по задержке (delay/tolerance) сама различает короткий тап (откроет ссылку и т.п.)
+     * и долгое нажатие-перетаскивание. Иначе тянуть карточку можно только за её края.
+     */
+    if (e.pointerType !== 'mouse') return;
     const target = e.target as HTMLElement;
     /** Целая карточка-link — `<a>`: иначе stopPropagation ломает dnd-kit на больших тайлах */
     if (target.closest('[data-draggable-tile-link]')) return;

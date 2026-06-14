@@ -11,6 +11,17 @@
   touch-action: none;
 }
 
+/*
+ * Внутри карточки есть scroll-контейнеры (card-content-scale--passthrough: overflow:auto
+ * и т.п.). На тач-устройствах браузер трактует касание такого потомка как прокрутку и шлёт
+ * pointercancel — dnd срывается, тащить можно только за «голый» край карточки. Глушим жест
+ * прокрутки у всех потомков (только в редакторе — data-drag-item есть лишь там), чтобы
+ * long-press начинал перетаскивание из любой точки. data-drag-item существует лишь в редакторе.
+ */
+[data-drag-item] * {
+  touch-action: none;
+}
+
 /* Заголовок раздела: вертикальный скролл пальцем вне строки текста */
 [data-drag-item][data-block-type="section"] {
   touch-action: pan-y;

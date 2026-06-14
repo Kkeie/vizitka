@@ -68,6 +68,12 @@ const EDITOR_IFRAME_DRAG_EDGE_PX = 14;
 /** Полоски DnD у блока «ссылка» шире — на длинных превью проще схватить блок */
 const LINK_EDITOR_DRAG_RAIL_PX = 28;
 
+/** Сенсорный ввод (телефон/планшет): тонкие drag-кромки пальцем не схватить — нужен полный оверлей. */
+const isCoarsePointer =
+  typeof window !== "undefined" &&
+  typeof window.matchMedia === "function" &&
+  window.matchMedia("(pointer: coarse)").matches;
+
 /**
  * Подпись у блока «ссылка»: гистерезис show/hide, чтобы при ресайзе соседей
  * ResizeObserver не дёргал режим и не «сжимал» контент (раньше ещё и иконка 56→48).
@@ -113,6 +119,12 @@ function EditorIframeEdgeDragHandles({ show }: { show: boolean }) {
     touchAction: "none",
     boxSizing: "border-box",
   };
+  // Палец не попадает в 14px-кромку над iframe (iframe не пропускает касания в родителя),
+  // поэтому на сенсорных устройствах кладём оверлей на всю карточку — тащить можно за любую
+  // точку (long-press). На десктопе оставляем тонкие кромки, чтобы центр iframe оставался кликабельным.
+  if (isCoarsePointer) {
+    return <div aria-hidden className="editor-iframe-edge-drag" style={{ ...base, inset: 0 }} />;
+  }
   const edge = EDITOR_IFRAME_DRAG_EDGE_PX;
   return (
     <>
@@ -1014,7 +1026,15 @@ export default function BlockCard({
                 boxSizing: "border-box",
                 userSelect: editable ? "text" : undefined,
               }}
-              onPointerDown={editable ? (e) => e.stopPropagation() : undefined}
+              onPointerDown={
+                editable
+                  ? (e) => {
+                      // На тач-устройствах не глушим dnd: короткий тап ставит курсор,
+                      // долгое нажатие (delay-активация) начинает перетаскивание.
+                      if (e.pointerType === "mouse") e.stopPropagation();
+                    }
+                  : undefined
+              }
             >
               {editable ? (
                 <div

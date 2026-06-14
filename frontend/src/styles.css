@@ -583,8 +583,8 @@ iframe.yandex-music-embed {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 32px;
-  height: 28px;
+  width: 36px;
+  height: 40px;
   background: #111;
   border-radius: 6px;
   transition: transform 0.2s ease;
@@ -592,7 +592,7 @@ iframe.yandex-music-embed {
 }
 
 .editor-preview-toggle[data-mode="phone"] .editor-preview-toggle__thumb {
-  transform: translateX(32px);
+  transform: translateX(36px);
 }
 
 .editor-preview-toggle__btn {
@@ -601,8 +601,8 @@ iframe.yandex-music-embed {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 28px;
+  width: 36px;
+  height: 40px;
   padding: 0;
   border: none;
   background: transparent;
@@ -613,6 +613,25 @@ iframe.yandex-music-embed {
 
 .editor-preview-toggle__btn[aria-pressed="true"] {
   color: #fff;
+}
+
+.editor-preview-toggle--mobile .editor-preview-toggle__thumb {
+  width: 40px;
+  height: 40px;
+}
+
+.editor-preview-toggle--mobile[data-mode="phone"] .editor-preview-toggle__thumb {
+  transform: translateX(40px);
+}
+
+.editor-preview-toggle--mobile .editor-preview-toggle__btn {
+  width: 40px;
+  height: 40px;
+}
+
+.editor-preview-toggle--mobile .editor-preview-toggle__btn svg {
+  width: 22px;
+  height: 22px;
 }
 
 /* Режим превью телефона прямо в редакторе */

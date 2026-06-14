@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback } from "react";
 import { uploadImage, getImageUrl } from "../api";
+import AvatarCropModal from "./AvatarCropModal";
 
 export type AvatarProps = {
   src: string | null | undefined;
@@ -14,28 +15,34 @@ export default function Avatar({ src, size = 96, editable, onChange, onRemove, c
   const inputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const openDialog = useCallback(() => {
     if (!editable || loading) return;
     inputRef.current?.click();
   }, [editable, loading]);
 
-  const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
       alert("Файл слишком большой. Максимальный размер: 5MB");
-      e.target.value = "";
       return;
     }
 
     if (!file.type.match(/^image\//)) {
       alert("Выберите изображение");
-      e.target.value = "";
       return;
     }
 
+    setPendingFile(file);
+  }, []);
+
+  const handleCropConfirm = useCallback(async (blob: Blob) => {
+    const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
+    setPendingFile(null);
     try {
       setLoading(true);
       const { url } = await uploadImage(file);
@@ -45,7 +52,6 @@ export default function Avatar({ src, size = 96, editable, onChange, onRemove, c
       alert("Не удалось загрузить изображение");
     } finally {
       setLoading(false);
-      e.target.value = "";
     }
   }, [onChange]);
 
@@ -180,6 +186,14 @@ export default function Avatar({ src, size = 96, editable, onChange, onRemove, c
         style={{ display: "none" }}
         onChange={handleFile}
       />
+
+      {pendingFile && (
+        <AvatarCropModal
+          file={pendingFile}
+          onCancel={() => setPendingFile(null)}
+          onConfirm={handleCropConfirm}
+        />
+      )}
     </div>
   );
 }
