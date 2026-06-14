@@ -2,6 +2,7 @@ import React from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { getPublic, getImageUrl, type Block, type BlockSizes, type Layout } from "../api";
 import BlockCard from "../components/BlockCard";
+import PageBackgroundLayer from "../components/PageBackgroundLayer";
 import { useBreakpoint } from "../hooks/useBreakpoint";
 import { useBentoGridMetrics } from "../hooks/useBentoGridMetrics";
 import {
@@ -32,6 +33,8 @@ export default function PublicPage() {
     bio?: string | null;
     avatarUrl?: string | null;
     backgroundUrl?: string | null;
+    nameColor?: string | null;
+    bioColor?: string | null;
     phone?: string | null;
     email?: string | null;
     telegram?: string | null;
@@ -193,6 +196,8 @@ export default function PublicPage() {
           bio: data.bio,
           avatarUrl: data.avatarUrl,
           backgroundUrl: data.backgroundUrl,
+          nameColor: data.nameColor,
+          bioColor: data.bioColor,
           phone: data.phone,
           email: data.email,
           telegram: data.telegram,
@@ -268,11 +273,6 @@ export default function PublicPage() {
     <div
       className="page-bg min-h-screen public-page"
       style={{
-        backgroundImage: state.backgroundUrl ? `url(${getImageUrl(state.backgroundUrl)})` : undefined,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-        backgroundAttachment: "fixed",
         position: "relative",
         minHeight: "100dvh",
         width: "100%",
@@ -283,19 +283,8 @@ export default function PublicPage() {
         padding: 0,
       }}
     >
-      {/* Overlay для читаемости текста */}
       {state.backgroundUrl && (
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(250, 250, 250, 0.55)",
-          backdropFilter: "blur(2px)",
-          zIndex: 0,
-          pointerEvents: "none",
-        }} />
+        <PageBackgroundLayer imageUrl={getImageUrl(state.backgroundUrl)} variant="viewport" />
       )}
       <div className="container" style={{ paddingTop: 40, paddingBottom: 80, position: "relative", zIndex: 1 }}>
         {/* Two Column Layout: Profile Left, Blocks Right */}
@@ -318,7 +307,7 @@ export default function PublicPage() {
                     width: "100%",
                     margin: 0,
                     padding: 0,
-                    color: "var(--text)",
+                    color: state.nameColor || "#0a0a0a",
                     lineHeight: 1.15,
                     overflowWrap: "anywhere",
                     wordBreak: "break-word",
@@ -334,7 +323,7 @@ export default function PublicPage() {
                       width: "100%",
                       margin: 0,
                       padding: 0,
-                      color: "var(--muted)",
+                      color: state.bioColor || "#737373",
                       whiteSpace: "pre-wrap",
                     }}>
                       {state.bio}

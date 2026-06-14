@@ -33,6 +33,29 @@ describe("Профиль: что видит пользователь после 
     expect(get.body.avatarUrl).toBe(res.body.avatarUrl);
   });
 
+  it("можно задать цвета имени и био — hex приходит обратно в JSON", async () => {
+    const u = uniqueName("colors");
+    const { token } = await register(app, u, "password123");
+    const res = await request(app)
+      .patch("/api/profile/")
+      .set(auth(token))
+      .send({ nameColor: "#ff0000", bioColor: "#00ff00" });
+    expect(res.status).toBe(200);
+    expect(res.body.nameColor).toBe("#ff0000");
+    expect(res.body.bioColor).toBe("#00ff00");
+  });
+
+  it("некорректный hex цвета — отказ invalid_name_color", async () => {
+    const u = uniqueName("bad_color");
+    const { token } = await register(app, u, "password123");
+    const res = await request(app)
+      .patch("/api/profile/")
+      .set(auth(token))
+      .send({ nameColor: "red" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("invalid_name_color");
+  });
+
   it("layout и blockSizes можно сохранить как JSON-объекты — потом они приходят объектами, не строкой", async () => {
     const u = uniqueName("layout");
     const { token } = await register(app, u, "password123");

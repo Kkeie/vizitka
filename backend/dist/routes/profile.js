@@ -9,6 +9,17 @@ const emailVerification_1 = require("../utils/emailVerification");
 const router = (0, express_1.Router)();
 router.use(auth_1.requireAuth);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+function parseOptionalHexColor(value) {
+    if (value === undefined)
+        return null;
+    if (value === null || value === "")
+        return null;
+    const normalized = String(value).trim();
+    if (!HEX_COLOR_RE.test(normalized))
+        return "invalid";
+    return normalized.toLowerCase();
+}
 function parseProfileJsonFields(profile) {
     if (!profile)
         return profile;
@@ -87,7 +98,7 @@ router.get("/", async (req, res) => {
 // PATCH /api/profile
 router.patch("/", async (req, res) => {
     const userId = req.user.id;
-    const { username, name, bio, avatarUrl, backgroundUrl, phone, email, telegram, layout, blockSizes } = req.body || {};
+    const { username, name, bio, avatarUrl, backgroundUrl, nameColor, bioColor, phone, email, telegram, layout, blockSizes } = req.body || {};
     // Проверяем, что пользователь существует
     const user = db_1.db.prepare("SELECT id, email FROM User WHERE id = ?").get(userId);
     if (!user) {
@@ -140,6 +151,22 @@ router.patch("/", async (req, res) => {
     if (backgroundUrl !== undefined) {
         profileUpdates.push("backgroundUrl = ?");
         profileValues.push(backgroundUrl);
+    }
+    if (nameColor !== undefined) {
+        const parsed = parseOptionalHexColor(nameColor);
+        if (parsed === "invalid") {
+            return res.status(400).json({ error: "invalid_name_color" });
+        }
+        profileUpdates.push("nameColor = ?");
+        profileValues.push(parsed);
+    }
+    if (bioColor !== undefined) {
+        const parsed = parseOptionalHexColor(bioColor);
+        if (parsed === "invalid") {
+            return res.status(400).json({ error: "invalid_bio_color" });
+        }
+        profileUpdates.push("bioColor = ?");
+        profileValues.push(parsed);
     }
     if (phone !== undefined) {
         profileUpdates.push("phone = ?");

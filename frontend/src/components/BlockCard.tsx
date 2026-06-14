@@ -943,7 +943,7 @@ export default function BlockCard({
         <CardContentScaleToFit
           deps={[...scaleDeps]}
           layoutReferenceWidthPx={280}
-          passthrough={showEditorHeader}
+          passthrough={showEditorHeader || isPublic}
         >
         {b.type === "note" && (() => {
           const ns = b.noteStyle;
