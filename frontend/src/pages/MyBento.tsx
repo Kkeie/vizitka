@@ -55,20 +55,6 @@ export default function MyVizitka() {
         padding: 0,
       }}
     >
-      {/* Overlay для читаемости текста */}
-      {state.backgroundUrl && (
-        <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: "rgba(250, 250, 250, 0.85)",
-          backdropFilter: "blur(2px)",
-          zIndex: 0,
-          pointerEvents: "none",
-        }} />
-      )}
       <div className="container" style={{ paddingTop: 60, paddingBottom: 80, position: "relative", zIndex: 1 }}>
         {/* Two Column Layout: Profile Left, Blocks Right */}
         <div className="two-column-layout">

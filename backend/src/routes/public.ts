@@ -147,6 +147,8 @@ router.get("/:username", async (req, res) => {
       bio: profile.bio,
       avatarUrl: profile.avatarUrl,
       backgroundUrl: profile.backgroundUrl,
+      nameColor: profile.nameColor,
+      bioColor: profile.bioColor,
       phone: profile.phone,
       email: profile.email,
       telegram: profile.telegram,

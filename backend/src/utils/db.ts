@@ -193,6 +193,22 @@ export function initDatabase() {
     }
   }
 
+  try {
+    db.exec(`ALTER TABLE Profile ADD COLUMN nameColor TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      console.warn('[DB] Could not add nameColor column:', e.message);
+    }
+  }
+
+  try {
+    db.exec(`ALTER TABLE Profile ADD COLUMN bioColor TEXT`);
+  } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) {
+      console.warn('[DB] Could not add bioColor column:', e.message);
+    }
+  }
+
   // Таблица блоков
   db.exec(`
     CREATE TABLE IF NOT EXISTS Block (
@@ -303,6 +319,8 @@ export interface Profile {
   bio: string | null;
   avatarUrl: string | null;
   backgroundUrl: string | null;
+  nameColor: string | null;
+  bioColor: string | null;
   phone: string | null;
   email: string | null;
   telegram: string | null;

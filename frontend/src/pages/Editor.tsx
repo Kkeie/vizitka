@@ -20,8 +20,12 @@ import {
   BlockGridAnchor,
   checkUsername,
   getTodayViews,
+  getImageUrl,
+  uploadImage,
 } from "../api";
 import Avatar from "../components/Avatar";
+import PageBackgroundLayer from "../components/PageBackgroundLayer";
+import ProfileMenuColorRow from "../components/ProfileMenuColorRow";
 import MenuCard from "../components/MenuCard";
 import InlineEditCard from "../components/InlineEditCard";
 import PasswordChangeCard from "../components/PasswordChangeCard";
@@ -117,6 +121,9 @@ function blockName(blocks: Block[], id: number): string {
   return `«${s}»`;
 }
 
+const DEFAULT_NAME_COLOR = "#0a0a0a";
+const DEFAULT_BIO_COLOR = "#737373";
+
 export default function Editor({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -127,6 +134,8 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [blockSizes, setBlockSizes] = useState<BlockSizes>({});
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [backgroundPreview, setBackgroundPreview] = useState<string | null>(null);
+  const [openColorField, setOpenColorField] = useState<"nameColor" | "bioColor" | null>(null);
   const [layout, setLayout] = useState<Layout | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -192,6 +201,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const [menuClosing, setMenuClosing] = useState(false);
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<DOMRect | null>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
+  const backgroundInputRef = useRef<HTMLInputElement>(null);
   const exitToRef = useRef<DOMRect | null>(null);
   const showProfileMenuRef = useRef(showProfileMenu);
   const [inlineEditClosing, setInlineEditClosing] = useState(false);
@@ -477,6 +487,21 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     const handleCloseCards = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
+
+      if (showProfileMenuRef.current) {
+        if (
+          target.closest('[data-menu-card]') ||
+          target.closest('[data-menu-button]') ||
+          target.closest('[data-profile-color-popover]')
+        ) {
+          return;
+        }
+        setOpenColorField(null);
+        exitToRef.current = settingsBtnRef.current?.getBoundingClientRect() ?? null;
+        setMenuClosing(true);
+        return;
+      }
+
       if (
         target.closest('[data-inline-edit]') ||
         target.closest('[data-menu-item]') ||
@@ -1358,6 +1383,49 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  const handleBackgroundFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Файл слишком большой. Максимальный размер: 10MB");
+      e.target.value = "";
+      return;
+    }
+    if (!file.type.match(/^image\//)) {
+      alert("Выберите изображение");
+      e.target.value = "";
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setBackgroundPreview(objectUrl);
+    try {
+      const { url } = await uploadImage(file);
+      const updated = await updateProfile({ backgroundUrl: url } as any);
+      setProfile(updated);
+    } catch {
+      alert("Не удалось загрузить фон");
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+      setBackgroundPreview(null);
+      e.target.value = "";
+    }
+  };
+
+  const handleProfileColorChange = async (field: "nameColor" | "bioColor", color: string) => {
+    if (!profile) return;
+    const previous = profile[field];
+    setProfile({ ...profile, [field]: color });
+    try {
+      const updated = await updateProfile({ [field]: color } as any);
+      setProfile(updated);
+    } catch {
+      setProfile({ ...profile, [field]: previous ?? null });
+      alert("Не удалось сохранить цвет");
+    }
+  };
+
   const handleUpdateUsername = async (newUsername: string) => {
     if (!profile) return;
     const normalized = newUsername.toLowerCase();
@@ -1416,6 +1484,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
       {children}
     </button>
   );
+
   // ---------------------------------------------------------------
 
   if (isAuthorized === false) return <Navigate to="/login" replace />;
@@ -1532,11 +1601,17 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
 
   const compactToolbarMode = true;
 
+  const backgroundImageUrl = profile?.backgroundUrl ? getImageUrl(profile.backgroundUrl) : null;
+  const displayBackgroundUrl = backgroundPreview ?? backgroundImageUrl;
+
   return (
     <div
       className={`page-bg min-h-screen editor-page ${useFramedPhonePreview ? "editor-page--phone-preview" : ""}`}
-      style={useFramedPhonePreview ? { height: "100dvh", overflow: "hidden" } : undefined}
+      style={useFramedPhonePreview ? { height: "100dvh", overflow: "hidden", position: "relative" } : { position: "relative" }}
     >
+      {displayBackgroundUrl && !useFramedPhonePreview && (
+        <PageBackgroundLayer imageUrl={displayBackgroundUrl} variant="viewport" />
+      )}
       <div
         className={`container ${useFramedPhonePreview ? "editor-phone-preview-shell" : ""}`}
         style={
@@ -1545,14 +1620,20 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                 paddingTop: 24,
                 paddingBottom: 24,
                 height: "min(820px, calc(100dvh - 132px))",
+                position: "relative",
               }
-            : { paddingTop: 40, paddingBottom: 100 }
+            : { paddingTop: 40, paddingBottom: 100, position: "relative", zIndex: 1 }
         }
       >
+        {displayBackgroundUrl && useFramedPhonePreview && (
+          <PageBackgroundLayer imageUrl={displayBackgroundUrl} variant="contained" />
+        )}
         <div
           className="two-column-layout"
           style={{
             alignItems: "start",
+            position: "relative",
+            zIndex: 1,
             ...(previewMode === "phone" ? { gridTemplateColumns: "1fr", gap: "16px" } : {}),
             ...(useFramedPhonePreview
               ? {
@@ -1612,19 +1693,13 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                       width: "40px",
                       height: "40px",
                       borderRadius: "50%",
-                      background: "transparent",
-                      border: "none",
+                      background: "#ffffff",
+                      border: "2px solid #ffffff",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      transition: "background 0.2s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(0,0,0,0.08)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent";
                     }}
                   >
                     <svg width="28" height="28" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
@@ -1708,7 +1783,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                           border: "none",
                           background: "transparent",
                           outline: "none",
-                          color: "var(--text)",
+                          color: profile.nameColor || DEFAULT_NAME_COLOR,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                         }}
@@ -1737,7 +1812,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                         outline: "none",
                         resize: "none",
                         overflow: "hidden",
-                        color: "var(--muted)",  // Серый цвет
+                        color: profile.bioColor || DEFAULT_BIO_COLOR,
                       }}
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;
@@ -2082,11 +2157,19 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             setShowProfileMenu(false);
             setMenuClosing(false);
             setProfileMenuAnchor(null);
+            setOpenColorField(null);
           }}
           position={window.innerWidth >= 700 ? "top" : "bottom"}
           align={window.innerWidth >= 700 ? "left" : "right"}
-          width={260}
+          width={280}
         >
+          <input
+            ref={backgroundInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handleBackgroundFile}
+          />
           <div style={{ display: "flex", flexDirection: "column"}}>
             <MenuItem onClick={(rect) => {
               if (activeInlineField === "username") {
@@ -2137,6 +2220,42 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
             }}>
               <div>Изменить пароль</div>
             </MenuItem>
+            <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
+            <MenuItem onClick={() => backgroundInputRef.current?.click()}>
+              <div>{profile?.backgroundUrl ? "Изменить фон" : "Добавить фон"}</div>
+            </MenuItem>
+            {profile?.backgroundUrl && (
+              <MenuItem
+                onClick={async () => {
+                  if (!confirm("Удалить фон?")) return;
+                  try {
+                    setBackgroundPreview(null);
+                    const updated = await updateProfile({ backgroundUrl: null } as any);
+                    setProfile(updated);
+                  } catch {
+                    alert("Не удалось удалить фон");
+                  }
+                }}
+              >
+                <div>Удалить фон</div>
+              </MenuItem>
+            )}
+            <ProfileMenuColorRow
+              label="Цвет имени"
+              value={profile?.nameColor}
+              fallback={DEFAULT_NAME_COLOR}
+              open={openColorField === "nameColor"}
+              onOpenChange={(next) => setOpenColorField(next ? "nameColor" : null)}
+              onChange={(color) => handleProfileColorChange("nameColor", color)}
+            />
+            <ProfileMenuColorRow
+              label="Цвет описания"
+              value={profile?.bioColor}
+              fallback={DEFAULT_BIO_COLOR}
+              open={openColorField === "bioColor"}
+              onOpenChange={(next) => setOpenColorField(next ? "bioColor" : null)}
+              onChange={(color) => handleProfileColorChange("bioColor", color)}
+            />
             <div style={{ height: 1, background: "var(--border)", margin: "8px 0" }} />
             <MenuItem onClick={() => { window.open("https://forms.gle/Cp3xcB3FK8kXTYc98", "_blank", "noopener,noreferrer"); setShowProfileMenu(false); }}>
               <div>Оставить обратную связь</div>

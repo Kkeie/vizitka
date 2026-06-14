@@ -33,6 +33,8 @@ export type Profile = {
   bio: string | null;
   avatarUrl?: string | null;
   backgroundUrl?: string | null;
+  nameColor?: string | null;
+  bioColor?: string | null;
   phone?: string | null;
   email?: string | null;
   telegram?: string | null;
@@ -545,7 +547,9 @@ export async function getPublic(username: string): Promise<{
   name: string; 
   bio: string | null; 
   avatarUrl: string | null; 
-  backgroundUrl: string | null; 
+  backgroundUrl: string | null;
+  nameColor: string | null;
+  bioColor: string | null;
   phone: string | null; 
   email: string | null; 
   telegram: string | null; 
@@ -558,7 +562,7 @@ export async function getPublic(username: string): Promise<{
     const errorData = await safeJsonParse<ApiError>(r).catch(() => ({} as ApiError));
     throw new Error(errorData.error || errorData.message || "not_found");
   }
-  return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; phone: string | null; email: string | null; telegram: string | null; blocks: Block[]; layout: Layout | null; blockSizes: BlockSizes | null }>(r);
+  return safeJsonParse<{ name: string; bio: string | null; avatarUrl: string | null; backgroundUrl: string | null; nameColor: string | null; bioColor: string | null; phone: string | null; email: string | null; telegram: string | null; blocks: Block[]; layout: Layout | null; blockSizes: BlockSizes | null }>(r);
 }
 export function publicUrl(username: string) {
   return `${publicOrigin()}/${encodeURIComponent(username)}`;

@@ -164,7 +164,6 @@ export default function MobileVisitPreviewModal({
             }}
           >
             {bgUrl && (
-              <>
                 <div
                   style={{
                     position: "absolute",
@@ -172,22 +171,10 @@ export default function MobileVisitPreviewModal({
                     backgroundImage: `url(${bgUrl})`,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
-                    opacity: 0.45,
                     pointerEvents: "none",
                     zIndex: 0,
                   }}
                 />
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "rgba(250, 250, 250, 0.55)",
-                    backdropFilter: "blur(2px)",
-                    pointerEvents: "none",
-                    zIndex: 0,
-                  }}
-                />
-              </>
             )}
 
             <div
@@ -244,7 +231,7 @@ export default function MobileVisitPreviewModal({
                     letterSpacing: "-0.03em",
                     margin: 0,
                     padding: 0,
-                    color: "var(--text)",
+                    color: profile.nameColor || "#0a0a0a",
                   }}>
                     {profile.name || profile.username}
                   </h1>
@@ -254,7 +241,7 @@ export default function MobileVisitPreviewModal({
                       lineHeight: 1.6,
                       margin: 0,
                       padding: 0,
-                      color: "var(--muted)",
+                      color: profile.bioColor || "#737373",
                       whiteSpace: "pre-wrap",
                     }}>
                       {profile.bio}
