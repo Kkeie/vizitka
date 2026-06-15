@@ -937,7 +937,7 @@ export default function BlockCard({
                 borderRadius: "var(--radius-sm)",
                 width: "100%",
                 height: "100%",
-                pointerEvents: showEditorHeader ? "none" : "auto",
+                pointerEvents: showEditorHeader || isDragPreview ? "none" : "auto",
               }}
             />
             <EditorIframeEdgeDragHandles show={showEditorHeader && !isDragPreview} />
