@@ -1,6 +1,5 @@
 import type { Block, BlockGridAnchor, BlockGridSize, BlockSizes, BlockType } from "../api";
 import type { Breakpoint } from "../hooks/useBreakpoint";
-import { classifyMusic, YANDEX_MUSIC_IFRAME_HEIGHT_PX } from "./embed";
 
 /* dnd debug helper — включается через window.__DND_DEBUG = true в консоли */
 function dndLog(fmt: string, ...args: unknown[]) {
@@ -739,16 +738,7 @@ export function getBlockHeightPx(
   }
 
   const safeCellSize = cellSize && cellSize > 0 ? cellSize : DEFAULT_BENTO_CELL_SIZE;
-  let h = gridSize.rowSpan * safeCellSize + Math.max(0, gridSize.rowSpan - 1) * gap;
-
-  if (block.type === "music" && block.musicEmbed) {
-    const kind = classifyMusic(block.musicEmbed);
-    if (kind.kind === "yandex") {
-      h = Math.max(h, YANDEX_MUSIC_IFRAME_HEIGHT_PX);
-    }
-  }
-
-  return h;
+  return gridSize.rowSpan * safeCellSize + Math.max(0, gridSize.rowSpan - 1) * gap;
 }
 
 export function getGridRowSpan(
@@ -761,11 +751,8 @@ export function getGridRowSpan(
   const blockHeight = getBlockHeightPx(block, gridSize, cellSize, gap);
   const naturalMicroRows = Math.max(1, Math.ceil((blockHeight + gap) / (rowUnit + gap)));
 
-  // Section blocks are thin headers; Yandex music blocks need exact iframe height — keep natural.
+  // Section blocks are thin headers.
   if (block.type === "section") return naturalMicroRows;
-  if (block.type === "music" && block.musicEmbed && classifyMusic(block.musicEmbed).kind === "yandex") {
-    return naturalMicroRows;
-  }
 
   // Standard blocks must occupy whole cell-rows so that N×1 blocks match one N-tall block.
   // naturalMicroRows may not be a multiple of the cell-row step due to floating-point ceil;

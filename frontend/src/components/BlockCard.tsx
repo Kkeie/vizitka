@@ -7,8 +7,6 @@ import {
   extractVKVideoId,
   toVKVideoEmbed,
   classifyMusic,
-  YANDEX_MUSIC_IFRAME_HEIGHT_PX,
-  YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX,
 } from "../lib/embed";
 import { getSocialInfo } from '../lib/social-preview';
 import {
@@ -459,9 +457,7 @@ export default function BlockCard({
       ...(b.noteStyle?.textColor && { color: b.noteStyle.textColor }),
     }),
     ...(b.type !== "note" && { overflow: "hidden" }),
-    ...(yandexTrackCard
-      ? { height: "auto", minHeight: 0, flexShrink: 0 }
-      : { height: "100%" }),
+    height: "100%",
     pointerEvents: isDragPreview ? "none" : undefined,
     ...(isSection && isSectionEditable && !isPublic && {
       background: (isHovered || isSectionFocused) ? "var(--surface)" : "transparent",
@@ -483,11 +479,11 @@ export default function BlockCard({
   const scrollableContentStyle: React.CSSProperties = { paddingRight: 4 };
 
   const cardBodyStyle: React.CSSProperties = {
-    flex: yandexTrackCard ? "0 0 auto" : 1,
+    flex: 1,
     position: "relative",
     zIndex: 0,
     minHeight: 0,
-    overflow: yandexTrackCard ? "visible" : "hidden",
+    overflow: "hidden",
     ...(b.type === "link" && {
       display: "flex",
       flexDirection: "column",
@@ -946,15 +942,13 @@ export default function BlockCard({
       })()}
 
       {b.type === "music" && b.musicEmbed && musicKind?.kind === "yandex" && (
-        <div style={{ position: "relative", width: "100%", maxWidth: YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX, margin: "0 auto" }}>
+        <div style={{ position: "relative", width: "100%", height: "100%" }}>
           <iframe
             className="yandex-music-embed"
             title="Яндекс Музыка"
             src={musicKind.src}
             loading="lazy"
             allow="clipboard-write; autoplay; encrypted-media"
-            width={YANDEX_MUSIC_IFRAME_MAX_WIDTH_PX}
-            height={YANDEX_MUSIC_IFRAME_HEIGHT_PX}
           />
           <EditorIframeEdgeDragHandles show={showEditorHeader && !isDragPreview} />
         </div>
