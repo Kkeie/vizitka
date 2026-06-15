@@ -22,11 +22,6 @@ export default function AddBlockGrid({ onCreated, nextSort }: { onCreated: (b: B
       const musicEmbed = prompt("Вставьте embed-код/ссылку на трек:");
       if (!musicEmbed) return;
       onCreated(await createBlock({ type: "music", musicEmbed, sort: nextSort }));
-    } else if (type === "map") {
-      const lat = prompt("Широта:");
-      const lng = prompt("Долгота:");
-      if (!lat || !lng) return;
-      onCreated(await createBlock({ type: "map", mapLat: Number(lat), mapLng: Number(lng), sort: nextSort }));
     } else if (type === "photo") {
       const photoUrl = prompt("URL картинки (пока без загрузки файла):");
       if (!photoUrl) return;
@@ -42,7 +37,6 @@ export default function AddBlockGrid({ onCreated, nextSort }: { onCreated: (b: B
       {name === "photo" && <path d="M4 5h16v14H4z M8 11l3 3 3-4 4 6H6z"/>}
       {name === "video" && <path d="M15 10l7-4v12l-7-4V6H3v12h12z"/>}
       {name === "music" && <path d="M9 18V6l10-2v12"/>}
-      {name === "map" && <path d="M3 6l7-3 7 3 4-2v14l-7 3-7-3-4 2V4z"/>}
     </svg>
   );
 
@@ -63,7 +57,6 @@ export default function AddBlockGrid({ onCreated, nextSort }: { onCreated: (b: B
         <Tile t="photo" label="Фото" icon="photo" />
         <Tile t="video" label="Видео" icon="video" />
         <Tile t="music" label="Музыка" icon="music" />
-        <Tile t="map" label="Карта" icon="map" />
       </div>
     </div>
   );
