@@ -1908,7 +1908,13 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                   })()}
               </div>
                 <DragOverlay>
-                  {activeId ? <BlockCard b={blocks.find(b => b.id === activeId)!} isDragPreview colSpan={1} /> : null}
+                  {activeId ? (() => {
+                    const activeBlock = blocks.find(b => b.id === activeId);
+                    if (!activeBlock) return null;
+                    const sizes = virtualBlockSizes ?? blockSizes;
+                    const gs = getResolvedGridSize(activeBlock, sizes[activeId], currentGridColumns);
+                    return <BlockCard b={activeBlock} isDragPreview colSpan={gs.colSpan} rowSpan={gs.rowSpan} />;
+                  })() : null}
                 </DragOverlay>
             </DndContext>
           </div>

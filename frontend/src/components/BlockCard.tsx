@@ -630,9 +630,36 @@ export default function BlockCard({
       )}
 
       {b.type === "link" && b.linkUrl && (() => {
-        const isVertical = (colSpan ?? 1) === 1;
-        /** Не уменьшаем иконку в «компактном» режиме — только скрываем текст */
-        const iconBox = LINK_TILE_ICON_PX;
+        const cs = colSpan ?? 1;
+        const rs = rowSpan ?? 1;
+        const isVertical = cs === 1;
+
+        const socialInfo = getSocialInfo(b.linkUrl);
+        const isSupported = socialInfo.platform !== "other";
+        const hasPhotoImage = Boolean(linkMetadata?.image);
+
+        /** Динамический размер обложки: для широких/высоких карточек тянем по доступной стороне */
+        const iconBox = (() => {
+          const panelInner = Math.max(0, linkCardHeightPx - 32);
+          if (isVertical) {
+            // 1×N: иконка сверху. Для tall-карточек с реальной картинкой даём ей расти
+            if (rs >= 2 && hasPhotoImage) {
+              return Math.min(Math.max(LINK_TILE_ICON_PX, Math.round(panelInner * 0.45)), 200);
+            }
+            return LINK_TILE_ICON_PX;
+          }
+          // Широкая (cs >= 2): иконка слева на всю высоту панели
+          if (hasPhotoImage) {
+            return Math.min(Math.max(LINK_TILE_ICON_PX, panelInner), 200);
+          }
+          if (isSupported) {
+            return Math.min(Math.max(LINK_TILE_ICON_PX, Math.round(panelInner * 0.7)), 110);
+          }
+          return LINK_TILE_ICON_PX;
+        })();
+        const gap = iconBox >= 96 ? 16 : 12;
+        /** На крупной обложке текст выравниваем по верху, а не по центру — выглядит аккуратнее */
+        const bigMedia = !isVertical && iconBox >= 96;
 
         const linkTilePanel: React.CSSProperties = {
           flex: 1,
@@ -663,16 +690,15 @@ export default function BlockCard({
         const rowStyle = (textMode: boolean): React.CSSProperties => ({
           display: "flex",
           flexDirection: isVertical ? "column" : "row",
-          alignItems: textMode ? (isVertical ? "flex-start" : "center") : "center",
+          alignItems: textMode
+            ? (isVertical ? "flex-start" : bigMedia ? "stretch" : "center")
+            : "center",
           justifyContent: textMode ? "flex-start" : "center",
-          gap: 12,
+          gap,
           flex: 1,
           minHeight: 0,
           width: "100%",
         });
-
-        const socialInfo = getSocialInfo(b.linkUrl);
-        const isSupported = socialInfo.platform !== "other";
 
         if (isSupported) {
           let IconComponent = null;
@@ -793,14 +819,23 @@ export default function BlockCard({
         const subCandidate = (() => {
           if (!linkCardShowText) return null;
           if (!redundantDesc(descRaw)) return descRaw;
-          return shortUrlPath(b.linkUrl, { maxLen: linkCardHeightPx >= 260 ? null : 52 });
+          /** На широких/высоких карточках URL не режем — места хватает */
+          const noMax = linkCardHeightPx >= 260 || cs >= 2;
+          return shortUrlPath(b.linkUrl, { maxLen: noMax ? null : 52 });
         })();
 
         const subline = subCandidate && subCandidate !== headline ? subCandidate : null;
 
-        /** Высокая карточка — подпись скроллится; иначе до 4 строк при достаточной высоте ячейки */
-        const sublineExpand = linkCardShowText && linkCardHeightPx >= 260;
-        const sublineClampLines = linkCardHeightPx >= 220 ? 4 : 2;
+        /** На совсем высоких карточках включаем скролл подписи; иначе — клемп по доступной высоте */
+        const sublineExpand = linkCardShowText && linkCardHeightPx >= 360;
+        const sublineClampLines = (() => {
+          if (linkCardHeightPx <= 0) return 2;
+          /** Резерв под header заголовка + отступ; высота строки ~20px при font 14 / lh 1.45 */
+          const headlineReserve = 36;
+          const lineHeightPx = 20;
+          const computed = Math.floor((linkCardHeightPx - 32 - headlineReserve) / lineHeightPx);
+          return Math.max(2, Math.min(14, computed));
+        })();
 
         const thumbStyle: React.CSSProperties = {
           width: iconBox,

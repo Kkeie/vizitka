@@ -41,7 +41,7 @@ export const SECTION_BLOCK_HEIGHT = 56;
 const DEFAULT_SIZES: Record<BlockType, BlockGridSize> = {
   section: { colSpan: GRID_COLUMNS.desktop, rowSpan: 1 },
   note: { colSpan: 1, rowSpan: 1 },
-  link: { colSpan: 2, rowSpan: 1 },
+  link: { colSpan: 1, rowSpan: 1 },
   photo: { colSpan: 2, rowSpan: 2 },
   video: { colSpan: 2, rowSpan: 2 },
   /* Только пресеты 1×1 и 2×1; по умолчанию шире — под embed Яндекса */
