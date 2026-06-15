@@ -47,6 +47,8 @@
   min-width: 0;
   margin-right: auto;
   padding-right: 8px;
+  align-self: start;
+  padding-top: clamp(24px, 6dvh, 96px);
 }
 
 .login-bento__title {
