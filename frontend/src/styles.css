@@ -108,6 +108,7 @@
 }
 .public-cta-desktop:hover {
   background: #262626;
+  color: #fff;
   transform: translateY(-1px);
 }
 
@@ -134,6 +135,7 @@
 }
 .public-cta-mobile:hover {
   background: #262626;
+  color: #fff;
 }
 
 /* Публичная страница: bio — перенос строки каждые ~17 символа (как в редакторе) */
