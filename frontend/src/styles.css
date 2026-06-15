@@ -202,15 +202,6 @@
   .public-page .public-profile .public-profile-inner > div:last-child > div > div {
     font-size: 13px !important;
   }
-  .public-page .container {
-    padding-top: 48px !important;
-    padding-bottom: 48px !important;
-  }
-  /* Меньший gap в сетке на мобильном */
-  .public-page .bento-grid {
-    --grid-gap: 12px;
-    gap: 12px !important;
-  }
 }
 
 /* Очень маленькие экраны — ещё компактнее */

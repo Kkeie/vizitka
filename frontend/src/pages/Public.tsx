@@ -223,12 +223,10 @@ export default function PublicPage() {
   }, [breakpoint, orderedIdsRaw.join(","), state.blockSizes]);
 
   const gridColumns = GRID_COLUMNS[breakpoint];
-  const gridGap = breakpoint === "mobile" ? 12 : 16;
-  // Cap cell width: at >=1200 the sidebar takes ~370px and right column is naturally tight;
-  // at 600-1199 the sidebar is hidden and right column = full container — without a cap,
-  // cells balloon to 350+px. 280 keeps cards close to the design baseline (180px).
+  const gridGap = 16;
+  const maxCellSize = breakpoint === "mobile" ? undefined : 280;
   const { gridRef, cellSize } = useBentoGridMetrics(gridColumns, gridGap, {
-    maxCellSize: 280,
+    maxCellSize,
   });
   const rowUnit = getDynamicRowUnit(cellSize, gridGap);
 
@@ -241,6 +239,7 @@ export default function PublicPage() {
       gridColumns,
       cellSize,
       gridGap,
+      rowUnit,
     );
     return resolveAnchorOverlaps(
       assigned,
@@ -250,8 +249,9 @@ export default function PublicPage() {
       gridColumns,
       cellSize,
       gridGap,
+      rowUnit,
     );
-  }, [orderedIds.join(","), state.blocks, state.blockSizes, breakpoint, gridColumns, cellSize, gridGap]);
+  }, [orderedIds.join(","), state.blocks, state.blockSizes, breakpoint, gridColumns, cellSize, gridGap, rowUnit]);
 
   if (state.loading) {
     return (
@@ -286,7 +286,7 @@ export default function PublicPage() {
       {state.backgroundUrl && (
         <PageBackgroundLayer imageUrl={getImageUrl(state.backgroundUrl)} variant="viewport" />
       )}
-      <div className="container" style={{ paddingTop: 40, paddingBottom: 80, position: "relative", zIndex: 1 }}>
+      <div className="container" style={{ paddingTop: 40, paddingBottom: 100, position: "relative", zIndex: 1 }}>
         {/* Two Column Layout: Profile Left, Blocks Right */}
         <div className="two-column-layout" style={{ alignItems: "start" }}>
           {/* Left Column: Profile (fixed) + Placeholder for grid */}
