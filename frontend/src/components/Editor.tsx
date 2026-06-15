@@ -10,7 +10,7 @@ type CreatePayload =
   | { type: "photo"; photoUrl: string }
   | { type: "video"; videoUrl: string }
   | { type: "music"; musicEmbed: string }
-  | { type: "map"; mapLat: number; mapLng: number };
+  ;
 
 function authHeaders(): HeadersInit {
   const t = getToken();
@@ -157,25 +157,6 @@ export default function Editor() {
     }
   }
 
-  async function addMap() {
-    const lat = prompt("Широта (lat), например 55.751244:");
-    if (lat == null) return;
-    const lng = prompt("Долгота (lng), например 37.618423:");
-    if (lng == null) return;
-    const latNum = Number(lat);
-    const lngNum = Number(lng);
-    if (Number.isNaN(latNum) || Number.isNaN(lngNum)) {
-      alert("Неверные координаты");
-      return;
-    }
-    try {
-      const b = await createBlock({ type: "map", mapLat: latNum, mapLng: lngNum });
-      setBlocks((prev) => [b, ...prev]);
-    } catch (e: any) {
-      alert(e?.message || e);
-    }
-  }
-
   async function handleDelete(id: number) {
     if (!confirm("Удалить карточку?")) return;
     try {
@@ -237,9 +218,6 @@ export default function Editor() {
         </button>
         <button style={btn} onClick={addMusic} disabled={!authed}>
           Музыка
-        </button>
-        <button style={btn} onClick={addMap} disabled={!authed}>
-          Карта
         </button>
       </div>
 

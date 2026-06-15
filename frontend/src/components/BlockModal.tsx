@@ -112,7 +112,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(0);
   const [searchAddressError, setSearchAddressError] = useState<string | null>(null);
-  const [mapInputType, setMapInputType] = useState<'address' | 'coordinates'>('address');
+
   const [socialUrlFocused, setSocialUrlFocused] = useState(false);
   const skipNextSuggestionFetchRef = useRef(false);
 
@@ -128,14 +128,13 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
       setAddressSuggestions([]);
       setActiveSuggestionIndex(0);
       setSearchAddressError(null);
-      setMapInputType('address');
       setFormError(null);
       skipNextSuggestionFetchRef.current = false;
     }
   }, [isOpen, type]);
 
   useEffect(() => {
-    if (!isOpen || type !== "map" || mapInputType !== "address") {
+    if (!isOpen || type !== "map") {
       return;
     }
 
@@ -181,7 +180,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [isOpen, mapInputType, searchAddress, type]);
+  }, [isOpen, searchAddress, type]);
 
   const applyAddressSuggestion = (suggestion: AddressSuggestion) => {
     skipNextSuggestionFetchRef.current = true;
@@ -599,50 +598,9 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
 
           {type === "map" && (
             <div className="field">
-              <div style={{ display: "flex", flexDirection: isCompactViewport ? "column" : "row", gap: 8, marginBottom: 16 }}>
-                <button
-                  type="button"
-                  onClick={() => setMapInputType('address')}
-                  style={{
-                    flex: 1,
-                    padding: "10px 16px",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    background: mapInputType === 'address' ? "var(--primary)" : "var(--accent)",
-                    color: mapInputType === 'address' ? "white" : "var(--text)",
-                    border: "none",
-                    borderRadius: "var(--radius-sm)",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  По адресу
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMapInputType('coordinates')}
-                  style={{
-                    flex: 1,
-                    padding: "10px 16px",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    background: mapInputType === 'coordinates' ? "var(--primary)" : "var(--accent)",
-                    color: mapInputType === 'coordinates' ? "white" : "var(--text)",
-                    border: "none",
-                    borderRadius: "var(--radius-sm)",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  По координатам
-                </button>
-              </div>
-
-              {mapInputType === 'address' && (
-                <>
-                  <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
-                    Поиск по адресу
-                  </label>
+              <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 8, display: "block" }}>
+                Поиск по адресу
+              </label>
                   <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 0, marginBottom: 8 }}>
                     Начните вводить адрес и выберите подсказку из списка.
                   </p>
@@ -746,174 +704,46 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
                   )}
                   
                   {hasMapCoordinates && (
-                    <div style={{ marginTop: 16 }}>
-                      <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
-                        Найденные координаты:
-                      </div>
-                      <div style={{ display: "grid", gridTemplateColumns: isCompactViewport ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 16 }}>
-                        <div>
-                          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
-                            Широта
-                          </label>
-                          <input
-                            className="input"
-                            type="number"
-                            step="any"
-                            value={formData.mapLat}
-                            onChange={(e) => {
-                              setFormData({ ...formData, mapLat: e.target.value === "" ? undefined : parseFloat(e.target.value) });
-                              if (formError) setFormError(null);
-                            }}
-                            style={{ fontSize: 14 }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
-                            Долгота
-                          </label>
-                          <input
-                            className="input"
-                            type="number"
-                            step="any"
-                            value={formData.mapLng}
-                            onChange={(e) => {
-                              setFormData({ ...formData, mapLng: e.target.value === "" ? undefined : parseFloat(e.target.value) });
-                              if (formError) setFormError(null);
-                            }}
-                            style={{ fontSize: 14 }}
-                          />
-                        </div>
-                      </div>
-                      
-                      {/* Превью карты через 2ГИС или Яндекс */}
-                      <div style={{ marginTop: 16, borderRadius: "var(--radius-sm)", overflow: "hidden", border: "1px solid var(--border)" }}>
-                        <iframe
-                          width="100%"
-                          height="300"
-                          style={{ border: 0 }}
-                          loading="lazy"
-                          allowFullScreen
-                          src={`https://yandex.ru/map-widget/v1/?ll=${formData.mapLng}%2C${formData.mapLat}&pt=${formData.mapLng}%2C${formData.mapLat}&z=14`}
-                          title="Превью на карте"
-                        />
-                      </div>
-                      <div style={{ marginTop: 8, display: "flex", flexDirection: isCompactViewport ? "column" : "row", justifyContent: "space-between", gap: 8 }}>
-                        <a
-                          href={`https://yandex.ru/maps/?pt=${formData.mapLng},${formData.mapLat}&z=14`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            fontSize: 12,
-                            color: "var(--primary)",
-                            textDecoration: "none",
-                          }}
-                        >
-                          Открыть в Яндекс.Картах →
-                        </a>
-                        <a
-                          href={`https://2gis.ru/search/${formData.mapLat},${formData.mapLng}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            fontSize: 12,
-                            color: "var(--primary)",
-                            textDecoration: "none",
-                          }}
-                        >
-                          Открыть в 2ГИС →
-                        </a>
-                      </div>
+                    <div style={{ marginTop: 16, borderRadius: "var(--radius-sm)", overflow: "hidden", border: "1px solid var(--border)" }}>
+                      <iframe
+                        width="100%"
+                        height="300"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        allowFullScreen
+                        src={`https://yandex.ru/map-widget/v1/?ll=${formData.mapLng}%2C${formData.mapLat}&pt=${formData.mapLng}%2C${formData.mapLat}&z=14`}
+                        title="Превью на карте"
+                      />
                     </div>
                   )}
-                </>
-              )}
-
-              {mapInputType === 'coordinates' && (
-                <>
-                  <label style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", marginBottom: 12, display: "block" }}>
-                    Введите координаты
-                  </label>
-                  <div style={{ display: "grid", gridTemplateColumns: isCompactViewport ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 16 }}>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
-                        Широта
-                      </label>
-                      <input
-                        className="input"
-                        type="number"
-                        step="any"
-                        placeholder="55.751244"
-                        value={formData.mapLat ?? ""}
-                        onChange={(e) => {
-                          setFormData({ ...formData, mapLat: e.target.value ? parseFloat(e.target.value) : undefined });
-                          if (formError) setFormError(null);
-                        }}
-                        style={{ fontSize: 14 }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 4, display: "block" }}>
-                        Долгота
-                      </label>
-                      <input
-                        className="input"
-                        type="number"
-                        step="any"
-                        placeholder="37.618423"
-                        value={formData.mapLng ?? ""}
-                        onChange={(e) => {
-                          setFormData({ ...formData, mapLng: e.target.value ? parseFloat(e.target.value) : undefined });
-                          if (formError) setFormError(null);
-                        }}
-                        style={{ fontSize: 14 }}
-                      />
-                    </div>
-                  </div>
-                  
                   {hasMapCoordinates && (
-                    <>
-                      {/* Превью карты через 2ГИС или Яндекс */}
-                      <div style={{ marginTop: 16, borderRadius: "var(--radius-sm)", overflow: "hidden", border: "1px solid var(--border)" }}>
-                        <iframe
-                          width="100%"
-                          height="300"
-                          style={{ border: 0 }}
-                          loading="lazy"
-                          allowFullScreen
-                          src={`https://yandex.ru/map-widget/v1/?ll=${formData.mapLng}%2C${formData.mapLat}&pt=${formData.mapLng}%2C${formData.mapLat}&z=14`}
-                          title="Превью на карте"
-                        />
-                      </div>
-                      <div style={{ marginTop: 8, display: "flex", flexDirection: isCompactViewport ? "column" : "row", justifyContent: "space-between", gap: 8 }}>
-                        <a
-                          href={`https://yandex.ru/maps/?pt=${formData.mapLng},${formData.mapLat}&z=14`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            fontSize: 12,
-                            color: "var(--primary)",
-                            textDecoration: "none",
-                          }}
-                        >
-                          Открыть в Яндекс.Картах →
-                        </a>
-                        <a
-                          href={`https://2gis.ru/search/${formData.mapLat},${formData.mapLng}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            fontSize: 12,
-                            color: "var(--primary)",
-                            textDecoration: "none",
-                          }}
-                        >
-                          Открыть в 2ГИС →
-                        </a>
-                      </div>
-                    </>
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: isCompactViewport ? "column" : "row", justifyContent: "space-between", gap: 8 }}>
+                      <a
+                        href={`https://yandex.ru/maps/?pt=${formData.mapLng},${formData.mapLat}&z=14`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontSize: 12,
+                          color: "var(--primary)",
+                          textDecoration: "none",
+                        }}
+                      >
+                        Открыть в Яндекс.Картах →
+                      </a>
+                      <a
+                        href={`https://2gis.ru/search/${formData.mapLat},${formData.mapLng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          fontSize: 12,
+                          color: "var(--primary)",
+                          textDecoration: "none",
+                        }}
+                      >
+                        Открыть в 2ГИС →
+                      </a>
+                    </div>
                   )}
-                </>
-              )}
             </div>
           )}
 
