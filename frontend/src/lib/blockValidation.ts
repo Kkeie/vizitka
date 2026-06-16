@@ -11,6 +11,7 @@ type ValidationResult<T = string> = {
 };
 
 const HANDLE_REGEX = /^[a-zA-Z0-9._-]{2,64}$/;
+const FIGMA_HANDLE_REGEX = /^[a-zA-Z0-9_]{1,15}$/;
 
 const SOCIAL_PREFIX: Record<SocialPlatform, string> = {
   telegram: "https://t.me/",
@@ -24,7 +25,7 @@ const SOCIAL_PREFIX: Record<SocialPlatform, string> = {
   behance: "https://behance.net/",
   max: "https://max.ru/",
   dprofile: "https://dprofile.ru/",
-  figma: "https://figma.com/@",
+  figma: "https://www.figma.com/@",
   pinterest: "https://pinterest.com/",
   tiktok: "https://tiktok.com/@",
   spotify: "https://open.spotify.com/user/",
@@ -101,8 +102,17 @@ function handleFromUrl(platform: SocialPlatform, url: URL): string {
   }
 
   if (platform === "figma") {
-    const first = path.split("/")[0] || "";
-    return first.replace(/^@+/, "");
+    const parts = path.split("/").filter(Boolean);
+    const atPart = parts.find((part) => part.startsWith("@"));
+    if (atPart) return atPart.replace(/^@+/, "");
+    const profileIdx = parts.indexOf("profile");
+    if (profileIdx >= 0 && parts[profileIdx + 1]) {
+      return parts[profileIdx + 1].replace(/^@+/, "");
+    }
+    if (parts.length === 1 && parts[0] !== "community" && parts[0] !== "files") {
+      return parts[0].replace(/^@+/, "");
+    }
+    return "";
   }
 
   return path.split("/")[0] || "";
@@ -112,40 +122,107 @@ function toSocialUrl(platform: SocialPlatform, handle: string): string {
   return `${SOCIAL_PREFIX[platform]}${handle}`;
 }
 
+function isValidSocialHandle(platform: SocialPlatform, handle: string): boolean {
+  if (platform === "figma") return FIGMA_HANDLE_REGEX.test(handle);
+  return HANDLE_REGEX.test(handle);
+}
+
+function socialHandleError(platform: SocialPlatform): string {
+  if (platform === "figma") {
+    return "Неверный формат handle.";
+  }
+  return "Username в ссылке не соответствует формату соцсети.";
+}
+
+function tryParseSocialUrl(input: string): URL | null {
+  try {
+    return new URL(toUrlCandidate(input));
+  } catch {
+    return null;
+  }
+}
+
+function looksLikeSocialUrl(input: string): boolean {
+  if (/^https?:\/\//i.test(input)) return true;
+  return /[./@]/.test(input) && /\.\w{2,}/.test(input);
+}
+
+function validateSocialFromParsedUrl(platform: SocialPlatform, parsed: URL): ValidationResult<string> {
+  const detected = detectSocialPlatform(parsed.toString());
+  if (detected !== platform) {
+    return { ok: false, message: "Ссылка не соответствует выбранной социальной сети." };
+  }
+  const handle = normalizeSocialHandle(platform, handleFromUrl(platform, parsed));
+  if (!isValidSocialHandle(platform, handle)) {
+    return { ok: false, message: socialHandleError(platform) };
+  }
+  return { ok: true, value: toSocialUrl(platform, handle) };
+}
+
+export function stripSocialInputSpaces(value: string): string {
+  return value.replace(/\s+/g, "");
+}
+
+export function formatSocialFieldDisplay(inputPrefix: string, storedValue: string): string {
+  const raw = stripSocialInputSpaces(storedValue.trim());
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw) || looksLikeSocialUrl(raw)) return raw;
+  return `${inputPrefix}${raw.replace(/^@+/, "")}`;
+}
+
+export function parseSocialFieldInput(inputPrefix: string, displayValue: string): string {
+  const raw = stripSocialInputSpaces(displayValue.trim());
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+
+  const candidates = [
+    inputPrefix,
+    `https://${inputPrefix}`,
+    `http://${inputPrefix}`,
+    `www.${inputPrefix}`,
+  ];
+  const lower = raw.toLowerCase();
+  for (const prefix of candidates) {
+    if (lower.startsWith(prefix.toLowerCase())) {
+      return raw.slice(prefix.length).replace(/^@+/, "");
+    }
+  }
+  if (looksLikeSocialUrl(raw)) return raw;
+  return raw.replace(/^@+/, "");
+}
+
 export function sanitizeSocialHandleInput(value: string): string {
-  const trimmed = value.trim();
+  const trimmed = stripSocialInputSpaces(value.trim());
   if (!trimmed) return "";
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return trimmed.replace(/\s+/g, "").replace(/^@+/, "").replace(/[^a-zA-Z0-9._-]/g, "");
+  if (looksLikeSocialUrl(trimmed)) return trimmed;
+  return trimmed.replace(/^@+/, "").replace(/[^a-zA-Z0-9._-]/g, "");
 }
 
 export function validateSocialInput(platform: SocialPlatform, rawValue: string): ValidationResult<string> {
-  const input = rawValue.trim();
+  const input = stripSocialInputSpaces(rawValue.trim());
   if (!input) {
     return { ok: false, message: "Введите ссылку или username выбранной соцсети." };
   }
 
-  if (/^https?:\/\//i.test(input)) {
-    let parsed: URL;
-    try {
-      parsed = new URL(input);
-    } catch {
+  if (looksLikeSocialUrl(input)) {
+    const parsed = tryParseSocialUrl(input);
+    if (parsed) {
+      return validateSocialFromParsedUrl(platform, parsed);
+    }
+    if (/^https?:\/\//i.test(input)) {
       return { ok: false, message: "Некорректный URL соцсети." };
     }
-    const detected = detectSocialPlatform(parsed.toString());
-    if (detected !== platform) {
-      return { ok: false, message: "Ссылка не соответствует выбранной социальной сети." };
-    }
-    const handle = normalizeSocialHandle(platform, handleFromUrl(platform, parsed));
-    if (!HANDLE_REGEX.test(handle)) {
-      return { ok: false, message: "Username в ссылке не соответствует формату соцсети." };
-    }
-    return { ok: true, value: toSocialUrl(platform, handle) };
   }
 
   const handle = normalizeSocialHandle(platform, sanitizeSocialHandleInput(input));
-  if (!HANDLE_REGEX.test(handle)) {
-    return { ok: false, message: "Неверный формат username. Разрешены буквы, цифры, точка, дефис и underscore." };
+  if (!isValidSocialHandle(platform, handle)) {
+    return {
+      ok: false,
+      message: platform === "figma"
+        ? socialHandleError(platform)
+        : "Неверный формат username. Разрешены буквы, цифры, точка, дефис и underscore.",
+    };
   }
   return { ok: true, value: toSocialUrl(platform, handle) };
 }

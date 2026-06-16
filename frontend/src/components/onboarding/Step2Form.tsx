@@ -163,7 +163,11 @@ export default function Step2Form({ username, onBack, onSuccess }: Step2FormProp
         ←
       </button>
       <p className="auth-bento__kicker">{PUBLIC_BASE_URL}/{username} теперь ваш!</p>
-      <h1 className="login-bento__title auth-bento__title">Теперь создайте аккаунт.</h1>
+      <h1 className="login-bento__title auth-bento__title">
+        Теперь создайте
+        <br />
+        аккаунт
+      </h1>
 
       <form onSubmit={handleSubmit} className="auth-bento__form" noValidate>
         {error && (

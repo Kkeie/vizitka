@@ -1775,8 +1775,9 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                         className="no-focus-shadow"
                         style={{
                           fontSize: compactProfileText ? 24 : 32,
-                          fontWeight: 800,
-                          letterSpacing: "-0.03em",
+                          fontWeight: 700,
+                          letterSpacing: "-0.02em",
+                          lineHeight: 1.4,
                           width: "100%",
                           padding: "0",
                           border: "none",
@@ -1803,7 +1804,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                       spellCheck={false}
                       style={{
                         fontSize: 14,
-                        lineHeight: 1.6,
+                        lineHeight: 1.4,
                         width: "100%",
                         padding: "0",
                         border: "none",
@@ -1952,7 +1953,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                   height: isMobileViewport ? dockButtonSize : 44,
                   width: isMobileViewport ? dockButtonSize : undefined,
                   padding: isMobileViewport ? 0 : "0 14px",
-                  background: "#7EDC8A",
+                  background: "#22C55E",
                   color: "#fff",
                   border: "none",
                   cursor: "pointer",
@@ -1960,6 +1961,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                   fontSize: 12,
                   fontWeight: 700,
                   lineHeight: 1,
+                  boxShadow: "0 2px 8px rgba(34, 197, 94, 0.45)",
                 }}
               >
                 {isMobileViewport ? (
