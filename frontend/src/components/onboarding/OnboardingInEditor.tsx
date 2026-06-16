@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { stripSocialInputSpaces } from "../../lib/blockValidation";
 import {
   TelegramIcon, VKIcon, YouTubeIcon, InstagramIcon, GitHubIcon, LinkedInIcon,
   TwitterIcon, DribbbleIcon, BehanceIcon,
@@ -104,7 +105,7 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
                         className="oe-input"
                         placeholder={opt.placeholder}
                         value={value}
-                        onChange={e => setSocialValues({ ...socialValues, [opt.type]: e.target.value })}
+                        onChange={e => setSocialValues({ ...socialValues, [opt.type]: stripSocialInputSpaces(e.target.value) })}
                       />
                       {value.length > 0 && (
                         <button className="oe-add-btn" onClick={() => addSocial(opt.type, value)} disabled={loading}>

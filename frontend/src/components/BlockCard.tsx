@@ -1232,23 +1232,7 @@ export default function BlockCard({
             default: return null;
           }
 
-          const username = b.socialUrl.replace(/^https?:\/\//, '')
-              .replace(/^www\./, '')
-              .replace(/^t\.me\//, '')
-              .replace(/^vk\.com\//, '')
-              .replace(/^instagram\.com\//, '')
-              .replace(/^twitter\.com\//, '')
-              .replace(/^linkedin\.com\/in\//, '')
-              .replace(/^github\.com\//, '')
-              .replace(/^youtube\.com\/@/, '')
-              .replace(/^dribbble\.com\//, '')
-              .replace(/^behance\.net\//, '')
-              .replace(/^max\.ru\//, '')
-              .replace(/^dprofile\.ru\//, '')
-              .replace(/^figma\.com\/@/, '')
-              .replace(/^pinterest\.com\//, '')
-              .replace(/^tiktok\.com\/@/, '')
-              .replace(/^spotify\.com\//, '');
+          const socialLinkLabel = b.socialUrl.replace(/^https?:\/\//i, "").replace(/\/$/, "");
 
           const isVertical = colSpan === 1;
           const hasAvatar = Boolean(linkMetadata?.image) && !socialAvatarError;
@@ -1322,7 +1306,7 @@ export default function BlockCard({
                   }}>
                     {name}
                   </div>
-                  {(ogTitle || username) ? (
+                  {(ogTitle || socialLinkLabel) ? (
                     <div style={{
                       fontSize: 14,
                       color: 'var(--muted)',
@@ -1330,7 +1314,7 @@ export default function BlockCard({
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
                     }}>
-                      {ogTitle || username}
+                      {ogTitle || socialLinkLabel}
                     </div>
                   ) : null}
                   {ogBio ? (
