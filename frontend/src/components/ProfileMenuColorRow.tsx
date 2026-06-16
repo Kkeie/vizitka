@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const PRESET_TEXT_COLORS = [
@@ -38,12 +38,15 @@ export default function ProfileMenuColorRow({
 }: Props) {
   const rowRef = useRef<HTMLButtonElement>(null);
   const [hexDraft, setHexDraft] = useState("");
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   const current = (value || fallback).toLowerCase();
 
-  useEffect(() => {
-    if (!open || !rowRef.current) return;
+  useLayoutEffect(() => {
+    if (!open || !rowRef.current) {
+      setPos(null);
+      return;
+    }
 
     const updatePosition = () => {
       const rect = rowRef.current!.getBoundingClientRect();
@@ -126,7 +129,7 @@ export default function ProfileMenuColorRow({
         />
       </button>
 
-      {open &&
+      {open && pos &&
         createPortal(
           <div
             data-profile-color-popover="true"

@@ -302,13 +302,13 @@ export default function PublicPage() {
                 <div className="entrance-text entrance-delay-1">
                   <h1 style={{
                     fontSize: breakpoint === "mobile" ? 26 : 32,
-                    fontWeight: 800,
-                    letterSpacing: "-0.03em",
+                    fontWeight: 700,
+                    letterSpacing: "-0.02em",
                     width: "100%",
                     margin: 0,
                     padding: 0,
                     color: state.nameColor || "#0a0a0a",
-                    lineHeight: 1.15,
+                    lineHeight: 1.4,
                     overflowWrap: "anywhere",
                     wordBreak: "break-word",
                   }}>
@@ -319,7 +319,7 @@ export default function PublicPage() {
                   <div className="entrance-bio entrance-delay-2">
                     <p style={{
                       fontSize: 14,
-                      lineHeight: 1.6,
+                      lineHeight: 1.4,
                       width: "100%",
                       margin: 0,
                       padding: 0,

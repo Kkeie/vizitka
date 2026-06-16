@@ -94,7 +94,7 @@ export function getSocialInfo(url: string): SocialInfo {
       default:
         username = path;
     }
-    if (username && username !== '') username = '@' + username;
+    if (username) username = username.replace(/^@+/, '');
   } catch {}
   return { platform, username, ...base };
 }

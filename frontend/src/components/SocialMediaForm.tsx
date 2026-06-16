@@ -57,14 +57,14 @@ interface SocialPlatform {
 }
 
 const SOCIAL_PLATFORMS: SocialPlatform[] = [
-  { id: "twitter", name: "Twitter", icon: <TwitterIcon />, placeholder: "@username", socialType: "twitter", urlPrefix: "https://twitter.com/" },
-  { id: "instagram", name: "Instagram", icon: <InstagramIcon />, placeholder: "@username", socialType: "instagram", urlPrefix: "https://instagram.com/" },
+  { id: "twitter", name: "Twitter", icon: <TwitterIcon />, placeholder: "username", socialType: "twitter", urlPrefix: "https://twitter.com/" },
+  { id: "instagram", name: "Instagram", icon: <InstagramIcon />, placeholder: "username", socialType: "instagram", urlPrefix: "https://instagram.com/" },
   { id: "linkedin", name: "LinkedIn", icon: <LinkedInIcon />, placeholder: "username", socialType: "linkedin", urlPrefix: "https://linkedin.com/in/" },
-  { id: "github", name: "GitHub", icon: <GitHubIcon />, placeholder: "@username", socialType: "github", urlPrefix: "https://github.com/" },
-  { id: "youtube", name: "YouTube", icon: <YouTubeIcon />, placeholder: "@channel", socialType: "youtube", urlPrefix: "https://youtube.com/" },
-  { id: "dribbble", name: "Dribbble", icon: <DribbbleIcon />, placeholder: "@username", socialType: "dribbble", urlPrefix: "https://dribbble.com/" },
-  { id: "behance", name: "Behance", icon: <BehanceIcon />, placeholder: "@username", socialType: "behance", urlPrefix: "https://behance.net/" },
-  { id: "telegram", name: "Telegram", icon: <TelegramIcon />, placeholder: "@username", socialType: "telegram", urlPrefix: "https://t.me/" },
+  { id: "github", name: "GitHub", icon: <GitHubIcon />, placeholder: "username", socialType: "github", urlPrefix: "https://github.com/" },
+  { id: "youtube", name: "YouTube", icon: <YouTubeIcon />, placeholder: "channel", socialType: "youtube", urlPrefix: "https://youtube.com/" },
+  { id: "dribbble", name: "Dribbble", icon: <DribbbleIcon />, placeholder: "username", socialType: "dribbble", urlPrefix: "https://dribbble.com/" },
+  { id: "behance", name: "Behance", icon: <BehanceIcon />, placeholder: "username", socialType: "behance", urlPrefix: "https://behance.net/" },
+  { id: "telegram", name: "Telegram", icon: <TelegramIcon />, placeholder: "username", socialType: "telegram", urlPrefix: "https://t.me/" },
   { id: "vk", name: "VK", icon: <VKIcon />, placeholder: "username", socialType: "vk", urlPrefix: "https://vk.com/" },
 ];
 

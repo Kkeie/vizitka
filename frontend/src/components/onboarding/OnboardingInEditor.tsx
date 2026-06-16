@@ -15,7 +15,7 @@ const SOCIAL_OPTIONS: Array<{
   color: string;
   placeholder: string;
 }> = [
-  { type: "telegram", label: "Telegram", icon: TelegramIcon, color: "#419FD9", placeholder: "@username" },
+  { type: "telegram", label: "Telegram", icon: TelegramIcon, color: "#419FD9", placeholder: "username" },
   { type: "vk", label: "VK", icon: VKIcon, color: "#0077FF", placeholder: "username" },
   { type: "max", label: "Max", icon: MaxIcon, color: "#000000", placeholder: "username" },
   { type: "github", label: "GitHub", icon: GitHubIcon, color: "#24292e", placeholder: "username" },
@@ -23,11 +23,11 @@ const SOCIAL_OPTIONS: Array<{
   { type: "dprofile", label: "Dprofile", icon: DprofileIcon, color: "#101010", placeholder: "username" },
   { type: "figma", label: "Figma", icon: FigmaIcon, color: "#161616", placeholder: "username" },
   { type: "pinterest", label: "Pinterest", icon: PinterestIcon, color: "#cb2027", placeholder: "username" },
-  { type: "instagram", label: "Instagram", icon: InstagramIcon, color: "#E4405F", placeholder: "@username" },
-  { type: "youtube", label: "YouTube", icon: YouTubeIcon, color: "#FF0000", placeholder: "@channel or link" },
-  { type: "tiktok", label: "TikTok", icon: TikTokIcon, color: "#070201", placeholder: "@username" },
+  { type: "instagram", label: "Instagram", icon: InstagramIcon, color: "#E4405F", placeholder: "username" },
+  { type: "youtube", label: "YouTube", icon: YouTubeIcon, color: "#FF0000", placeholder: "channel или ссылка" },
+  { type: "tiktok", label: "TikTok", icon: TikTokIcon, color: "#070201", placeholder: "username" },
   { type: "linkedin", label: "LinkedIn", icon: LinkedInIcon, color: "#0A66C2", placeholder: "username" },
-  { type: "twitter", label: "Twitter", icon: TwitterIcon, color: "#1DA1F2", placeholder: "@username" },
+  { type: "twitter", label: "Twitter", icon: TwitterIcon, color: "#1DA1F2", placeholder: "username" },
   { type: "spotify", label: "Spotify", icon: SpotifyIcon, color: "#3bd75f", placeholder: "artist/url" },
 ];
 
@@ -148,7 +148,7 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
       <style>{`
         .oe-container {
           width: 100%;
-          max-width: 440px;
+          max-width: 100%;
           margin: 0;
           padding: 0;
         }
@@ -168,15 +168,16 @@ export default function OnboardingInEditor({ onAddBlock, onComplete }: Onboardin
           font-family: var(--login-font);
         }
         .oe-list {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          gap: 12px;
           margin-bottom: 24px;
         }
         .oe-row {
           display: flex;
           align-items: center;
           gap: 12px;
+          min-width: 0;
         }
         .oe-link-row {
           margin-bottom: 24px;

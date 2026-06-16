@@ -14,7 +14,7 @@ import {
 
 import {
   TwitterIcon, InstagramIcon, LinkedInIcon, GitHubIcon, YouTubeIcon,
-  BehanceIcon, TelegramIcon, VKIcon,
+  BehanceIcon, TelegramIcon, VKIcon, DribbbleIcon,
   MaxIcon, DprofileIcon, FigmaIcon, PinterestIcon, TikTokIcon, SpotifyIcon,
 } from "./SocialIconsWithBg";
 
@@ -29,19 +29,20 @@ const SOCIAL_OPTIONS: Array<{
   socialType?: "telegram" | "vk" | "instagram" | "twitter" | "linkedin" | "github" | "youtube" | "dribbble" | "behance" | "max" | "dprofile" | "figma" | "pinterest" | "tiktok" | "spotify" | null;
   accentColor?: string;
 }> = [
-  { id: "telegram", name: "Telegram", icon: <TelegramIcon width={24} height={24} />, urlPrefix: "https://t.me/", placeholder: "@username или https://t.me/...", inputPrefix: "t.me/", isSocialBlock: true, socialType: "telegram", accentColor: "#0088cc" },
+  { id: "telegram", name: "Telegram", icon: <TelegramIcon width={24} height={24} />, urlPrefix: "https://t.me/", placeholder: "username или https://t.me/...", inputPrefix: "t.me/", isSocialBlock: true, socialType: "telegram", accentColor: "#0088cc" },
   { id: "vk", name: "VK", icon: <VKIcon width={24} height={24} />, urlPrefix: "https://vk.com/", placeholder: "username или https://vk.com/...", inputPrefix: "vk.com/", isSocialBlock: true, socialType: "vk", accentColor: "#0077FF" },
   { id: "max", name: "Max", icon: <MaxIcon width={24} height={24} />, urlPrefix: "https://max.ru/", placeholder: "username или ссылка", inputPrefix: "max.ru/", isSocialBlock: true, socialType: "max", accentColor: "#000000" },
   { id: "github", name: "GitHub", icon: <GitHubIcon width={24} height={24} />, urlPrefix: "https://github.com/", placeholder: "username или ссылка", inputPrefix: "github.com/", isSocialBlock: true, socialType: "github", accentColor: "#333" },
   { id: "behance", name: "Behance", icon: <BehanceIcon width={24} height={24} />, urlPrefix: "https://behance.net/", placeholder: "username или ссылка", inputPrefix: "behance.net/", isSocialBlock: true, socialType: "behance", accentColor: "#1769FF" },
+  { id: "dribbble", name: "Dribbble", icon: <DribbbleIcon width={24} height={24} />, urlPrefix: "https://dribbble.com/", placeholder: "username или ссылка", inputPrefix: "dribbble.com/", isSocialBlock: true, socialType: "dribbble", accentColor: "#EA4C89" },
   { id: "dprofile", name: "Dprofile", icon: <DprofileIcon width={24} height={24} />, urlPrefix: "https://dprofile.ru/", placeholder: "username или ссылка", inputPrefix: "dprofile.ru/", isSocialBlock: true, socialType: "dprofile", accentColor: "#101010" },
-  { id: "figma", name: "Figma", icon: <FigmaIcon width={24} height={24} />, urlPrefix: "https://figma.com/@", placeholder: "username или ссылка", inputPrefix: "figma.com/@", isSocialBlock: true, socialType: "figma", accentColor: "#161616" },
+  { id: "figma", name: "Figma", icon: <FigmaIcon width={24} height={24} />, urlPrefix: "https://figma.com/@", placeholder: "username или ссылка", inputPrefix: "figma.com/", isSocialBlock: true, socialType: "figma", accentColor: "#161616" },
   { id: "pinterest", name: "Pinterest", icon: <PinterestIcon width={24} height={24} />, urlPrefix: "https://pinterest.com/", placeholder: "username или ссылка", inputPrefix: "pinterest.com/", isSocialBlock: true, socialType: "pinterest", accentColor: "#cb2027" },
-  { id: "instagram", name: "Instagram", icon: <InstagramIcon width={24} height={24} />, urlPrefix: "https://instagram.com/", placeholder: "@username или https://instagram.com/...", inputPrefix: "instagram.com/", isSocialBlock: true, socialType: "instagram", accentColor: "#E1306C" },
-  { id: "youtube", name: "YouTube", icon: <YouTubeIcon width={24} height={24} />, urlPrefix: "https://youtube.com/", placeholder: "@channel или ссылка", inputPrefix: "youtube.com/", isSocialBlock: true, socialType: "youtube", accentColor: "#FF0000" },
-  { id: "tiktok", name: "TikTok", icon: <TikTokIcon width={24} height={24} />, urlPrefix: "https://tiktok.com/@", placeholder: "username или ссылка", inputPrefix: "tiktok.com/@", isSocialBlock: true, socialType: "tiktok", accentColor: "#070201" },
+  { id: "instagram", name: "Instagram", icon: <InstagramIcon width={24} height={24} />, urlPrefix: "https://instagram.com/", placeholder: "username или https://instagram.com/...", inputPrefix: "instagram.com/", isSocialBlock: true, socialType: "instagram", accentColor: "#E1306C" },
+  { id: "youtube", name: "YouTube", icon: <YouTubeIcon width={24} height={24} />, urlPrefix: "https://youtube.com/", placeholder: "channel или ссылка", inputPrefix: "youtube.com/", isSocialBlock: true, socialType: "youtube", accentColor: "#FF0000" },
+  { id: "tiktok", name: "TikTok", icon: <TikTokIcon width={24} height={24} />, urlPrefix: "https://tiktok.com/@", placeholder: "username или ссылка", inputPrefix: "tiktok.com/", isSocialBlock: true, socialType: "tiktok", accentColor: "#070201" },
   { id: "linkedin", name: "LinkedIn", icon: <LinkedInIcon width={24} height={24} />, urlPrefix: "https://linkedin.com/in/", placeholder: "username или ссылка", inputPrefix: "linkedin.com/in/", isSocialBlock: true, socialType: "linkedin", accentColor: "#0A66C2" },
-  { id: "twitter", name: "Twitter", icon: <TwitterIcon width={24} height={24} />, urlPrefix: "https://twitter.com/", placeholder: "@username или ссылка", inputPrefix: "twitter.com/", isSocialBlock: true, socialType: "twitter", accentColor: "#1DA1F2" },
+  { id: "twitter", name: "Twitter", icon: <TwitterIcon width={24} height={24} />, urlPrefix: "https://twitter.com/", placeholder: "username или ссылка", inputPrefix: "twitter.com/", isSocialBlock: true, socialType: "twitter", accentColor: "#1DA1F2" },
   { id: "spotify", name: "Spotify", icon: <SpotifyIcon width={24} height={24} />, urlPrefix: "https://open.spotify.com/user/", placeholder: "artist/url или ссылка", inputPrefix: "open.spotify.com/user/", isSocialBlock: true, socialType: "spotify", accentColor: "#3bd75f" },
 ];
 
@@ -295,6 +296,9 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
 
   const isCompactViewport =
     typeof window !== "undefined" ? window.innerWidth <= 640 : false;
+  const isWideViewport =
+    typeof window !== "undefined" ? window.innerWidth >= 900 : false;
+  const socialGridColumns = isCompactViewport ? 2 : isWideViewport ? 4 : 3;
   const hasMapCoordinates = formData.mapLat != null && formData.mapLng != null;
 
   const typeAccusative: Record<BlockType, string> = {
@@ -342,7 +346,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
         exit={{ opacity: 0, y: 20, scale: 0.95 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
         style={{
-          maxWidth: isCompactViewport ? "100%" : 640,
+          maxWidth: isCompactViewport ? "100%" : type === "social" ? 920 : 640,
           width: "100%",
           maxHeight: isCompactViewport ? "calc(100dvh - 24px)" : "90vh",
           overflowY: "auto",
@@ -460,7 +464,7 @@ export default function BlockModal({ type, isOpen, onClose, onSubmit }: BlockMod
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: isCompactViewport ? "repeat(2, minmax(0, 1fr))" : "repeat(3, minmax(0, 1fr))",
+                  gridTemplateColumns: `repeat(${socialGridColumns}, minmax(0, 1fr))`,
                   gap: 8,
                   marginBottom: 20,
                 }}
