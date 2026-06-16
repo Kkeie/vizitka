@@ -110,20 +110,14 @@ function faviconUrlForHost(host: string): string {
 
 function EditorIframeEdgeDragHandles({ show }: { show: boolean }) {
   if (!show) return null;
+  const edge = isCoarsePointer ? LINK_EDITOR_DRAG_RAIL_PX : EDITOR_IFRAME_DRAG_EDGE_PX;
   const base: React.CSSProperties = {
     position: "absolute",
     zIndex: 2,
     cursor: "grab",
-    touchAction: "none",
+    touchAction: isCoarsePointer ? "pan-y" : "none",
     boxSizing: "border-box",
   };
-  // Палец не попадает в 14px-кромку над iframe (iframe не пропускает касания в родителя),
-  // поэтому на сенсорных устройствах кладём оверлей на всю карточку — тащить можно за любую
-  // точку (long-press). На десктопе оставляем тонкие кромки, чтобы центр iframe оставался кликабельным.
-  if (isCoarsePointer) {
-    return <div aria-hidden className="editor-iframe-edge-drag" style={{ ...base, inset: 0 }} />;
-  }
-  const edge = EDITOR_IFRAME_DRAG_EDGE_PX;
   return (
     <>
       <div aria-hidden className="editor-iframe-edge-drag" style={{ ...base, top: 0, left: 0, right: 0, height: edge }} />
@@ -136,14 +130,14 @@ function EditorIframeEdgeDragHandles({ show }: { show: boolean }) {
 
 /** Редактор: узкая кромка — grab (DnD), центр плитки остаётся pointer (ссылка), как у iframe-превью */
 function LinkEditorEdgeDragRails() {
+  const edge = LINK_EDITOR_DRAG_RAIL_PX;
   const base: React.CSSProperties = {
     position: "absolute",
     zIndex: 5,
     cursor: "grab",
-    touchAction: "none",
+    touchAction: isCoarsePointer ? "pan-y" : "none",
     boxSizing: "border-box",
   };
-  const edge = LINK_EDITOR_DRAG_RAIL_PX;
   return (
     <>
       <div aria-hidden className="link-editor-drag-rail" style={{ ...base, top: 0, left: 0, right: 0, height: edge }} />

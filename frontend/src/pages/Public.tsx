@@ -16,6 +16,7 @@ import {
   sortBlockIdsByDesktopVisualOrder,
 } from "../lib/block-grid";
 import Avatar from "../components/Avatar";
+import { PROFILE_BIO_TEXT_STYLE, resolveBioColor } from "../lib/profileTextStyles";
 
 // Системные маршруты, которые не должны обрабатываться как username
 // Примечание: "public" удален из списка, так как теперь мы используем маршрут /public/:username
@@ -317,15 +318,17 @@ export default function PublicPage() {
                 </div>
                 {state.bio && (
                   <div className="entrance-bio entrance-delay-2">
-                    <p style={{
-                      fontSize: 14,
-                      lineHeight: 1.4,
-                      width: "100%",
-                      margin: 0,
-                      padding: 0,
-                      color: state.bioColor || "#737373",
-                      whiteSpace: "pre-wrap",
-                    }}>
+                    <p
+                      className="profile-bio-text"
+                      style={{
+                        ...PROFILE_BIO_TEXT_STYLE,
+                        width: "100%",
+                        margin: 0,
+                        padding: 0,
+                        color: resolveBioColor(state.bioColor),
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
                       {state.bio}
                     </p>
                   </div>

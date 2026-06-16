@@ -8,19 +8,37 @@
 [data-drag-item] {
   transition: transform 180ms cubic-bezier(0.2, 0.9, 0.2, 1), box-shadow 180ms;
   will-change: transform;
-  touch-action: none;
+  /* Телефон: вертикальный скролл страницы; десктоп: полный контроль для DnD */
+  touch-action: pan-y;
+}
+
+@media (pointer: fine) {
+  [data-drag-item] {
+    touch-action: none;
+  }
+
+  [data-drag-item] * {
+    touch-action: none;
+  }
+}
+
+@media (pointer: coarse) {
+  [data-drag-item] * {
+    touch-action: pan-y;
+  }
+
+  [data-drag-item] .bento-resize-handle,
+  [data-drag-item] .bento-resize-handle *,
+  [data-drag-item].dragging,
+  [data-drag-item].dragging * {
+    touch-action: none;
+  }
 }
 
 /*
- * Внутри карточки есть scroll-контейнеры (card-content-scale--passthrough: overflow:auto
- * и т.п.). На тач-устройствах браузер трактует касание такого потомка как прокрутку и шлёт
- * pointercancel — dnd срывается, тащить можно только за «голый» край карточки. Глушим жест
- * прокрутки у всех потомков (только в редакторе — data-drag-item есть лишь там), чтобы
- * long-press начинал перетаскивание из любой точки. data-drag-item существует лишь в редакторе.
+ * На десктопе внутри карточки scroll-контейнеры могут слать pointercancel при DnD.
+ * На тач-устройствах pan-y выше — прокрутка страницы важнее, long-press запускает drag.
  */
-[data-drag-item] * {
-  touch-action: none;
-}
 
 /* Заголовок раздела: вертикальный скролл пальцем вне строки текста */
 [data-drag-item][data-block-type="section"] {

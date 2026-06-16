@@ -395,6 +395,7 @@ export const DraggableBlockCard: React.FC<DraggableBlockCardProps> = ({
         data-drag-item=""
         data-block-type={block.type}
         data-block-id={block.id}
+        className={isDragging ? "dragging" : undefined}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleCardMouseLeave}
         {...attributes}

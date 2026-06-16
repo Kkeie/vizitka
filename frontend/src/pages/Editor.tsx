@@ -59,6 +59,12 @@ import {
 } from "../lib/blockValidation";
 import { PUBLIC_BASE_URL_WITH_SLASH } from "../lib/publicBaseUrl";
 import {
+  DEFAULT_NAME_COLOR,
+  DEFAULT_BIO_COLOR,
+  PROFILE_BIO_TEXT_STYLE,
+  resolveBioColor,
+} from "../lib/profileTextStyles";
+import {
   USERNAME_MIN_LENGTH,
   USERNAME_MAX_LENGTH,
   EMAIL_MAX_LENGTH,
@@ -120,9 +126,6 @@ function blockName(blocks: Block[], id: number): string {
   const s = text.length > 25 ? text.slice(0, 25) + "…" : text;
   return `«${s}»`;
 }
-
-const DEFAULT_NAME_COLOR = "#0a0a0a";
-const DEFAULT_BIO_COLOR = "#737373";
 
 export default function Editor({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
@@ -240,9 +243,16 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
   const resizeBlockIdRef = useRef<number | null>(null);
   const lastResizeSizeRef = useRef<BlockGridSize | null>(null);
 
+  const isCoarsePointerDevice =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(pointer: coarse)").matches;
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { delay: 100, tolerance: 5 },
+      activationConstraint: isCoarsePointerDevice
+        ? { delay: 280, tolerance: 10 }
+        : { delay: 100, tolerance: 5 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: () => ({ x: 0, y: 0 }),
@@ -1795,6 +1805,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                   <div className="entrance-bio entrance-delay-2">
                     <textarea
                       ref={bioTextareaRef}
+                      className="profile-bio-text no-focus-shadow"
                       value={tempBio ?? profile.bio ?? ""}
                       onChange={(e) => setTempBio(e.target.value.slice(0, BIO_MAX_LENGTH))}
                       onBlur={handleSaveBio}
@@ -1803,8 +1814,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                       maxLength={BIO_MAX_LENGTH}
                       spellCheck={false}
                       style={{
-                        fontSize: 14,
-                        lineHeight: 1.4,
+                        ...PROFILE_BIO_TEXT_STYLE,
                         width: "100%",
                         padding: "0",
                         border: "none",
@@ -1812,7 +1822,7 @@ export default function Editor({ onLogout }: { onLogout: () => void }) {
                         outline: "none",
                         resize: "none",
                         overflow: "hidden",
-                        color: profile.bioColor || DEFAULT_BIO_COLOR,
+                        color: resolveBioColor(profile.bioColor),
                       }}
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;

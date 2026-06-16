@@ -13,6 +13,7 @@ import {
   getResolvedGridSize,
   sortBlockIdsByDesktopVisualOrder,
 } from "../lib/block-grid";
+import { PROFILE_BIO_TEXT_STYLE, resolveBioColor } from "../lib/profileTextStyles";
 
 type Props = {
   open: boolean;
@@ -236,14 +237,16 @@ export default function MobileVisitPreviewModal({
                     {profile.name || profile.username}
                   </h1>
                   {profile.bio && (
-                    <p style={{
-                      fontSize: 14,
-                      lineHeight: 1.6,
-                      margin: 0,
-                      padding: 0,
-                      color: profile.bioColor || "#737373",
-                      whiteSpace: "pre-wrap",
-                    }}>
+                    <p
+                      className="profile-bio-text"
+                      style={{
+                        ...PROFILE_BIO_TEXT_STYLE,
+                        margin: 0,
+                        padding: 0,
+                        color: resolveBioColor(profile.bioColor),
+                        whiteSpace: "pre-wrap",
+                      }}
+                    >
                       {profile.bio}
                     </p>
                   )}

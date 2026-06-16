@@ -700,6 +700,8 @@ iframe.yandex-music-embed {
   gap: 14px !important;
   min-height: 0;
   padding-right: 2px;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 .editor-phone-preview-shell .two-column-layout > div:first-child,
 .editor-phone-preview-shell .two-column-layout > div:last-child {
@@ -813,6 +815,13 @@ p {
 
 .entrance-bio {
   animation: slideUpFade 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.profile-bio-text {
+  font-size: 15px;
+  line-height: 1.7;
+  font-weight: 400;
+  color: #0a0a0a;
 }
 
 .entrance-delay-0 { animation-delay: 0s; }
